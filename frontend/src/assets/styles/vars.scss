@@ -1,0 +1,44 @@
+// Transitions
+$duration: 0.3s;
+
+// Breackpoints
+$desktop-s: 1120px;
+$desktop-xs: 999px;
+$tablet: 780px;
+$mobile: 540px;
+$mobile-m: 420px;
+$mobile-s: 375px;
+$mobile-xs: 374px;
+
+// Colors
+$primary: #D9A85E;
+$white: #ffffff;
+$black: #000000;
+
+// Светлая тема
+$background-light: #f5f5f5;
+$text-light: #1a1a1a;
+$border-light: #e0e0e0;
+$surface-light: #f9f9f9;
+
+// Тёмная тема
+$background-dark: #121212;
+$text-dark: #f5f5f5;
+$border-dark: #333333;
+$surface-dark: #1e1e1e;
+
+// CSS-переменные для темизации
+:root {
+    --color-primary: #{$primary};
+    --color-background: #{$background-light};
+    --color-text: #{$text-light};
+    --color-border: #{$border-light};
+    --color-surface: #{$surface-light};
+}
+
+.dark {
+    --color-background: #{$background-dark};
+    --color-text: #{$text-dark};
+    --color-border: #{$border-dark};
+    --color-surface: #{$surface-dark};
+}

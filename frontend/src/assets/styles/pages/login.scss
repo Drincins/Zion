@@ -1,0 +1,19 @@
+.authorization {
+    height: 98vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-content: center;
+    flex-wrap: wrap;
+
+    &-heading {
+        font-size: 26px;
+        font-weight: 400;
+        text-align: center;
+    }
+
+    &-text {
+        margin-top: 12px;
+        font-size: 16px;
+    }
+}

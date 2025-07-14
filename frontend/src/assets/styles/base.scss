@@ -1,0 +1,10 @@
+@import 'reset-css';
+// Helpers
+@import '@/assets/styles/vars';
+@import '@/assets/styles/helpers/displaying';
+@import '@/assets/styles/helpers/helpers';
+@import '@/assets/styles/helpers/typography';
+
+:root {
+    --scroll-behavior: 'smooth';
+}
