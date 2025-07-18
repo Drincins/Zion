@@ -1,15 +1,6 @@
 <template>
   <div class="auth-container">
-    <h2>Личный кабинет</h2>
-    <form @submit.prevent="saveProfile">
-      <label>ФИО:</label>
-      <input v-model="profile.fullName" required />
-
-      <label>Название компании:</label>
-      <input v-model="profile.companyName" required />
-
-      <button type="submit">Сохранить</button>
-    </form>
+    
   </div>
 </template>
 

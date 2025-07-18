@@ -22,5 +22,5 @@ defineProps({
 </script>
 
 <style lang="scss">
-@import '@/assets/styles/components/ui-components/button.scss';
+@use '@/assets/styles/components/ui-components/button.scss' as *;
 </style>

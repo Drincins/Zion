@@ -29,5 +29,5 @@ defineEmits(['update:modelValue'])
 </script>
 
 <style lang="scss">
-@import '@/assets/styles/components/ui-components/input.scss';
+@use '@/assets/styles/components/ui-components/input.scss' as *;
 </style>

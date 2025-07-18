@@ -8,6 +8,8 @@ services:
       target: backend
     ports:
       - "8000:8000"
+    env_file:
+      - .env
     networks:
       - app-network
 
@@ -30,11 +32,24 @@ services:
       POSTGRES_PASSWORD: mypass
       POSTGRES_DB: mydb
     ports:
-      - "5432:5432"
+      - "55432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     networks:
       - app-network
+
+  migrate:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: backend
+    env_file:
+      - .env
+    depends_on:
+      - db
+    networks:
+      - app-network
+    command: alembic upgrade head
 
 networks:
   app-network:

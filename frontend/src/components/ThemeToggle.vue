@@ -47,5 +47,5 @@ watch(theme, (newTheme) => {
 </script>
 
 <style lang="scss">
-@import '@/assets/styles/components/theme-toggle.scss';
+@use '@/assets/styles/components/theme-toggle.scss' as *;
 </style>
