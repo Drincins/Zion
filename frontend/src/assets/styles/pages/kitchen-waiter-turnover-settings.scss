@@ -1,0 +1,187 @@
+.kitchen-waiter-turnover-settings-page__filters {
+    display: grid;
+    gap: 12px;
+    grid-template-columns: repeat(3, minmax(180px, 1fr));
+}
+
+.kitchen-waiter-turnover-settings-page__rules-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.kitchen-waiter-turnover-settings-page__rules-header h3 {
+    margin: 0;
+}
+
+.kitchen-waiter-turnover-settings-page__rules-list {
+    --rule-card-width: 290px;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(var(--rule-card-width), var(--rule-card-width)));
+    gap: 12px;
+}
+
+.kitchen-waiter-turnover-settings-page__rule-card {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 12px;
+    padding: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    min-height: 220px;
+}
+
+.kitchen-waiter-turnover-settings-page__rule-top {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.kitchen-waiter-turnover-settings-page__rule-title {
+    font-size: 16px;
+    font-weight: 600;
+}
+
+.kitchen-waiter-turnover-settings-page__rule-status {
+    padding: 4px 10px;
+    border-radius: 999px;
+    border: 1px solid var(--color-border);
+    font-size: 12px;
+    color: var(--color-text-soft);
+    background: var(--color-surface);
+    flex-shrink: 0;
+}
+
+.kitchen-waiter-turnover-settings-page__rule-status.is-muted {
+    opacity: 0.7;
+}
+
+.kitchen-waiter-turnover-settings-page__rule-meta {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    color: var(--color-text-soft);
+    font-size: 13px;
+}
+
+.kitchen-waiter-turnover-settings-page__rule-footer {
+    margin-top: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    font-size: 12px;
+    color: var(--color-text-soft);
+}
+
+.kitchen-waiter-turnover-settings-page__rule-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.kitchen-waiter-turnover-settings-page__modal-title {
+    margin: 0;
+    font-size: 20px;
+}
+
+.kitchen-waiter-turnover-settings-page__modal-subtitle {
+    margin: 6px 0 0;
+    font-size: 14px;
+    color: var(--color-text-soft);
+}
+
+.kitchen-waiter-turnover-settings-page__tabs {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    border-bottom: 1px solid var(--color-border);
+    padding-bottom: 8px;
+}
+
+.kitchen-waiter-turnover-settings-page__tab {
+    border: 1px solid transparent;
+    background: transparent;
+    color: var(--color-text-soft);
+    padding: 6px 12px;
+    border-radius: 999px;
+    cursor: pointer;
+    font-size: 13px;
+    transition: all 0.2s ease;
+}
+
+.kitchen-waiter-turnover-settings-page__tab.is-active {
+    color: var(--color-text);
+    border-color: var(--color-border);
+    background: var(--color-surface-200);
+}
+
+.kitchen-waiter-turnover-settings-page__tab-content {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.kitchen-waiter-turnover-settings-page__section-block {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.kitchen-waiter-turnover-settings-page__section-block h4 {
+    margin: 0;
+}
+
+.kitchen-waiter-turnover-settings-page__hint {
+    margin: 0;
+    color: var(--color-text-soft);
+    font-size: 13px;
+}
+
+.kitchen-waiter-turnover-settings-page__add-row {
+    display: grid;
+    gap: 8px;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: end;
+}
+
+.kitchen-waiter-turnover-settings-page__chips {
+    margin-top: 8px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.kitchen-waiter-turnover-settings-page__chip {
+    border: 1px solid var(--color-border);
+    background: var(--color-background);
+    color: var(--color-text);
+    border-radius: 999px;
+    padding: 4px 10px;
+    font: inherit;
+    font-size: 12px;
+    cursor: pointer;
+}
+
+.kitchen-waiter-turnover-settings-page__modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+@media (max-width: 1100px) {
+    .kitchen-waiter-turnover-settings-page__filters {
+        grid-template-columns: 1fr;
+    }
+
+    .kitchen-waiter-turnover-settings-page__add-row {
+        grid-template-columns: 1fr;
+    }
+
+    .kitchen-waiter-turnover-settings-page__rules-list {
+        --rule-card-width: 100%;
+        grid-template-columns: repeat(auto-fill, minmax(var(--rule-card-width), var(--rule-card-width)));
+    }
+}

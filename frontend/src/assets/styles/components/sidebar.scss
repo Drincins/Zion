@@ -1,0 +1,215 @@
+@use '@/assets/styles/vars.scss' as *;
+
+.sidebar-menu {
+    position: relative;
+    width: 10vw;
+    min-height: 100vh;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    border-right: 1px solid var(--color-border);
+    color: var(--color-text);
+    transition: all 0.3s ease;
+
+    &.collapsed {
+        width: 60px;
+        align-items: center;
+
+        .sidebar-menu__user {
+            flex-direction: column;
+            align-items: center;
+
+            &-actions {
+                flex-direction: column;
+            }
+        }
+
+        .sidebar-menu__group-toggle {
+            justify-content: center;
+        }
+    }
+
+    &__user {
+        margin-bottom: 24px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        cursor: pointer;
+
+        &-login {
+            margin-bottom: 4px;
+        }
+
+        &-name {
+            font-size: 14px;
+        }
+
+        &-icon {
+            margin-bottom: 16px;
+        }
+
+        &-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        &-settings {
+            transition: all 0.3s ease;
+            transform: rotate(25deg);
+            cursor: pointer;
+
+            &:hover {
+                transition: all 0.3s ease;
+                transform: rotate(65deg);
+            }
+        }
+
+        &-logout {
+            cursor: pointer;
+            transition: all 0.3s ease;
+
+            &:hover {
+                color: var(--color-primary);
+            }
+        }
+    }
+
+    &__list {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+    }
+
+    &__group {
+        margin: 0 -16px;
+        border-bottom: 1px solid var(--color-border);
+
+        &-label {
+            @media (max-width: $desktop-s) {
+                font-size: 16px;
+            }
+        }
+    }
+
+    &__group-toggle {
+        width: 100%;
+        padding: 14px 16px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        border: none;
+        background: transparent;
+        color: inherit;
+        cursor: pointer;
+        text-align: left;
+
+        &.active {
+            color: var(--color-primary);
+            background-color: var(--color-surface);
+
+            @media (max-width: $desktop-s) {
+                background-color: var(--color-surface-200);
+            }
+        }
+
+        &:hover {
+            color: var(--color-primary);
+        }
+    }
+
+    &__group-icon {
+        width: 20px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    &__group-arrow {
+        margin-left: auto;
+        width: 100%;
+        max-width: 14px;
+        height: 14px;
+        transition: transform 0.2s ease;
+        transform: rotate(270deg);
+
+        .sidebar-menu__group-toggle[aria-expanded='true'] & {
+            transform: rotate(90deg);
+        }
+    }
+
+    &__sublist {
+        list-style: none;
+        padding: 6px 0 12px;
+        margin: 0;
+    }
+
+    &__sublist-item {
+        padding: 8px 16px 8px 34px;
+        font-size: 14px;
+        cursor: pointer;
+
+        @media (max-width: $desktop-s) {
+            font-size: 16px;
+        }
+
+        &.active {
+            color: var(--color-primary);
+            background-color: var(--color-surface);
+
+            @media (max-width: $desktop-s) {
+                background-color: var(--color-surface-200);
+            }
+        }
+
+        &:hover {
+            color: var(--color-primary);
+        }
+    }
+
+    &__collapse-button {
+        position: absolute;
+        top: 46px;
+        right: -15px;
+        padding: 4px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border: 1px solid var(--color-border);
+        border-radius: 50%;
+        backdrop-filter: blur(4px);
+        background: rgba(244, 244, 244, 0.08);
+        transition: all 0.3s ease;
+        cursor: pointer;
+
+        &:hover {
+            border: 1px solid var(--color-primary);
+            transition: all 0.3s ease;
+        }
+
+        &-arrow {
+            width: 18px;
+            height: 18px;
+            transition:
+                transform 0.3s ease,
+                all 0.3s ease;
+
+            .sidebar-menu.collapsed & {
+                transform: rotate(180deg);
+            }
+        }
+    }
+}
+
+@media (max-width: $desktop-s) {
+    .sidebar-menu {
+        width: 100%;
+
+        &__user {
+            margin-left: 54px;
+        }
+    }
+
+    .sidebar-menu__collapse-button {
+        display: none;
+    }
+}

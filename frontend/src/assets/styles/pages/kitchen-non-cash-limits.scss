@@ -1,0 +1,203 @@
+.kitchen-non-cash-page__filters-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    background: var(--color-surface);
+    border-radius: 12px;
+    padding: 16px 20px;
+}
+
+.kitchen-non-cash-page__filters-toggle {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: none;
+    border: none;
+    font: inherit;
+    font-weight: 600;
+    color: var(--color-text);
+    cursor: pointer;
+    padding: 0;
+}
+
+.kitchen-non-cash-page__filters-icon {
+    display: inline-flex;
+    transition: transform 0.2s ease;
+}
+
+.kitchen-non-cash-page__filters-icon.is-open {
+    transform: rotate(180deg);
+}
+
+.kitchen-non-cash-page__filters-content {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.kitchen-non-cash-page__filters {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.kitchen-non-cash-page__filter-control {
+    width: 100%;
+    max-width: 280px;
+}
+
+.kitchen-non-cash-page__filter-control--action {
+    display: flex;
+    align-items: flex-end;
+    max-width: 180px;
+}
+
+.kitchen-non-cash-page__totals {
+    margin: 0;
+    color: var(--color-text-soft);
+}
+
+.kitchen-non-cash-page__limit-details-cell {
+    min-width: 120px;
+}
+
+.kitchen-non-cash-page__limit-details-toggle {
+    width: 100%;
+    padding: 4px 8px;
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+    background: var(--color-surface);
+    color: var(--color-text);
+    cursor: pointer;
+}
+
+.kitchen-non-cash-page__limit-details-expanded {
+    background: var(--color-background);
+}
+
+.kitchen-non-cash-page__mono {
+    font-family: var(--font-secondary);
+    font-size: 12px;
+}
+
+.kitchen-non-cash-page__status {
+    width: 88px;
+}
+
+.kitchen-non-cash-page__modal-header {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.kitchen-non-cash-page__modal-title {
+    margin: 0;
+    font-size: 20px;
+}
+
+.kitchen-non-cash-page__modal-subtitle {
+    margin: 0;
+    color: var(--color-text-soft);
+}
+
+.kitchen-non-cash-page__modal-layout {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.kitchen-non-cash-page__card {
+    border: 1px solid var(--color-border);
+    border-radius: 10px;
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    min-width: 0;
+}
+
+.kitchen-non-cash-page__card-title {
+    margin: 0 0 2px;
+    font-size: 16px;
+}
+
+.kitchen-non-cash-page__settings-grid {
+    display: grid;
+    gap: 10px;
+    grid-template-columns: repeat(3, minmax(180px, 1fr));
+    align-items: end;
+}
+
+.kitchen-non-cash-page__settings-checkbox {
+    padding-bottom: 6px;
+}
+
+.kitchen-non-cash-page__table-wrap {
+    width: 100%;
+    overflow-x: auto;
+}
+
+.kitchen-non-cash-page__limits-table {
+    width: 100%;
+    min-width: 980px;
+}
+
+.kitchen-non-cash-page__add-limit {
+    border-top: 1px dashed var(--color-border);
+    padding-top: 12px;
+    margin-top: 4px;
+}
+
+.kitchen-non-cash-page__add-title {
+    margin: 0 0 8px;
+    font-size: 14px;
+}
+
+.kitchen-non-cash-page__add-grid {
+    display: grid;
+    gap: 10px;
+    grid-template-columns: repeat(2, minmax(180px, 1fr));
+}
+
+.kitchen-non-cash-page__add-actions {
+    display: flex;
+    align-items: flex-end;
+    gap: 12px;
+}
+
+.kitchen-non-cash-page__create-grid {
+    display: grid;
+    gap: 10px;
+    grid-template-columns: repeat(2, minmax(180px, 1fr));
+}
+
+:deep(.kitchen-non-cash-page__type-modal .modal-window) {
+    max-width: 1220px;
+    width: min(1220px, calc(100vw - 32px));
+    max-height: 88vh;
+}
+
+@media (max-width: 1100px) {
+    .kitchen-non-cash-page__settings-grid {
+        grid-template-columns: repeat(2, minmax(180px, 1fr));
+    }
+}
+
+@media (max-width: 760px) {
+    .kitchen-non-cash-page__settings-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .kitchen-non-cash-page__add-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .kitchen-non-cash-page__create-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .kitchen-non-cash-page__filter-control {
+        max-width: none;
+    }
+}

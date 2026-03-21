@@ -1,0 +1,14 @@
+C:\Users\Admin\Desktop\Zion\tools\zkfinger-gui\bin\x86\Release\net48\ZionScan.exe.config
+C:\Users\Admin\Desktop\Zion\tools\zkfinger-gui\bin\x86\Release\net48\ZionScan.exe
+C:\Users\Admin\Desktop\Zion\tools\zkfinger-gui\bin\x86\Release\net48\ZionScan.pdb
+C:\Users\Admin\Desktop\Zion\tools\zkfinger-gui\bin\x86\Release\net48\libzkfpcsharp.dll
+C:\Users\Admin\Desktop\Zion\tools\zkfinger-gui\obj\x86\Release\net48\ZkFingerGui.csproj.AssemblyReference.cache
+C:\Users\Admin\Desktop\Zion\tools\zkfinger-gui\obj\x86\Release\net48\ZkFingerGui.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\Admin\Desktop\Zion\tools\zkfinger-gui\obj\x86\Release\net48\ZkFingerGui.AssemblyInfoInputs.cache
+C:\Users\Admin\Desktop\Zion\tools\zkfinger-gui\obj\x86\Release\net48\ZkFingerGui.AssemblyInfo.cs
+C:\Users\Admin\Desktop\Zion\tools\zkfinger-gui\obj\x86\Release\net48\ZkFingerGui.csproj.CoreCompileInputs.cache
+C:\Users\Admin\Desktop\Zion\tools\zkfinger-gui\obj\x86\Release\net48\ZkFingerGui.sourcelink.json
+C:\Users\Admin\Desktop\Zion\tools\zkfinger-gui\obj\x86\Release\net48\ZkFinger.370305D0.Up2Date
+C:\Users\Admin\Desktop\Zion\tools\zkfinger-gui\obj\x86\Release\net48\ZionScan.exe
+C:\Users\Admin\Desktop\Zion\tools\zkfinger-gui\obj\x86\Release\net48\ZionScan.pdb
+C:\Users\Admin\Desktop\Zion\tools\zkfinger-gui\obj\x86\Release\net48\ZionScan.exe.config

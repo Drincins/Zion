@@ -1,0 +1,267 @@
+.kitchen-waiter-sales-page__filters-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    background: color-mix(in srgb, var(--color-surface) 90%, var(--color-surface-200) 10%);
+    border: 1px solid color-mix(in srgb, var(--color-primary) 24%, var(--color-border));
+    border-radius: 14px;
+    padding: 16px 20px;
+    box-shadow: 0 14px 34px -26px rgba(24, 16, 10, 0.62);
+}
+
+.kitchen-waiter-sales-page__filters-toggle {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: none;
+    border: none;
+    font: inherit;
+    font-weight: 600;
+    color: var(--color-text);
+    cursor: pointer;
+    padding: 0;
+}
+
+.kitchen-waiter-sales-page__filters-icon {
+    display: inline-flex;
+    transition: transform 0.2s ease;
+}
+
+.kitchen-waiter-sales-page__filters-icon.is-open {
+    transform: rotate(180deg);
+}
+
+.kitchen-waiter-sales-page__filters-content {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.kitchen-waiter-sales-page__filters-grid {
+    display: grid;
+    gap: 14px;
+    grid-template-columns: repeat(6, minmax(180px, 1fr));
+}
+
+.kitchen-waiter-sales-page__filters-grid--wide {
+    grid-template-columns: repeat(2, minmax(280px, 1fr));
+}
+
+.kitchen-waiter-sales-page__multi-filter {
+    background: var(--color-surface-100);
+    border: 1px solid color-mix(in srgb, var(--color-primary) 18%, var(--color-border));
+    border-radius: 10px;
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.kitchen-waiter-sales-page__multi-filter-title {
+    margin: 0;
+    font-weight: 600;
+    font-size: 13px;
+}
+
+.kitchen-waiter-sales-page__multi-filter-input {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 8px;
+    align-items: end;
+}
+
+.kitchen-waiter-sales-page__chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.kitchen-waiter-sales-page__chip {
+    border: 1px solid var(--color-border);
+    background: color-mix(in srgb, var(--color-surface) 86%, var(--color-surface-200) 14%);
+    color: var(--color-text);
+    border-radius: 999px;
+    padding: 4px 10px;
+    font: inherit;
+    font-size: 12px;
+    cursor: pointer;
+}
+
+.kitchen-waiter-sales-page__filters-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+}
+
+.kitchen-waiter-sales-page__hint {
+    margin: 0;
+    color: var(--color-text-soft);
+}
+
+.kitchen-waiter-sales-page__stats {
+    display: grid;
+    gap: 12px;
+    grid-template-columns: repeat(8, minmax(140px, 1fr));
+}
+
+.kitchen-waiter-sales-page__stat-card {
+    background: color-mix(in srgb, var(--color-surface) 90%, var(--color-surface-200) 10%);
+    border: 1px solid color-mix(in srgb, var(--color-primary) 24%, var(--color-border));
+    border-radius: 12px;
+    padding: 12px 14px;
+}
+
+.kitchen-waiter-sales-page__stat-label {
+    margin: 0 0 6px;
+    color: var(--color-text-soft);
+    font-size: 13px;
+}
+
+.kitchen-waiter-sales-page__stat-value {
+    margin: 0;
+    font-size: 20px;
+    font-weight: 600;
+}
+
+.kitchen-waiter-sales-page__section-title {
+    margin: 0 0 12px;
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--color-text);
+}
+
+.kitchen-waiter-sales-page__waiter-link {
+    border: none;
+    background: none;
+    color: var(--color-primary);
+    cursor: pointer;
+    font: inherit;
+    padding: 0;
+    text-align: left;
+}
+
+.kitchen-waiter-sales-page__table {
+    width: 100%;
+    border: 1px solid color-mix(in srgb, var(--color-primary) 22%, var(--color-border));
+    border-radius: 12px;
+    overflow: hidden;
+    background: color-mix(in srgb, var(--color-surface) 92%, var(--color-surface-100) 8%);
+}
+
+.kitchen-waiter-sales-page__modal-header {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.kitchen-waiter-sales-page__modal-title {
+    margin: 0;
+    font-size: 20px;
+}
+
+.kitchen-waiter-sales-page__modal-subtitle {
+    margin: 0;
+    color: var(--color-text-soft);
+}
+
+.kitchen-waiter-sales-page__detail-stats {
+    display: grid;
+    grid-template-columns: repeat(8, minmax(120px, 1fr));
+    gap: 10px;
+    margin-bottom: 12px;
+}
+
+.kitchen-waiter-sales-page__detail-stat {
+    background: color-mix(in srgb, var(--color-surface) 88%, var(--color-surface-200) 12%);
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+    padding: 8px 10px;
+}
+
+.kitchen-waiter-sales-page__detail-stat p {
+    margin: 0;
+    color: var(--color-text-soft);
+    font-size: 12px;
+}
+
+.kitchen-waiter-sales-page__detail-stat strong {
+    display: block;
+    margin-top: 4px;
+    font-size: 16px;
+}
+
+.kitchen-waiter-sales-page__detail-filters {
+    max-width: 320px;
+    margin-bottom: 12px;
+}
+
+.kitchen-waiter-sales-page__sort-button {
+    align-items: center;
+    background: none;
+    border: none;
+    color: inherit;
+    cursor: pointer;
+    display: inline-flex;
+    font: inherit;
+    gap: 4px;
+    padding: 0;
+}
+
+.kitchen-waiter-sales-page__sort-icons {
+    display: inline-flex;
+    flex-direction: column;
+    font-size: 9px;
+    line-height: 1;
+    margin-left: 4px;
+}
+
+.kitchen-waiter-sales-page__sort-icon {
+    color: var(--color-text);
+    transition: color 0.2s ease;
+}
+
+.kitchen-waiter-sales-page__sort-icon--active {
+    color: var(--color-primary);
+}
+
+.kitchen-waiter-sales-page__mono {
+    font-family: var(--font-secondary);
+    font-size: 12px;
+}
+
+@media (max-width: 1240px) {
+    .kitchen-waiter-sales-page__filters-grid {
+        grid-template-columns: repeat(2, minmax(180px, 1fr));
+    }
+
+    .kitchen-waiter-sales-page__stats {
+        grid-template-columns: repeat(3, minmax(140px, 1fr));
+    }
+
+    .kitchen-waiter-sales-page__detail-stats {
+        grid-template-columns: repeat(2, minmax(140px, 1fr));
+    }
+}
+
+@media (max-width: 760px) {
+    .kitchen-waiter-sales-page__filters-grid,
+    .kitchen-waiter-sales-page__filters-grid--wide,
+    .kitchen-waiter-sales-page__stats {
+        grid-template-columns: 1fr;
+    }
+
+    .kitchen-waiter-sales-page__multi-filter-input {
+        grid-template-columns: 1fr;
+    }
+
+    .kitchen-waiter-sales-page__filters-footer {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .kitchen-waiter-sales-page__detail-stats {
+        grid-template-columns: 1fr;
+    }
+}

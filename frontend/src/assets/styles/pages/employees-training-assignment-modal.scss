@@ -1,0 +1,40 @@
+.training-assignment-modal__header {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.training-assignment-modal__title {
+    margin: 0;
+}
+
+.training-assignment-modal__loading {
+    padding: 24px 0;
+    text-align: center;
+}
+
+.training-assignment-modal__form {
+    display: grid;
+    gap: 12px;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    align-items: flex-end;
+}
+
+.training-assignment-modal__field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.training-assignment-modal__hint {
+    grid-column: 1 / -1;
+    margin: 0;
+    font-size: 14px;
+    color: var(--color-text-soft);
+}
+
+.training-assignment-modal__error {
+    margin: 0;
+    font-size: 13px;
+    color: var(--color-danger);
+}

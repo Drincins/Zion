@@ -1,0 +1,134 @@
+.kitchen-revenue-page__filters-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    background: color-mix(in srgb, var(--color-surface) 90%, var(--color-surface-200) 10%);
+    border: 1px solid color-mix(in srgb, var(--color-primary) 24%, var(--color-border));
+    border-radius: 14px;
+    padding: 16px 20px;
+    box-shadow: 0 14px 34px -26px rgba(24, 16, 10, 0.62);
+}
+
+.kitchen-revenue-page__filters-toggle {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: none;
+    border: none;
+    font: inherit;
+    font-weight: 600;
+    color: var(--color-text);
+    cursor: pointer;
+    padding: 0;
+}
+
+.kitchen-revenue-page__filters-icon {
+    display: inline-flex;
+    transition: transform 0.2s ease;
+}
+
+.kitchen-revenue-page__filters-icon.is-open {
+    transform: rotate(180deg);
+}
+
+.kitchen-revenue-page__filters-content {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.kitchen-revenue-page__filters-grid {
+    display: grid;
+    grid-template-columns: minmax(260px, 1fr) minmax(260px, 420px);
+    gap: 12px;
+}
+
+.kitchen-revenue-page__filter-block {
+    border: 1px solid color-mix(in srgb, var(--color-primary) 18%, var(--color-border));
+    border-radius: 10px;
+    padding: 12px;
+    background: var(--color-surface-100);
+}
+
+.kitchen-revenue-page__filter-title {
+    margin: 0 0 8px;
+    font-weight: 600;
+}
+
+.kitchen-revenue-page__restaurants-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    max-height: 220px;
+    overflow: auto;
+}
+
+.kitchen-revenue-page__restaurants-list::-webkit-scrollbar {
+    width: 8px;
+}
+
+.kitchen-revenue-page__restaurants-list::-webkit-scrollbar-track {
+    background: color-mix(in srgb, var(--color-surface) 86%, var(--color-surface-200) 14%);
+    border-radius: 999px;
+}
+
+.kitchen-revenue-page__restaurants-list::-webkit-scrollbar-thumb {
+    background: color-mix(in srgb, var(--color-primary) 52%, var(--color-border));
+    border-radius: 999px;
+}
+
+.kitchen-revenue-page__dates-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(180px, 1fr));
+    gap: 10px;
+}
+
+.kitchen-revenue-page__empty-hint {
+    margin: 0;
+    color: var(--color-text-soft);
+}
+
+.kitchen-revenue-page__summary {
+    margin: 0;
+    color: var(--color-text-soft);
+    font-size: 13px;
+}
+
+.kitchen-revenue-page__table-wrap {
+    width: 100%;
+    overflow-x: auto;
+    border: 1px solid color-mix(in srgb, var(--color-primary) 22%, var(--color-border));
+    border-radius: 12px;
+    background: color-mix(in srgb, var(--color-surface) 92%, var(--color-surface-100) 8%);
+    padding: 2px;
+}
+
+.kitchen-revenue-page__table {
+    width: 100%;
+    min-width: 860px;
+}
+
+.kitchen-revenue-page__sticky-col {
+    position: sticky;
+    left: 0;
+    z-index: 1;
+    background: color-mix(in srgb, var(--color-surface) 88%, var(--color-surface-100) 12%);
+    min-width: 220px;
+}
+
+.kitchen-revenue-page__cell-total {
+    font-weight: 600;
+}
+
+@media (max-width: 1100px) {
+    .kitchen-revenue-page__filters-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 760px) {
+    .kitchen-revenue-page__dates-grid {
+        grid-template-columns: 1fr;
+    }
+}

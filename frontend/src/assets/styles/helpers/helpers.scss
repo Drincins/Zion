@@ -1,0 +1,90 @@
+html,
+body {
+    height: 100%;
+    font-family: var(--font-secondary);
+    background: var(--color-background);
+    color: var(--color-text);
+    scroll-behavior: var(--scroll-behavior);
+    overflow-x: hidden;
+    transition:
+        all 0.3s ease,
+        color 0.3s ease;
+
+    * {
+        box-sizing: border-box;
+    }
+
+    @media print {
+        height: 99vh;
+        overflow: hidden;
+
+        body * {
+            visibility: hidden;
+        }
+
+        #section-to-print,
+        #section-to-print * {
+            visibility: visible;
+        }
+
+        #section-to-print {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+        }
+    }
+}
+
+a {
+    text-decoration: none;
+}
+
+strong,
+b {
+    font-weight: bold;
+}
+
+em,
+i {
+    font-style: italic;
+}
+
+input,
+textarea,
+button,
+select,
+a {
+    -webkit-tap-highlight-color: transparent;
+}
+
+button {
+    font-family: var(--font-secondary);
+}
+
+.wrapper {
+    max-width: 1240px;
+    margin: 0 auto;
+    padding: 0 20px;
+}
+
+.link {
+    color: var(--color-primary);
+    transition: color 0.3s;
+
+    &:hover {
+        color: var(--color-text);
+    }
+}
+
+.dot {
+    width: 5px;
+    height: 5px;
+    background: var(--color-text);
+    border-radius: 50%;
+    display: block;
+
+    &_inline {
+        display: inline-block;
+    }
+}

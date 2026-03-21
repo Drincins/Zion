@@ -1,0 +1,21 @@
+# Всегда хранить в репо LF
+* text=auto eol=lf
+
+# Бинарники не трогать
+*.png -text
+*.jpg -text
+*.jpeg -text
+*.gif -text
+*.ico -text
+*.pdf -text
+*.mp4 -text
+*.mov -text
+*.zip -text
+*.woff -text
+*.woff2 -text
+*.eot -text
+*.ttf -text
+
+# Спец-случаи
+*.sh text eol=lf
+*.bat text eol=crlf

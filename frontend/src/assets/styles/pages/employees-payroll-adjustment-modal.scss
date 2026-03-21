@@ -1,0 +1,77 @@
+.payroll-adjustment-modal__header {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.payroll-adjustment-modal__title {
+    margin: 0;
+}
+
+.payroll-adjustment-modal__loading {
+    padding: 24px 0;
+    text-align: center;
+}
+
+.payroll-adjustment-modal__form {
+    display: grid;
+    gap: 12px;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+}
+
+.payroll-adjustment-modal__field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.payroll-adjustment-modal__type-toggle {
+    width: max-content;
+    grid-column: 1 / -1;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px;
+    border-radius: 999px;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+}
+
+.payroll-adjustment-modal__type-toggle-button {
+    border: none;
+    background: transparent;
+    color: var(--color-text-soft);
+    padding: 6px 12px;
+    border-radius: 999px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background-color 0.2s ease, color 0.2s ease, opacity 0.2s ease;
+}
+
+.payroll-adjustment-modal__type-toggle-button:hover {
+    opacity: 0.8;
+}
+
+.payroll-adjustment-modal__type-toggle-button.is-active {
+    background: var(--color-primary);
+    color: var(--color-text-button);
+}
+
+.payroll-adjustment-modal__type-toggle-button:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+}
+
+.payroll-adjustment-modal__hint {
+    grid-column: 1 / -1;
+    margin: 0;
+    font-size: 14px;
+    color: var(--color-text-soft);
+}
+
+.payroll-adjustment-modal__error {
+    margin: 0;
+    font-size: 13px;
+    color: var(--color-danger);
+}

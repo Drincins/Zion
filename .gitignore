@@ -1,0 +1,14 @@
+__pycache__/
+*.pyc
+db.sql
+db.sql.old
+db.sql.*
+*.dump
+*.tmp
+.env
+=
+tools/pgbin/
+GIT_SYNC_INSTRUCTIONS.md
+.DS_Store
+media/
+zion_raw.bin

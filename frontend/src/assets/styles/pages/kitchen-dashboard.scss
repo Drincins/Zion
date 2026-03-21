@@ -1,0 +1,226 @@
+@use '@/assets/styles/vars.scss' as *;
+
+.kitchen-dashboard {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.kitchen-dashboard__header {
+    position: relative;
+    overflow: hidden;
+    border: 1px solid color-mix(in srgb, var(--color-primary) 24%, var(--color-border));
+    border-radius: 16px;
+    padding: 18px 20px;
+    background:
+        radial-gradient(
+            140% 140% at 100% 0%,
+            color-mix(in srgb, var(--color-primary) 18%, transparent) 0%,
+            transparent 56%
+        ),
+        linear-gradient(
+            180deg,
+            color-mix(in srgb, var(--color-surface) 88%, var(--color-surface-200) 12%) 0%,
+            var(--color-surface) 100%
+        );
+    box-shadow: 0 12px 30px -24px rgba(24, 16, 10, 0.65);
+}
+
+.kitchen-dashboard__header-main {
+    max-width: 760px;
+}
+
+.kitchen-dashboard__eyebrow {
+    margin: 0 0 6px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--color-text-secondary, var(--color-text-soft));
+}
+
+.kitchen-dashboard__header-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: 10px;
+}
+
+.kitchen-dashboard__stats {
+    display: grid;
+    gap: 12px;
+    grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+}
+
+.kitchen-dashboard__stat-card {
+    border: 1px solid color-mix(in srgb, var(--color-primary) 20%, var(--color-border));
+    border-radius: 12px;
+    background:
+        linear-gradient(
+            180deg,
+            color-mix(in srgb, var(--color-surface) 92%, var(--color-surface-100) 8%) 0%,
+            var(--color-surface) 100%
+        );
+    padding: 12px 14px;
+    box-shadow: 0 8px 22px rgba(15, 23, 42, 0.05);
+}
+
+.kitchen-dashboard__stat-label {
+    margin: 0;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--color-text-secondary, var(--color-text-soft));
+}
+
+.kitchen-dashboard__stat-value {
+    margin: 6px 0 0;
+    font-size: 20px;
+    font-weight: 700;
+    line-height: 1.2;
+    color: var(--color-text);
+}
+
+.kitchen-dashboard__panel {
+    border: 1px solid color-mix(in srgb, var(--color-primary) 22%, var(--color-border));
+    border-radius: 14px;
+    background:
+        linear-gradient(
+            180deg,
+            color-mix(in srgb, var(--color-surface) 90%, var(--color-surface-200) 10%) 0%,
+            var(--color-surface) 100%
+        );
+    box-shadow: 0 8px 24px rgba(15, 23, 42, 0.05);
+    padding: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.kitchen-dashboard__panel-header {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.kitchen-dashboard__panel-title {
+    margin: 0;
+    font-size: 20px;
+    font-weight: 600;
+    line-height: 1.2;
+}
+
+.kitchen-dashboard__panel-subtitle {
+    margin: 0;
+    font-size: 13px;
+    color: var(--color-text-secondary, var(--color-text-soft));
+}
+
+.kitchen-dashboard__card-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 12px;
+}
+
+.kitchen-dashboard__card {
+    border: 1px solid color-mix(in srgb, var(--color-primary) 18%, var(--color-border));
+    border-radius: 12px;
+    background: color-mix(in srgb, var(--color-surface) 90%, var(--color-surface-100) 10%);
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    min-height: 196px;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.kitchen-dashboard__card:hover {
+    border-color: color-mix(in srgb, var(--color-primary) 56%, var(--color-border));
+    box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
+    transform: translateY(-2px);
+}
+
+.kitchen-dashboard__card.is-disabled {
+    opacity: 0.72;
+}
+
+.kitchen-dashboard__card.is-disabled:hover {
+    transform: none;
+    box-shadow: none;
+    border-color: color-mix(in srgb, var(--color-primary) 18%, var(--color-border));
+}
+
+.kitchen-dashboard__card-top {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.kitchen-dashboard__card-eyebrow {
+    margin: 0;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--color-text-secondary, var(--color-text-soft));
+}
+
+.kitchen-dashboard__card-status {
+    display: inline-flex;
+    align-items: center;
+    min-height: 22px;
+    padding: 0 10px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 700;
+    color: #0f6f4f;
+    background: color-mix(in srgb, #1ca56d 20%, transparent);
+    border: 1px solid color-mix(in srgb, #1ca56d 42%, transparent);
+    white-space: nowrap;
+}
+
+.kitchen-dashboard__card-status.is-disabled {
+    color: var(--color-text-secondary, var(--color-text-soft));
+    background: color-mix(in srgb, var(--color-border) 56%, transparent);
+    border-color: color-mix(in srgb, var(--color-border) 78%, transparent);
+}
+
+.kitchen-dashboard__card-title {
+    margin: 0;
+    font-size: 19px;
+    font-weight: 600;
+    line-height: 1.2;
+    color: var(--color-text);
+}
+
+.kitchen-dashboard__card-description {
+    margin: 0;
+    color: var(--color-text-secondary, var(--color-text-soft));
+    font-size: 13px;
+    line-height: 1.45;
+}
+
+.kitchen-dashboard__card-actions {
+    margin-top: auto;
+    display: flex;
+    justify-content: flex-start;
+}
+
+@media (max-width: $desktop-s) {
+    .kitchen-dashboard__header-actions {
+        width: 100%;
+        justify-content: flex-start;
+    }
+}
+
+@media (max-width: $tablet) {
+    .kitchen-dashboard__header {
+        padding: 16px;
+    }
+
+    .kitchen-dashboard__card-grid {
+        grid-template-columns: 1fr;
+    }
+}

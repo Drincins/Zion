@@ -1,0 +1,15 @@
+@use '@/assets/styles/pages/kpi-employees-skin' as kpiSkin;
+
+.kpi-layout {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.kpi-layout__body {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+@include kpiSkin.kpiLayoutSkin();

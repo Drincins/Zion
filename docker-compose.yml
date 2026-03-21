@@ -1,26 +1,69 @@
-version: '3.8'
-
 services:
+  db:
+    image: postgres:16
+    restart: unless-stopped
+    command: postgres -c timezone=${APP_TZ}
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      TZ: ${APP_TZ}
+      PGTZ: ${APP_TZ}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "127.0.0.1:15432:5432"
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   backend:
     build:
       context: .
       dockerfile: Dockerfile
       target: backend
+    depends_on:
+      db:
+        condition: service_healthy
     ports:
       - "8000:8000"
+    env_file:
+      - .env
+    environment:
+      TZ: ${APP_TZ}
+      BACKEND_WORKERS: ${BACKEND_WORKERS:-2}
+      BACKEND_KEEP_ALIVE: ${BACKEND_KEEP_ALIVE:-30}
+      BACKEND_TIMEOUT: ${BACKEND_TIMEOUT:-120}
+      BACKEND_GRACEFUL_TIMEOUT: ${BACKEND_GRACEFUL_TIMEOUT:-30}
+      BACKEND_LOG_LEVEL: ${BACKEND_LOG_LEVEL:-info}
+      DB_POOL_SIZE: ${DB_POOL_SIZE:-6}
+      DB_POOL_MAX_OVERFLOW: ${DB_POOL_MAX_OVERFLOW:-3}
+      DB_POOL_TIMEOUT: ${DB_POOL_TIMEOUT:-30}
+      DB_POOL_RECYCLE: ${DB_POOL_RECYCLE:-1800}
     networks:
       - app-network
 
   frontend:
+    profiles:
+      - dev
     build:
       context: .
       target: frontend-build
+    environment:
+      VITE_DEV_PROXY_TARGET: http://backend:8000
     ports:
       - "5173:5173"
-    command: yarn dev --host 0.0.0.0
+    command: npm run dev -- --host 0.0.0.0
     networks:
       - app-network
 
 networks:
   app-network:
     driver: bridge
+
+volumes:
+  postgres_data:

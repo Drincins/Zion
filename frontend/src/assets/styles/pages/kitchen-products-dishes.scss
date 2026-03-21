@@ -1,0 +1,256 @@
+.kitchen-products-page__filters {
+    display: grid;
+    gap: 12px;
+    grid-template-columns: repeat(3, minmax(220px, 1fr));
+}
+
+.kitchen-products-page__summary {
+    margin: 0;
+    color: var(--color-text-soft);
+}
+
+.kitchen-products-page__tree-card {
+    border: 1px solid var(--color-border);
+    border-radius: 14px;
+    padding: 12px;
+    background: var(--color-surface);
+    display: grid;
+    gap: 10px;
+}
+
+.kitchen-products-page__tree-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.kitchen-products-page__tree {
+    display: grid;
+    gap: 6px;
+}
+
+.kitchen-products-page__tree-entry {
+    display: block;
+}
+
+.kitchen-products-page__line {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 40px;
+    border: 1px solid var(--color-border);
+    border-radius: 10px;
+    padding: 6px 10px;
+    background: color-mix(in srgb, var(--color-background) 45%, transparent);
+}
+
+.kitchen-products-page__line-main {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex: 1;
+    min-width: 0;
+    cursor: pointer;
+}
+
+.kitchen-products-page__line-main:hover {
+    color: var(--color-primary);
+}
+
+.kitchen-products-page__line-main--static {
+    cursor: default;
+}
+
+.kitchen-products-page__line-main--static:hover {
+    color: inherit;
+}
+
+.kitchen-products-page__name-cell {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+}
+
+.kitchen-products-page__row-title {
+    min-width: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.kitchen-products-page__line-meta {
+    color: var(--color-text-soft);
+    font-size: 12px;
+    white-space: nowrap;
+}
+
+.kitchen-products-page__tree-toggle {
+    width: 14px;
+    height: 14px;
+    padding: 0;
+    border: none;
+    background: none;
+    color: var(--color-text-soft);
+    cursor: pointer;
+    font-size: 12px;
+    line-height: 1;
+}
+
+.kitchen-products-page__tree-toggle:hover {
+    color: var(--color-primary);
+}
+
+.kitchen-products-page__tree-marker {
+    width: 12px;
+    flex: 0 0 12px;
+    color: var(--color-text-soft);
+    text-align: center;
+    font-size: 12px;
+}
+
+.kitchen-products-page__tree-marker--leaf {
+    opacity: 0.6;
+}
+
+.kitchen-products-page__folder-action {
+    margin-left: auto;
+}
+
+.kitchen-products-page__folder-form {
+    display: grid;
+    gap: 10px;
+}
+
+.kitchen-products-page__hint {
+    margin: 0;
+    color: var(--color-text-soft);
+}
+
+.kitchen-products-page__modal-header {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.kitchen-products-page__modal-title {
+    margin: 0;
+    font-size: 20px;
+}
+
+.kitchen-products-page__modal-subtitle {
+    margin: 0;
+    color: var(--color-text-soft);
+}
+
+.kitchen-products-page__tabs {
+    display: inline-flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: 4px 0 12px;
+}
+
+.kitchen-products-page__tab {
+    border: 1px solid var(--color-border);
+    background: var(--color-surface);
+    color: var(--color-text);
+    border-radius: 8px;
+    padding: 8px 12px;
+    cursor: pointer;
+}
+
+.kitchen-products-page__tab.is-active {
+    border-color: var(--color-primary);
+    color: var(--color-primary);
+    background: color-mix(in srgb, var(--color-primary) 12%, var(--color-surface) 88%);
+}
+
+.kitchen-products-page__tab-panel {
+    display: block;
+}
+
+.kitchen-products-page__form {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.kitchen-products-page__details-grid {
+    display: grid;
+    gap: 8px;
+    border: 1px solid var(--color-border);
+    border-radius: 10px;
+    padding: 12px;
+    max-height: 280px;
+    overflow: auto;
+}
+
+.kitchen-products-page__detail-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    border-bottom: 1px dashed var(--color-border);
+    padding-bottom: 6px;
+}
+
+.kitchen-products-page__detail-row:last-child {
+    border-bottom: none;
+    padding-bottom: 0;
+}
+
+.kitchen-products-page__tech-card {
+    margin-top: 0;
+}
+
+.kitchen-products-page__raw {
+    margin-top: 16px;
+    display: grid;
+    gap: 8px;
+}
+
+.kitchen-products-page__service-toggle {
+    width: fit-content;
+    border: 1px solid var(--color-border);
+    background: var(--color-surface);
+    color: var(--color-text);
+    border-radius: 8px;
+    padding: 8px 12px;
+    cursor: pointer;
+}
+
+.kitchen-products-page__service-toggle:hover {
+    border-color: var(--color-primary);
+}
+
+.kitchen-products-page__service-block {
+    display: grid;
+    gap: 8px;
+}
+
+.kitchen-products-page__pre {
+    margin: 8px 0 0;
+    background: var(--color-background);
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+    padding: 10px;
+    max-height: 240px;
+    overflow: auto;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+:deep(.kitchen-products-page__modal .modal-window) {
+    width: min(1220px, calc(100vw - 32px));
+}
+
+@media (max-width: 1100px) {
+    .kitchen-products-page__filters {
+        grid-template-columns: repeat(2, minmax(220px, 1fr));
+    }
+}
+
+@media (max-width: 900px) {
+    .kitchen-products-page__filters {
+        grid-template-columns: 1fr;
+    }
+}

@@ -1,0 +1,989 @@
+.labor-fund {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.labor-fund__card {
+    width: 100%;
+    position: relative;
+    border: 1px solid color-mix(in srgb, var(--color-primary) 20%, var(--color-border));
+    border-radius: 14px;
+    padding: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    background:
+        linear-gradient(
+            180deg,
+            color-mix(in srgb, var(--color-surface) 88%, var(--color-surface-100) 12%) 0%,
+            color-mix(in srgb, var(--color-surface) 94%, transparent) 100%
+        );
+    box-shadow: 0 18px 40px -24px rgba(15, 12, 9, 0.35);
+    backdrop-filter: blur(6px);
+}
+
+.labor-fund__card--filters {
+    border-color: color-mix(in srgb, var(--color-primary) 30%, var(--color-border));
+    max-width: none;
+    width: 100%;
+    align-self: stretch;
+    z-index: 30;
+}
+
+.labor-fund__card--results {
+    z-index: 10;
+}
+
+.labor-fund__card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.labor-fund__card-header--filters {
+    align-items: flex-start;
+}
+
+.labor-fund__header-main {
+    display: flex;
+    flex-direction: column;
+}
+
+.labor-fund__section-label {
+    margin: 0;
+    font-size: 12px;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    color: var(--color-text-secondary);
+}
+
+.labor-fund__card-title {
+    margin: 4px 0 0;
+    font-size: 20px;
+    color: var(--color-text);
+}
+
+.labor-fund__subtitle {
+    margin: 8px 0 0;
+    color: var(--color-text-secondary);
+    font-size: 13px;
+    max-width: 720px;
+}
+
+.labor-fund__filters-panel {
+    border: 1px solid color-mix(in srgb, var(--color-primary) 20%, var(--color-border));
+    border-radius: 12px;
+    padding: 10px;
+    background: color-mix(in srgb, var(--color-surface) 94%, var(--color-surface-100) 6%);
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    width: 100%;
+    min-width: 0;
+    overflow: visible;
+}
+
+.labor-fund__filters-panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.labor-fund__filters-panel-controls {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.labor-fund__filters-panel-title {
+    margin: 0;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--color-text-secondary);
+}
+
+.labor-fund__collapse-trigger {
+    width: 34px;
+    height: 34px;
+    border: 1px solid color-mix(in srgb, var(--color-primary) 30%, var(--color-border));
+    border-radius: 10px;
+    background: color-mix(in srgb, var(--color-surface) 90%, var(--color-primary) 10%);
+    color: var(--color-text);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: border-color 0.2s ease, transform 0.2s ease, background-color 0.2s ease;
+}
+
+.labor-fund__collapse-trigger:hover {
+    border-color: color-mix(in srgb, var(--color-primary) 55%, var(--color-border));
+    background: color-mix(in srgb, var(--color-surface) 82%, var(--color-primary) 18%);
+}
+
+.labor-fund__collapse-icon {
+    font-size: 11px;
+    line-height: 1;
+    transition: transform 0.2s ease;
+}
+
+.labor-fund__collapse-icon.is-open {
+    transform: rotate(180deg);
+}
+
+.labor-fund__filters-body {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.labor-fund__filters-summary {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: 13px;
+}
+
+.labor-fund__settings-summary {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: 13px;
+}
+
+.labor-fund__settings-summary span {
+    color: var(--color-text);
+}
+
+.labor-fund__state {
+    margin: 0;
+    padding: 10px 12px;
+    border-radius: 10px;
+    border: 1px solid color-mix(in srgb, var(--color-primary) 22%, var(--color-border));
+    background: color-mix(in srgb, var(--color-surface) 86%, var(--color-primary) 14%);
+    color: var(--color-text);
+}
+
+.labor-fund__state--error {
+    border-color: color-mix(in srgb, #c62828 45%, var(--color-border));
+    background: color-mix(in srgb, var(--color-surface) 65%, #c62828 35%);
+    color: var(--color-text);
+}
+
+.labor-fund__muted {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: 13px;
+}
+
+.labor-fund__filters-layout {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 10px;
+    align-items: start;
+}
+
+.labor-fund__filters-stack {
+    display: contents;
+}
+
+.labor-fund__filters-side {
+    display: contents;
+}
+
+.labor-fund__filter-block {
+    border: 1px solid var(--color-border);
+    border-radius: 12px;
+    padding: 10px;
+    background: var(--color-surface);
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    min-width: 0;
+}
+
+.labor-fund__settings-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 10px;
+}
+
+.labor-fund__settings-modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.labor-fund__settings-modal-title {
+    margin: 0;
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--color-text);
+}
+
+.labor-fund__settings-modal-close {
+    width: 34px;
+    height: 34px;
+    border: 1px solid color-mix(in srgb, var(--color-primary) 30%, var(--color-border));
+    border-radius: 10px;
+    background: color-mix(in srgb, var(--color-surface) 90%, var(--color-primary) 10%);
+    color: var(--color-text);
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.labor-fund__filter-block--dates {
+    min-height: 100%;
+    max-width: none;
+}
+
+.labor-fund__filter-block--dates .labor-fund__filter-title {
+    margin-bottom: 2px;
+}
+
+.labor-fund__filter-title {
+    margin: 0;
+    font-weight: 700;
+    font-size: 12px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--color-text-secondary);
+}
+
+.labor-fund__filter-picker {
+    position: relative;
+    border: 1px solid var(--color-border);
+    border-radius: 12px;
+    padding: 10px;
+    background: var(--color-surface);
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    min-width: 0;
+}
+
+.labor-fund__filter-picker-trigger {
+    width: 100%;
+    min-height: 42px;
+    border: 1px solid var(--color-border);
+    border-radius: 12px;
+    background: var(--color-surface);
+    color: var(--color-text);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 8px 12px;
+    cursor: pointer;
+    text-align: left;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.labor-fund__filter-picker-trigger:disabled {
+    cursor: not-allowed;
+    opacity: 0.65;
+}
+
+.labor-fund__filter-picker-trigger:not(:disabled):hover {
+    border-color: color-mix(in srgb, var(--color-primary) 35%, var(--color-border));
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-primary) 14%, transparent);
+}
+
+.labor-fund__filter-picker-value {
+    font-size: 14px;
+    color: var(--color-text);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.labor-fund__filter-picker-value.is-placeholder {
+    color: var(--color-text-secondary);
+}
+
+.labor-fund__filter-picker-icon {
+    font-size: 11px;
+    line-height: 1;
+    transition: transform 0.2s ease;
+}
+
+.labor-fund__filter-picker-icon.is-open {
+    transform: rotate(180deg);
+}
+
+.labor-fund__filter-picker-menu {
+    position: absolute;
+    top: calc(100% + 6px);
+    left: 0;
+    right: 0;
+    z-index: 120;
+    max-height: min(460px, 62vh);
+    border: 1px solid var(--color-border);
+    border-radius: 12px;
+    padding: 8px;
+    background: var(--color-surface);
+    box-shadow: 0 12px 24px rgba(15, 12, 9, 0.24);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.labor-fund__filter-picker-search {
+    width: 100%;
+    min-height: 34px;
+    border: 1px solid var(--color-border);
+    border-radius: 10px;
+    background: var(--color-surface);
+    color: var(--color-text);
+    padding: 6px 9px;
+    margin-bottom: 8px;
+    font-size: 14px;
+}
+
+.labor-fund__filter-picker-clear {
+    width: auto;
+    margin: 0;
+    flex: 1;
+    padding: 7px 10px;
+    border: 1px solid color-mix(in srgb, var(--color-primary) 24%, var(--color-border));
+    border-radius: 10px;
+    background: color-mix(in srgb, var(--color-surface) 88%, var(--color-primary) 12%);
+    color: var(--color-text);
+    text-align: center;
+    cursor: pointer;
+    font-size: 13px;
+}
+
+.labor-fund__filter-picker-actions {
+    display: flex;
+    gap: 8px;
+    margin: 0;
+}
+
+.labor-fund__filter-picker-options {
+    max-height: min(320px, 46vh);
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding-right: 2px;
+}
+
+.labor-fund__filter-picker-option {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 9px;
+    border-radius: 10px;
+    cursor: pointer;
+    font-size: 14px;
+}
+
+.labor-fund__filter-picker-option:hover {
+    background: color-mix(in srgb, var(--color-primary) 12%, var(--color-surface) 88%);
+}
+
+.labor-fund__filter-picker-option input {
+    margin: 0;
+    accent-color: var(--color-primary);
+}
+
+.labor-fund__filter-inline-options {
+    display: grid;
+    gap: 8px;
+}
+
+.labor-fund__inline-select {
+    margin-top: 8px;
+}
+
+.labor-fund__filter-inline-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 34px;
+    padding: 0 4px;
+    border-radius: 8px;
+    color: var(--color-text);
+    font-size: 14px;
+}
+
+.labor-fund__filter-inline-item:hover {
+    background: color-mix(in srgb, var(--color-primary) 8%, var(--color-surface) 92%);
+}
+
+.labor-fund__filter-inline-item input {
+    margin: 0;
+    accent-color: var(--color-primary);
+}
+
+.labor-fund__filter-help {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: 12px;
+    line-height: 1.35;
+}
+
+.labor-fund__filter-note {
+    margin: 0;
+    padding: 8px 10px;
+    border-radius: 8px;
+    border: 1px solid var(--color-border);
+    background: color-mix(in srgb, var(--color-surface) 94%, var(--color-surface-100) 6%);
+    color: var(--color-text-secondary);
+    font-size: 12px;
+}
+
+.labor-fund__filter-note--warn {
+    border-color: color-mix(in srgb, #c77f00 55%, var(--color-border));
+    background: color-mix(in srgb, var(--color-surface) 75%, #c77f00 25%);
+    color: var(--color-text);
+}
+
+.labor-fund__types-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 8px;
+}
+
+.labor-fund__types-group {
+    border: 1px solid var(--color-border);
+    border-radius: 10px;
+    background: color-mix(in srgb, var(--color-surface) 92%, var(--color-surface-100) 8%);
+    padding: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.labor-fund__types-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: flex-start;
+    flex-wrap: wrap;
+    column-gap: 8px;
+    row-gap: 6px;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--color-text-secondary);
+    font-weight: 700;
+}
+
+.labor-fund__types-header > span {
+    min-width: 0;
+}
+
+.labor-fund__types-actions {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    margin-left: auto;
+    flex-shrink: 0;
+    max-width: 100%;
+}
+
+.labor-fund__types-action {
+    border: 1px solid color-mix(in srgb, var(--color-primary) 24%, var(--color-border));
+    border-radius: 8px;
+    background: color-mix(in srgb, var(--color-surface) 88%, var(--color-primary) 12%);
+    color: var(--color-text);
+    font-size: 11px;
+    padding: 4px 8px;
+    cursor: pointer;
+    white-space: nowrap;
+    line-height: 1.1;
+    flex: 0 0 auto;
+}
+
+.labor-fund__types-action:hover {
+    border-color: color-mix(in srgb, var(--color-primary) 50%, var(--color-border));
+}
+
+.labor-fund__types-list {
+    max-height: 180px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding-right: 4px;
+}
+
+.labor-fund__type-option {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 30px;
+    padding: 4px 6px;
+    border-radius: 8px;
+    color: var(--color-text);
+    font-size: 13px;
+}
+
+.labor-fund__type-option:hover {
+    background: color-mix(in srgb, var(--color-primary) 10%, var(--color-surface) 90%);
+}
+
+.labor-fund__type-option input {
+    margin: 0;
+    accent-color: var(--color-primary);
+}
+
+.labor-fund__filter-picker-empty {
+    margin: 8px 0 0;
+    color: var(--color-text-secondary);
+    font-size: 12px;
+}
+
+.labor-fund__filter-dates {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+}
+
+.labor-fund__filters-actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+}
+
+.labor-fund__results-actions {
+    min-width: 200px;
+}
+
+.labor-fund__stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+    gap: 10px;
+}
+
+.labor-fund__stat-card {
+    border: 1px solid color-mix(in srgb, var(--color-primary) 20%, var(--color-border));
+    border-radius: 12px;
+    padding: 11px;
+    background: color-mix(in srgb, var(--color-surface) 90%, var(--color-primary) 10%);
+}
+
+.labor-fund__stat-label {
+    font-size: 11px;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    color: var(--color-text-secondary);
+}
+
+.labor-fund__stat-value {
+    margin-top: 5px;
+    font-size: 18px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+}
+
+.labor-fund__charts {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 10px;
+}
+
+.labor-fund__charts--summary {
+    grid-template-columns: 1fr;
+}
+
+.labor-fund__chart-card {
+    border: 1px solid color-mix(in srgb, var(--color-primary) 22%, var(--color-border));
+    border-radius: 12px;
+    padding: 12px;
+    background:
+        linear-gradient(
+            180deg,
+            color-mix(in srgb, var(--color-surface) 90%, var(--color-surface-100) 10%) 0%,
+            color-mix(in srgb, var(--color-surface) 96%, transparent) 100%
+        );
+}
+
+.labor-fund__chart-card--histogram {
+    min-height: 520px;
+    display: flex;
+    flex-direction: column;
+}
+
+.labor-fund__chart-title {
+    font-weight: 800;
+    font-size: 14px;
+    color: var(--color-text);
+}
+
+.labor-fund__chart-subtitle {
+    margin-top: 4px;
+    font-size: 12px;
+    color: var(--color-text-secondary);
+}
+
+.labor-fund__summary-histogram {
+    margin-top: 10px;
+    width: 100%;
+    min-height: 420px;
+    height: 56vh;
+    max-height: 620px;
+}
+
+.labor-fund__chart-hint {
+    margin: 8px 0 0;
+    color: var(--color-text-secondary);
+    font-size: 12px;
+}
+
+.labor-fund__summary-chart-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 10px;
+}
+
+.labor-fund__pie-layout {
+    margin-top: 10px;
+    display: grid;
+    grid-template-columns: 220px minmax(0, 1fr);
+    gap: 12px;
+    align-items: start;
+}
+
+.labor-fund__pie-shell {
+    position: relative;
+    width: 220px;
+    aspect-ratio: 1;
+}
+
+.labor-fund__pie-svg {
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+}
+
+.labor-fund__pie-segment {
+    cursor: pointer;
+    stroke: color-mix(in srgb, var(--color-surface) 70%, var(--color-border));
+    stroke-width: 1;
+    transition: filter 0.2s ease, stroke-width 0.2s ease;
+}
+
+.labor-fund__pie-segment:hover,
+.labor-fund__pie-segment:focus {
+    filter: brightness(1.08);
+    stroke-width: 2;
+    outline: none;
+}
+
+.labor-fund__pie-segment.is-active {
+    stroke-width: 2.5;
+}
+
+.labor-fund__pie-center {
+    position: absolute;
+    inset: 0;
+    margin: auto;
+    width: 108px;
+    height: 108px;
+    border-radius: 50%;
+    background: color-mix(in srgb, var(--color-surface) 94%, var(--color-surface-100) 6%);
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-primary) 24%, var(--color-border));
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 8px;
+    pointer-events: none;
+}
+
+.labor-fund__pie-center-label {
+    font-size: 10px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--color-text-secondary);
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.labor-fund__pie-center-value {
+    margin-top: 4px;
+    font-weight: 800;
+    font-size: 14px;
+    font-variant-numeric: tabular-nums;
+    color: var(--color-text);
+}
+
+.labor-fund__pie-center-meta {
+    margin-top: 3px;
+    font-size: 11px;
+    color: var(--color-text-secondary);
+}
+
+.labor-fund__pie-legend {
+    max-height: 220px;
+    overflow: auto;
+    padding-right: 6px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.labor-fund__pie-item {
+    display: grid;
+    grid-template-columns: 10px minmax(0, 1fr) auto auto;
+    gap: 8px;
+    align-items: center;
+    padding: 5px 6px;
+    border-radius: 8px;
+}
+
+.labor-fund__pie-item.is-active {
+    background: color-mix(in srgb, var(--color-primary) 16%, var(--color-surface) 84%);
+}
+
+.labor-fund__pie-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+}
+
+.labor-fund__pie-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--color-text-secondary);
+    font-size: 13px;
+}
+
+.labor-fund__pie-percent {
+    color: var(--color-text-secondary);
+    font-variant-numeric: tabular-nums;
+    font-size: 13px;
+}
+
+.labor-fund__pie-value {
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    font-size: 13px;
+}
+
+.labor-fund__pie-hint {
+    margin: 6px 0 0;
+    font-size: 12px;
+    color: var(--color-text-secondary);
+}
+
+.labor-fund__bar-list {
+    margin-top: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.labor-fund__bar-item {
+    display: grid;
+    grid-template-columns: minmax(120px, 1fr) minmax(120px, 2fr) auto;
+    align-items: center;
+    gap: 10px;
+}
+
+.labor-fund__bar-label {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--color-text-secondary);
+    font-size: 13px;
+}
+
+.labor-fund__bar-track {
+    height: 10px;
+    border-radius: 999px;
+    overflow: hidden;
+    background: color-mix(in srgb, var(--color-border) 70%, var(--color-surface) 30%);
+}
+
+.labor-fund__bar-fill {
+    height: 100%;
+    width: 0%;
+    border-radius: 999px;
+    background: var(--color-primary);
+}
+
+.labor-fund__bar-fill--alt {
+    background: color-mix(in srgb, var(--color-primary) 60%, #1a1a1a 40%);
+}
+
+.labor-fund__bar-fill--share {
+    background: linear-gradient(
+        90deg,
+        color-mix(in srgb, var(--color-primary) 75%, #198754 25%) 0%,
+        color-mix(in srgb, #198754 80%, #0f3f27 20%) 100%
+    );
+}
+
+.labor-fund__bar-value {
+    font-variant-numeric: tabular-nums;
+    font-weight: 700;
+    font-size: 13px;
+}
+
+.labor-fund__table {
+    width: 100%;
+    border-radius: 12px;
+    overflow: hidden;
+}
+
+.labor-fund__summary-total {
+    font-weight: 700;
+}
+
+.labor-fund__summary-row.is-expandable {
+    cursor: pointer;
+}
+
+.labor-fund__summary-row.is-expandable td {
+    transition: background-color 0.15s ease;
+}
+
+.labor-fund__summary-row.is-expandable:hover td {
+    background: color-mix(in srgb, var(--color-surface) 74%, var(--color-primary) 26%);
+}
+
+.labor-fund__summary-row.is-open td {
+    background: color-mix(in srgb, var(--color-surface) 78%, var(--color-primary) 22%);
+}
+
+.labor-fund__subdivision-cell {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.labor-fund__expand {
+    color: var(--color-text-secondary);
+    font-size: 14px;
+    width: 14px;
+    display: inline-flex;
+    justify-content: center;
+}
+
+.labor-fund__expand-icon {
+    display: inline-block;
+    transition: transform 0.2s ease;
+}
+
+.labor-fund__expand-icon--open {
+    transform: rotate(90deg);
+}
+
+.labor-fund__position-row {
+    background: color-mix(in srgb, var(--color-surface) 86%, var(--color-primary) 14%);
+}
+
+.labor-fund__position-row.is-top-highlight td {
+    background: color-mix(in srgb, #e08c8c 17%, var(--color-surface) 83%);
+}
+
+.labor-fund__position-cell {
+    padding-left: 28px;
+    color: var(--color-text-secondary);
+}
+
+.labor-fund__share-cell {
+    display: grid;
+    grid-template-columns: minmax(90px, 1fr) auto;
+    align-items: center;
+    gap: 8px;
+}
+
+.labor-fund__share-track {
+    height: 8px;
+    border-radius: 999px;
+    overflow: hidden;
+    background: color-mix(in srgb, var(--color-border) 70%, var(--color-surface) 30%);
+}
+
+.labor-fund__share-fill {
+    display: block;
+    height: 100%;
+    width: 0%;
+    border-radius: 999px;
+    background: linear-gradient(
+        90deg,
+        color-mix(in srgb, #198754 80%, var(--color-primary) 20%) 0%,
+        color-mix(in srgb, #198754 55%, #0f3f27 45%) 100%
+    );
+}
+
+.labor-fund__share-value {
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
+    color: var(--color-text-secondary);
+}
+
+.labor-fund__share-position {
+    color: var(--color-text-secondary);
+    text-align: center;
+}
+
+@media (max-width: 1280px) {
+    .labor-fund__charts--summary {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 960px) {
+    .labor-fund__card--filters {
+        max-width: 100%;
+    }
+
+    .labor-fund__filters-layout {
+        grid-template-columns: 1fr;
+    }
+
+    .labor-fund__filter-block--dates {
+        max-width: none;
+    }
+
+    .labor-fund__types-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .labor-fund__settings-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 640px) {
+    .labor-fund__filter-dates {
+        grid-template-columns: 1fr;
+    }
+
+    .labor-fund__pie-layout {
+        grid-template-columns: 1fr;
+    }
+
+    .labor-fund__pie-shell {
+        width: 180px;
+        justify-self: center;
+    }
+
+    .labor-fund__bar-item {
+        grid-template-columns: 1fr;
+        gap: 6px;
+    }
+
+    .labor-fund__bar-value {
+        justify-self: end;
+    }
+}

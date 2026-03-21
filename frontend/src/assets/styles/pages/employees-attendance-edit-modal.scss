@@ -1,0 +1,26 @@
+.employees-page__modal-header {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.employees-page__modal-title {
+    margin: 0;
+}
+
+.employees-page__modal-subtitle {
+    margin: 0;
+    color: var(--color-text-soft);
+}
+
+.employees-page__attendance-form {
+    display: grid;
+    gap: 12px;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+}
+
+.employees-page__attendance-hint {
+    margin-top: 8px;
+    font-size: 14px;
+    color: var(--color-text-soft);
+}

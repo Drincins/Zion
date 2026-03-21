@@ -1,0 +1,141 @@
+@use '@/assets/styles/vars.scss' as *;
+
+.employees-page__section {
+    overflow-x: scroll;
+    max-height: 78vh;
+    border-radius: 8px;
+}
+
+.employees-page__section-table {
+    width: max-content;
+    position: relative;
+    --employees-sticky-first-width: 165px;
+    --employees-sticky-second-width: 240px;
+
+    thead {
+        position: sticky;
+        top: -1px;
+        left: 0;
+        z-index: 5;
+    }
+}
+
+.employees-page__cell--sticky {
+    position: sticky;
+    top: 0;
+    background-color: inherit;
+    background-clip: padding-box;
+}
+
+th.employees-page__cell--sticky,
+td.employees-page__cell--sticky {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.employees-page__cell--sticky-first {
+    left: 0;
+    width: var(--employees-sticky-first-width);
+    min-width: var(--employees-sticky-first-width);
+    max-width: var(--employees-sticky-first-width);
+    box-shadow: 8px 0 12px -10px rgba(15, 23, 42, 0.25);
+
+    @media (max-width: $tablet) {
+        left: auto;
+    }
+}
+
+.employees-page__cell--sticky-second {
+    left: var(--employees-sticky-first-width);
+    width: var(--employees-sticky-second-width);
+    min-width: var(--employees-sticky-second-width);
+    max-width: var(--employees-sticky-second-width);
+    box-shadow: 6px 0 10px -10px rgba(15, 23, 42, 0.2);
+
+    @media (max-width: $tablet) {
+        left: auto;
+    }
+}
+
+th.employees-page__cell--sticky-first {
+    z-index: 6;
+    background-color: var(--color-primary);
+}
+
+th.employees-page__cell--sticky-second {
+    z-index: 5;
+    background-color: var(--color-primary);
+}
+
+td.employees-page__cell--sticky-first {
+    z-index: 4;
+}
+
+td.employees-page__cell--sticky-second {
+    z-index: 3;
+}
+
+.employees-page__fio-button {
+    background: none;
+    border: none;
+    color: var(--color-primary);
+    cursor: pointer;
+    padding: 0;
+    font: inherit;
+}
+
+.employees-page__fio-button:hover {
+    text-decoration: underline;
+}
+
+.employees-page__status {
+    padding: 2px 8px;
+    border-radius: 8px;
+    color: var(--color-green-text);
+    font-weight: 600;
+}
+
+.employees-page__status--fired {
+    color:  var(--color-danger);
+}
+
+.employees-page__empty {
+    text-align: center;
+    color: var(--color-text-soft);
+    padding: 24px 0;
+}
+
+.employees-page__sort-button {
+    align-items: center;
+    background: none;
+    border: none;
+    color: inherit;
+    cursor: pointer;
+    display: inline-flex;
+    font: inherit;
+    gap: 4px;
+    padding: 0;
+}
+
+.employees-page__sort-button:hover .employees-page__sort-icon--active,
+.employees-page__sort-button:focus-visible .employees-page__sort-icon--active {
+    color: var(--color-text-soft);
+}
+
+.employees-page__sort-icons {
+    display: inline-flex;
+    flex-direction: column;
+    font-size: 8px;
+    line-height: 1;
+    margin-left: 4px;
+}
+
+.employees-page__sort-icon {
+    color: var(--color-text);
+    transition: color 0.2s ease;
+}
+
+.employees-page__sort-icon--active {
+    color: var(--color-text-soft);
+}

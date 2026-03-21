@@ -1,0 +1,52 @@
+.employees-page__permissions {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.employees-page__permissions-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+
+.employees-page__permissions-toolbar > * {
+    flex: 1 1 220px;
+    min-width: 200px;
+}
+
+.employees-page__permissions-state {
+    padding: 16px;
+    border-radius: 12px;
+    background: var(--color-surface-200);
+    color: var(--color-text-soft);
+}
+
+.employees-page__permissions-table-wrapper {
+    overflow: auto;
+    border-radius: 8px;
+}
+
+.employees-page__permissions-table {
+    width: 100%;
+    min-width: 720px;
+}
+
+.employees-page__permissions-actions-header {
+    width: 120px;
+    text-align: center;
+}
+
+.employees-page__permissions-actions {
+    display: flex;
+    justify-content: center;
+}
+
+.employees-page__permission-label {
+    font-weight: 600;
+}
+
+.employees-page__permission-description {
+    white-space: pre-wrap;
+    word-break: break-word;
+}

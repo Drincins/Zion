@@ -1,0 +1,12 @@
+.kitchen-layout {
+    :deep(.admin-page__section) {
+        overflow-y: auto;
+    }
+
+    :deep(.table thead th) {
+        position: sticky;
+        top: 0;
+        z-index: 6;
+        background: var(--color-primary);
+    }
+}

@@ -1,0 +1,155 @@
+.kitchen-hall-tables-page__section-title {
+    margin: 0;
+}
+
+.kitchen-hall-tables-page__restaurant-grid {
+    display: grid;
+    gap: 12px;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+}
+
+.kitchen-hall-tables-page__restaurant-tile {
+    display: grid;
+    gap: 4px;
+    border: 1px solid var(--color-border);
+    background: var(--color-surface);
+    color: var(--color-text);
+    border-radius: 12px;
+    padding: 12px 14px;
+    text-align: left;
+    cursor: pointer;
+}
+
+.kitchen-hall-tables-page__restaurant-tile.is-active {
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--color-primary) 65%, transparent);
+}
+
+.kitchen-hall-tables-page__restaurant-tile span {
+    color: var(--color-text-soft);
+    font-size: 13px;
+}
+
+.kitchen-hall-tables-page__workspace {
+    display: grid;
+    gap: 14px;
+    grid-template-columns: minmax(260px, 320px) minmax(0, 1fr);
+}
+
+.kitchen-hall-tables-page__tree,
+.kitchen-hall-tables-page__panel {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 12px;
+    padding: 14px;
+}
+
+.kitchen-hall-tables-page__tree {
+    display: grid;
+    gap: 10px;
+    align-content: start;
+}
+
+.kitchen-hall-tables-page__hall-block {
+    display: grid;
+    gap: 8px;
+}
+
+.kitchen-hall-tables-page__zone-list {
+    display: grid;
+    gap: 6px;
+    padding-left: 10px;
+}
+
+.kitchen-hall-tables-page__node {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    border: 1px solid var(--color-border);
+    border-radius: 10px;
+    background: transparent;
+    color: var(--color-text);
+    padding: 9px 11px;
+    cursor: pointer;
+}
+
+.kitchen-hall-tables-page__node.is-active {
+    border-color: var(--color-primary);
+    color: var(--color-primary);
+}
+.kitchen-hall-tables-page__node-count {
+    color: var(--color-text-soft);
+    font-size: 12px;
+}
+
+.kitchen-hall-tables-page__tree-empty {
+    margin: 2px 0 0;
+    color: var(--color-text-soft);
+    font-size: 13px;
+}
+
+.kitchen-hall-tables-page__content {
+    min-width: 0;
+}
+
+.kitchen-hall-tables-page__panel {
+    display: grid;
+    gap: 12px;
+}
+
+.kitchen-hall-tables-page__filters-grid {
+    display: grid;
+    gap: 12px;
+    grid-template-columns: repeat(3, minmax(180px, 1fr));
+}
+
+.kitchen-hall-tables-page__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.kitchen-hall-tables-page__actions--inline {
+    align-items: flex-end;
+}
+
+.kitchen-hall-tables-page__hint {
+    color: var(--color-text-soft);
+    font-size: 13px;
+}
+
+.kitchen-hall-tables-page__check-col {
+    width: 42px;
+    text-align: center;
+}
+
+.kitchen-hall-tables-page__check-col input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    accent-color: var(--color-primary);
+}
+
+.kitchen-hall-tables-page__modal-title {
+    margin: 0;
+}
+
+.kitchen-hall-tables-page__modal-grid {
+    display: grid;
+    gap: 12px;
+    grid-template-columns: repeat(2, minmax(240px, 1fr));
+}
+
+@media (max-width: 1200px) {
+    .kitchen-hall-tables-page__workspace {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 1100px) {
+    .kitchen-hall-tables-page__filters-grid,
+    .kitchen-hall-tables-page__modal-grid {
+        grid-template-columns: 1fr;
+    }
+}

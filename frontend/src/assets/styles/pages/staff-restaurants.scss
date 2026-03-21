@@ -1,0 +1,208 @@
+.restaurants__modal-title {
+    margin: 0;
+    font-size: 20px;
+}
+
+.restaurants__modal-subtitle {
+    margin: 6px 0 0;
+    color: var(--color-text-soft);
+}
+
+.restaurants__form {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.restaurants__tabs {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 12px;
+}
+
+.restaurants__tab {
+    border: 1px solid var(--color-border);
+    background: var(--color-surface);
+    color: var(--color-text);
+    border-radius: 8px;
+    padding: 8px 14px;
+    cursor: pointer;
+    font-weight: 600;
+}
+
+.restaurants__tab.is-active {
+    background: var(--color-accent);
+    color: var(--color-accent-contrast);
+    border-color: transparent;
+}
+
+.restaurants__sync-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.restaurants__sync-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 12px;
+    align-items: end;
+}
+
+.restaurants__sync-meta {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 6px 12px;
+    padding: 10px 12px;
+    border: 1px solid var(--color-border);
+    border-radius: 10px;
+    background: var(--color-surface-secondary);
+}
+
+.restaurants__sync-meta p {
+    margin: 0;
+    color: var(--color-text-soft);
+    font-size: 13px;
+}
+
+.restaurants__manual-sync {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 10px 12px;
+    border: 1px solid var(--color-border);
+    border-radius: 10px;
+}
+
+.restaurants__manual-title {
+    margin: 0;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.restaurants__manual-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 10px;
+}
+
+.restaurants__sync-summary {
+    margin: 0;
+    color: var(--color-text-soft);
+    font-size: 13px;
+}
+
+.restaurants__sync-chunks {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 8px;
+    padding: 10px;
+    border: 1px solid var(--color-border);
+    border-radius: 10px;
+    background: var(--color-surface-secondary);
+}
+
+.restaurants__sync-chunks-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 10px;
+}
+
+.restaurants__sync-chunks-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--color-text);
+}
+
+.restaurants__sync-chunks-summary {
+    font-size: 12px;
+    color: var(--color-text-soft);
+}
+
+.restaurants__sync-chunks-list {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.restaurants__sync-chunk {
+    padding: 8px 10px;
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+    background: var(--color-surface);
+}
+
+.restaurants__sync-chunk-main {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    align-items: center;
+}
+
+.restaurants__sync-chunk-window {
+    font-size: 13px;
+    color: var(--color-text);
+}
+
+.restaurants__sync-chunk-status {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--color-text-soft);
+}
+
+.restaurants__sync-chunk-summary,
+.restaurants__sync-chunk-detail {
+    margin: 4px 0 0;
+    font-size: 12px;
+    color: var(--color-text-soft);
+}
+
+.restaurants__sync-chunk.is-ok {
+    border-color: color-mix(in srgb, var(--color-success) 40%, var(--color-border));
+}
+
+.restaurants__sync-chunk.is-ok .restaurants__sync-chunk-status {
+    color: var(--color-success);
+}
+
+.restaurants__sync-chunk.is-error {
+    border-color: color-mix(in srgb, var(--color-danger) 45%, var(--color-border));
+}
+
+.restaurants__sync-chunk.is-error .restaurants__sync-chunk-status {
+    color: var(--color-danger);
+}
+
+.restaurants__sync-chunk.is-running {
+    border-color: color-mix(in srgb, var(--color-accent) 45%, var(--color-border));
+}
+
+.restaurants__sync-chunk.is-running .restaurants__sync-chunk-status {
+    color: var(--color-accent);
+}
+
+.restaurants__sync-operations {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 10px 12px;
+    border: 1px solid var(--color-border);
+    border-radius: 10px;
+}
+
+.restaurants__sync-operations-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+}
+
+.restaurants__sync-operations-empty {
+    font-size: 13px;
+    color: var(--color-text-soft);
+}

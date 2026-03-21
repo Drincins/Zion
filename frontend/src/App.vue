@@ -1,13 +1,16 @@
 <template>
-  <div>
-    <h2>Тест</h2>
-  </div>
+    <div>
+        <div class="theme-toggle-wrapper">
+            <ThemeToggle />
+        </div>
+        <router-view />
+    </div>
 </template>
 
 <script setup>
-import { ref } from 'vue'
-import axios from 'axios'
-
-const serverUrl = 'http://localhost:8000'  // URL FastAPI сервера
-
+import ThemeToggle from '@/components/ThemeToggle.vue';
 </script>
+
+<style lang="scss">
+@use '@/assets/styles/app' as *;
+</style>

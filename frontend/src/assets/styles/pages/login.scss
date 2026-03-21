@@ -1,0 +1,67 @@
+@use '@/assets/styles/vars.scss' as *;
+
+.authorization {
+    min-height: 100vh;
+    padding: 40px 0;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    flex-wrap: wrap;
+
+    &__logo {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        width: 96px;
+        height: 96px;
+    }
+
+    &__logo-image {
+        width: 100%;
+        height: auto;
+    }
+
+    &-heading {
+        font-size: 26px;
+        font-weight: 400;
+        text-align: center;
+    }
+
+    &-form {
+        margin-top: 16px;
+
+        &-input {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        &-button {
+            width: 100%;
+            margin-top: 16px;
+        }
+    }
+
+    &__link {
+        color: var(--color-primary);
+        font-weight: 500;
+        text-decoration: none;
+        transition: color 0.2s ease;
+        position: absolute;
+        bottom: 40px;
+        left: 50%;
+        transform: translateX(-50%);
+
+        &:hover {
+            color: var(--color-text);
+        }
+
+        @media (max-width: $mobile) {
+            width: 300px;
+            font-size: 14px;
+            text-align: center;
+        }
+    }
+}

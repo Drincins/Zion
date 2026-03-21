@@ -1,0 +1,409 @@
+@use '@/assets/styles/pages/kpi-employees-skin' as kpiSkin;
+
+.kpi-page {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.kpi-panel {
+    border: 1px solid var(--color-border);
+    border-radius: 12px;
+    padding: 16px;
+    background: var(--color-surface);
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.kpi-panel__header {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.kpi-panel__title {
+    margin: 0;
+    font-size: 18px;
+}
+
+.kpi-facts__hero-actions {
+    display: flex;
+    align-items: flex-end;
+    justify-content: flex-start;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.kpi-facts__mode-switch {
+    position: relative;
+    display: inline-grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: center;
+    min-width: 320px;
+    padding: 4px;
+    border: 1px solid color-mix(in srgb, var(--color-primary) 22%, var(--color-border));
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--color-surface-200) 78%, transparent);
+    isolation: isolate;
+    overflow: hidden;
+}
+
+.kpi-facts__mode-indicator {
+    position: absolute;
+    inset: 4px auto 4px 4px;
+    width: calc(50% - 4px);
+    border-radius: 999px;
+    background: var(--color-primary);
+    box-shadow: 0 10px 18px -18px color-mix(in srgb, var(--color-primary) 80%, transparent);
+    transition: transform 0.22s ease;
+    z-index: 0;
+}
+
+.kpi-facts__mode-switch.is-restaurant .kpi-facts__mode-indicator {
+    transform: translateX(100%);
+}
+
+.kpi-facts__mode-button {
+    position: relative;
+    z-index: 1;
+    border: none;
+    border-radius: 999px;
+    background: transparent;
+    color: var(--color-text-soft);
+    font: inherit;
+    font-size: 13px;
+    font-weight: 700;
+    padding: 10px 16px;
+    cursor: pointer;
+    transition: color 0.2s ease;
+}
+
+.kpi-facts__mode-button:hover {
+    color: var(--color-text);
+}
+
+.kpi-facts__mode-button.is-active {
+    color: var(--color-primary-contrast, #18130d);
+}
+
+.kpi-facts__year-field {
+    width: 116px;
+}
+
+.kpi-facts__restaurant-field {
+    width: min(360px, 100%);
+}
+
+.kpi-empty {
+    border: 1px dashed var(--color-border);
+    border-radius: 12px;
+    padding: 16px;
+    background: var(--color-surface-200);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    align-items: flex-start;
+}
+
+.kpi-empty__title {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 600;
+}
+
+.kpi-empty__subtitle {
+    margin: 0;
+    font-size: 13px;
+    color: var(--color-text-soft);
+    max-width: 520px;
+}
+
+.kpi-table-wrapper {
+    position: relative;
+    isolation: isolate;
+    overflow: auto;
+    max-height: min(72vh, 820px);
+    max-width: 100%;
+    border: 1px solid var(--color-border);
+    border-radius: 12px;
+    background: var(--color-surface);
+}
+
+.kpi-table--facts {
+    width: max-content;
+    min-width: 100%;
+    table-layout: fixed;
+    border-collapse: separate;
+    border-spacing: 0;
+}
+
+.kpi-table--facts .kpi-table__col--metric {
+    width: 200px;
+    min-width: 200px;
+}
+
+.kpi-table--facts .kpi-table__col--restaurant {
+    width: 170px;
+    min-width: 170px;
+}
+
+.kpi-table--facts .kpi-table__col--month {
+    width: 110px;
+    min-width: 110px;
+}
+
+.kpi-table--facts th,
+.kpi-table--facts td {
+    box-sizing: border-box;
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--color-border);
+    border-right: 1px solid var(--color-border);
+    text-align: center;
+    vertical-align: middle;
+    overflow: hidden;
+}
+
+.kpi-table--facts th:last-child,
+.kpi-table--facts td:last-child {
+    border-right: none;
+}
+
+.kpi-table--facts tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.kpi-table--facts thead th {
+    font-size: 12px;
+    color: var(--color-text-soft);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    background: var(--color-surface-200);
+    position: sticky;
+    top: 0;
+    z-index: 20;
+}
+
+.kpi-table--facts thead th:nth-child(1) {
+    left: 0;
+    z-index: 30;
+}
+
+.kpi-table--facts thead th:nth-child(2) {
+    left: 200px;
+    z-index: 30;
+}
+
+.kpi-fact__metric,
+.kpi-fact__restaurant {
+    text-align: left;
+}
+
+.kpi-table--facts tbody .kpi-fact__metric {
+    position: sticky;
+    left: 0;
+    z-index: 10;
+    background: var(--color-surface);
+    box-shadow: 1px 0 0 0 var(--color-border);
+}
+
+.kpi-table--facts tbody .kpi-fact__restaurant {
+    position: sticky;
+    left: 200px;
+    z-index: 10;
+    background: var(--color-surface);
+    box-shadow: 1px 0 0 0 var(--color-border);
+}
+
+.kpi-fact__metric-name {
+    font-weight: 600;
+    word-break: break-word;
+}
+
+.kpi-fact__metric-unit {
+    margin-top: 2px;
+    font-size: 12px;
+    color: var(--color-text-soft);
+}
+
+.kpi-fact__restaurant {
+    font-weight: 600;
+    color: var(--color-text);
+    word-break: break-word;
+}
+
+.kpi-fact__cell {
+    min-width: 110px;
+    padding: 6px;
+    overflow: hidden;
+}
+
+.kpi-fact__cell.is-editing {
+    background: color-mix(in srgb, var(--color-primary) 8%, var(--color-surface));
+}
+
+.kpi-fact__editor {
+    width: 100%;
+}
+
+.kpi-fact__value-button {
+    width: 100%;
+    max-width: 100%;
+    min-height: 36px;
+    border: 1px solid transparent;
+    border-radius: 8px;
+    background: transparent;
+    color: var(--color-text);
+    font: inherit;
+    font-weight: 600;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color 0.2s ease, background-color 0.2s ease;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.kpi-fact__value-button:hover {
+    border-color: color-mix(in srgb, var(--color-primary) 28%, var(--color-border));
+    background: color-mix(in srgb, var(--color-primary) 6%, var(--color-surface));
+}
+
+.kpi-fact__value-button.is-empty {
+    color: var(--color-text-soft);
+    font-weight: 500;
+}
+
+.kpi-fact__value-button:disabled {
+    cursor: wait;
+    opacity: 0.7;
+}
+
+.kpi-fact__input {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    padding: 8px 10px;
+    border-radius: 8px;
+    border: 1px solid var(--color-border);
+    background: var(--color-surface);
+    color: var(--color-text);
+    font-size: 14px;
+    text-align: center;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.kpi-fact__placeholder {
+    display: block;
+    max-width: 100%;
+    color: var(--color-text-soft);
+    font-size: 13px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.kpi-list__empty {
+    margin: 0;
+    font-size: 13px;
+    color: var(--color-text-soft);
+}
+
+@include kpiSkin.kpiPageSkin();
+
+.kpi-page {
+    .kpi-table-wrapper {
+        position: relative;
+        isolation: isolate;
+        overflow: auto;
+        max-height: min(72vh, 820px);
+        max-width: 100%;
+        border: 1px solid var(--color-border);
+        border-radius: 12px;
+        background: var(--color-surface);
+    }
+
+    .kpi-table--facts {
+        width: max-content;
+        min-width: 100%;
+        table-layout: fixed;
+        border-collapse: separate;
+        border-spacing: 0;
+        border: none;
+        border-radius: 0;
+        overflow: visible;
+        background: var(--color-surface);
+    }
+
+    .kpi-table--facts thead th {
+        position: sticky;
+        top: 0;
+        z-index: 40;
+        background: var(--color-surface-200);
+        box-shadow: inset 0 -1px 0 0 var(--color-border);
+    }
+
+    .kpi-table--facts thead th:nth-child(1) {
+        left: 0;
+        z-index: 60;
+    }
+
+    .kpi-table--facts thead th:nth-child(2) {
+        left: 200px;
+        z-index: 60;
+    }
+
+    .kpi-table--facts tbody .kpi-fact__metric {
+        position: sticky;
+        left: 0;
+        z-index: 20;
+        background: var(--color-surface);
+        box-shadow: 1px 0 0 0 var(--color-border);
+    }
+
+    .kpi-table--facts tbody .kpi-fact__restaurant {
+        position: sticky;
+        left: 200px;
+        z-index: 20;
+        background: var(--color-surface);
+        box-shadow: 1px 0 0 0 var(--color-border);
+    }
+
+    .kpi-table--facts tbody .kpi-fact__metric,
+    .kpi-table--facts tbody .kpi-fact__restaurant,
+    .kpi-table--facts thead th {
+        background-clip: padding-box;
+    }
+}
+
+@media (max-width: 960px) {
+    .kpi-facts__mode-switch {
+        min-width: 0;
+        width: 100%;
+    }
+
+    .kpi-facts__year-field {
+        width: 100%;
+        max-width: 160px;
+    }
+
+    .kpi-facts__restaurant-field {
+        width: 100%;
+        max-width: 320px;
+    }
+}
+
+@media (max-width: 640px) {
+    .kpi-facts__hero-actions {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .kpi-facts__year-field,
+    .kpi-facts__restaurant-field {
+        max-width: none;
+    }
+}

@@ -1,0 +1,168 @@
+.access-permissions {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+}
+
+.access-permissions__tabs {
+    display: inline-flex;
+    gap: 6px;
+    padding: 4px;
+    border-radius: 999px;
+    border: 1px solid var(--color-border, #e5e7eb);
+    background: var(--color-surface, #fff);
+    width: fit-content;
+}
+
+.access-permissions__tab {
+    border: none;
+    background: transparent;
+    padding: 8px 16px;
+    border-radius: 999px;
+    font: inherit;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text-secondary, #6b7280);
+    cursor: pointer;
+}
+
+.access-permissions__tab.is-active {
+    background: var(--color-primary, #2563eb);
+    color: var(--color-text-button, #fff);
+}
+
+.access-permissions__card {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.access-permissions__card-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+}
+
+.access-permissions__card-title {
+    margin: 0;
+    font-size: 20px;
+    font-weight: 600;
+}
+
+.access-permissions__card-subtitle {
+    margin: 4px 0 0;
+    font-size: 13px;
+    color: var(--text-secondary, #6b7280);
+}
+
+.access-permissions__state {
+    font-size: 14px;
+    color: var(--text-secondary, #6b7280);
+    padding: 8px 0;
+}
+
+.access-permissions__filters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-bottom: 12px;
+}
+
+.access-permissions__filters > * {
+    flex: 1 1 240px;
+    min-width: 220px;
+    max-width: 320px;
+}
+
+.access-permissions__matrix-wrapper {
+    overflow: auto;
+    max-width: 1600px;
+    max-height: min(70vh, 600px);
+    border: 1px solid var(--color-border, #e5e7eb);
+    border-radius: 12px;
+}
+
+.access-permissions__pagination {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-top: 12px;
+    flex-wrap: wrap;
+}
+
+.access-permissions__pagination-info {
+    font-size: 13px;
+    color: var(--text-secondary, #6b7280);
+}
+
+.permissions-matrix {
+    width: auto;
+    border-collapse: collapse;
+    min-width: 640px;
+    position: relative;
+}
+
+.permissions-matrix th,
+.permissions-matrix td {
+    border: 1px solid var(--color-border, #e5e7eb);
+    padding: 8px;
+    text-align: center;
+    background-color: var(--color-surface, #fff);
+}
+
+.permissions-matrix__row-header {
+    min-width: 220px;
+    text-align: left;
+    font-weight: 600;
+    background-color: var(--color-muted, #f8fafc);
+    position: sticky;
+    top: 0;
+    left: 0;
+    z-index: 4;
+}
+
+.permissions-matrix__row-label {
+    text-align: left;
+    font-weight: 500;
+    background-color: var(--color-muted, #f8fafc);
+    position: sticky;
+    left: -1px;
+    z-index: 2;
+}
+
+.permissions-matrix__row-name {
+    display: block;
+}
+
+.permissions-matrix__row-meta {
+    display: block;
+    font-size: 11px;
+    color: var(--text-secondary, #6b7280);
+}
+
+.permissions-matrix__permission-header {
+    min-width: 140px;
+    font-size: 12px;
+    font-weight: 600;
+    background-color: var(--color-surface, #fff);
+}
+
+.permissions-matrix__cell {
+    min-width: 80px;
+}
+
+.permissions-matrix thead th {
+    position: sticky;
+    top: -1px;
+    left: -1px;
+    z-index: 2;
+
+    &:first-child {
+        z-index: 3;
+    }
+}
+
+.permissions-matrix__cell :deep(.checkbox) {
+    justify-content: center;
+}

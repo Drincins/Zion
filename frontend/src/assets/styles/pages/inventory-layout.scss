@@ -1,0 +1,401 @@
+.inventory-page {
+    display: flex;
+    flex-direction: column;
+    gap: 22px;
+    position: relative;
+    isolation: isolate;
+    padding-bottom: 10px;
+    color: var(--color-text);
+    background:
+        radial-gradient(
+            980px 420px at 100% -6%,
+            color-mix(in srgb, var(--color-primary) 10%, transparent) 0%,
+            transparent 62%
+        ),
+        linear-gradient(
+            180deg,
+            color-mix(in srgb, var(--color-surface-200) 18%, transparent) 0%,
+            transparent 28%
+        );
+    --inventory-panel-bg: linear-gradient(
+        180deg,
+        color-mix(in srgb, var(--color-surface) 96%, var(--color-surface-100) 4%) 0%,
+        color-mix(in srgb, var(--color-surface) 92%, var(--color-surface-200) 8%) 100%
+    );
+    --inventory-panel-bg-soft: linear-gradient(
+        180deg,
+        color-mix(in srgb, var(--color-surface) 98%, var(--color-surface-100) 2%) 0%,
+        color-mix(in srgb, var(--color-surface) 95%, var(--color-surface-200) 5%) 100%
+    );
+    --inventory-panel-border: color-mix(in srgb, var(--color-border) 82%, transparent);
+    --inventory-panel-shadow: 0 22px 52px -36px rgba(15, 12, 9, 0.58);
+    --inventory-panel-shadow-soft: 0 16px 36px -32px rgba(15, 12, 9, 0.42);
+    --inventory-panel-shadow-hover: 0 24px 48px -34px rgba(15, 12, 9, 0.5);
+    --inventory-accent-soft: color-mix(in srgb, var(--color-primary) 9%, var(--color-surface) 91%);
+    --inventory-accent: color-mix(in srgb, var(--color-primary) 14%, var(--color-surface) 86%);
+    --inventory-accent-strong: color-mix(in srgb, var(--color-primary) 19%, var(--color-surface) 81%);
+    --inventory-accent-line: color-mix(in srgb, var(--color-primary) 28%, transparent);
+    --inventory-toolbar-bg: color-mix(in srgb, var(--color-surface-200) 68%, var(--color-surface) 32%);
+    --inventory-control-bg: color-mix(in srgb, var(--color-surface) 90%, var(--color-surface-100) 10%);
+    --inventory-control-bg-hover: color-mix(in srgb, var(--color-surface) 80%, var(--color-surface-100) 20%);
+    --inventory-header-bg: linear-gradient(
+        135deg,
+        color-mix(in srgb, var(--color-surface) 92%, var(--color-surface-100) 8%) 0%,
+        color-mix(in srgb, var(--color-surface) 88%, var(--color-primary) 12%) 100%
+    );
+    --inventory-header-border: color-mix(in srgb, var(--color-primary) 22%, var(--color-border) 78%);
+    --inventory-header-shadow: 0 26px 56px -42px rgba(15, 12, 9, 0.62);
+    --inventory-focus-ring: 0 0 0 3px color-mix(in srgb, var(--color-primary) 16%, transparent);
+}
+
+.inventory-page::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    pointer-events: none;
+    background:
+        linear-gradient(
+            120deg,
+            color-mix(in srgb, var(--color-primary) 4%, transparent) 0%,
+            transparent 18%,
+            transparent 82%,
+            color-mix(in srgb, var(--color-primary) 5%, transparent) 100%
+        );
+    z-index: -1;
+}
+
+.inventory-page > * {
+    min-width: 0;
+}
+
+.inventory-page__section {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    padding: 20px 22px;
+    border-radius: 20px;
+    border: 1px solid var(--inventory-panel-border);
+    background: var(--inventory-panel-bg);
+    box-shadow: var(--inventory-panel-shadow);
+    position: relative;
+    overflow: hidden;
+}
+
+.inventory-page__section::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background:
+        linear-gradient(
+            135deg,
+            color-mix(in srgb, var(--color-primary) 8%, transparent) 0%,
+            transparent 30%,
+            transparent 72%,
+            color-mix(in srgb, var(--color-primary) 5%, transparent) 100%
+        );
+    opacity: 0.7;
+}
+
+.inventory-page__section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+
+.inventory-page__form {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    align-items: flex-end;
+}
+
+.inventory-page__form--grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 12px;
+}
+
+.inventory-page__form-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+}
+
+.inventory-page__filters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    align-items: flex-end;
+}
+
+.inventory-page__loading {
+    text-align: center;
+    color: var(--color-text-soft);
+    padding: 28px 0;
+}
+
+.inventory-page__empty {
+    text-align: center;
+    color: var(--color-text-soft);
+    padding: 28px 0;
+}
+
+.inventory-page__actions-column {
+    width: 220px;
+}
+
+.inventory-page__balance-list {
+    margin: 0;
+    padding-left: 18px;
+    display: grid;
+    gap: 4px;
+    list-style: disc;
+}
+
+.inventory-page .table {
+    box-shadow: none;
+    background: transparent;
+    border-collapse: separate;
+    border-spacing: 0;
+}
+
+.inventory-page .table thead {
+    background:
+        linear-gradient(
+            180deg,
+            color-mix(in srgb, var(--inventory-accent) 82%, var(--color-surface) 18%) 0%,
+            color-mix(in srgb, var(--inventory-toolbar-bg) 82%, var(--color-surface) 18%) 100%
+        );
+    color: var(--color-text-secondary, var(--color-text-soft));
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.inventory-page .table thead th {
+    font-size: 12px;
+    font-weight: 600;
+    padding-block: 12px;
+    padding-inline: 14px;
+    border-bottom: 1px solid var(--color-border);
+    white-space: nowrap;
+}
+
+.inventory-page .table thead th:first-child {
+    border-top-left-radius: 14px;
+}
+
+.inventory-page .table thead th:last-child {
+    border-top-right-radius: 14px;
+}
+
+.inventory-page .table th,
+.inventory-page .table td {
+    font-size: 13px;
+    padding-block: 11px;
+    padding-inline: 14px;
+    border-bottom: 1px solid var(--color-border);
+    vertical-align: top;
+}
+
+.inventory-page .table tbody tr {
+    background: transparent;
+}
+
+.inventory-page .table tbody tr:hover {
+    background: color-mix(in srgb, var(--inventory-accent-soft) 88%, transparent);
+    transform: none;
+}
+
+.inventory-page .table tbody tr:nth-child(even) {
+    background: color-mix(in srgb, var(--color-surface-200) 24%, transparent);
+}
+
+.inventory-page :is(button, a, [role='button']) {
+    transition:
+        border-color 0.2s ease,
+        background-color 0.2s ease,
+        color 0.2s ease,
+        box-shadow 0.2s ease,
+        transform 0.2s ease;
+}
+
+.inventory-page :is(button, a, [role='button']):focus-visible {
+    outline: none;
+    box-shadow: var(--inventory-focus-ring);
+}
+
+.inventory-page :is(
+    .inventory-catalog__header,
+    .inventory-balance__header,
+    .inventory-operations__header,
+    .inventory-items__header,
+    .inventory-movements__header
+) {
+    position: relative;
+    padding: 24px 26px;
+    border-radius: 24px;
+    border: 1px solid var(--inventory-header-border);
+    background: var(--inventory-header-bg);
+    box-shadow: var(--inventory-header-shadow);
+    overflow: hidden;
+}
+
+.inventory-page :is(
+    .inventory-catalog__header,
+    .inventory-balance__header,
+    .inventory-operations__header,
+    .inventory-items__header,
+    .inventory-movements__header
+)::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background:
+        radial-gradient(
+            540px 160px at 100% 0%,
+            color-mix(in srgb, var(--color-primary) 12%, transparent) 0%,
+            transparent 68%
+        ),
+        linear-gradient(
+            110deg,
+            color-mix(in srgb, var(--color-surface-200) 16%, transparent) 0%,
+            transparent 32%
+        );
+}
+
+.inventory-page :is(
+    .inventory-catalog__header-main,
+    .inventory-balance__header-main,
+    .inventory-operations__header-main,
+    .inventory-items__header > div:first-child,
+    .inventory-movements__header-main
+) {
+    position: relative;
+    z-index: 1;
+    max-width: 820px;
+}
+
+.inventory-page :is(
+    .inventory-catalog__header-actions,
+    .inventory-balance__header-actions,
+    .inventory-operations__header-actions,
+    .inventory-items__header > .button,
+    .inventory-movements__header-actions
+) {
+    position: relative;
+    z-index: 1;
+}
+
+.inventory-page :is(
+    .inventory-catalog__title,
+    .inventory-balance__title,
+    .inventory-operations__title,
+    .inventory-items__title,
+    .inventory-movements__title
+) {
+    letter-spacing: -0.02em;
+}
+
+.inventory-page :is(
+    .inventory-catalog__subtitle,
+    .inventory-balance__subtitle,
+    .inventory-operations__subtitle,
+    .inventory-items__subtitle,
+    .inventory-movements__subtitle
+) {
+    color: color-mix(in srgb, var(--color-text-secondary, var(--color-text-soft)) 92%, var(--color-text) 8%);
+}
+
+.inventory-page :is(
+    .inventory-catalog__filters-panel,
+    .inventory-balance__filters-panel,
+    .inventory-operations__filters-panel,
+    .inventory-items__filters,
+    .inventory-movements__filters-panel,
+    .inventory-catalog__tree-card,
+    .inventory-balance__tree-card,
+    .inventory-operations__table-card,
+    .inventory-items__table-card,
+    .inventory-movements__table-area,
+    .catalog-tree
+) {
+    border: 1px solid var(--inventory-panel-border);
+    background: var(--inventory-panel-bg-soft);
+    box-shadow: var(--inventory-panel-shadow-soft);
+}
+
+.inventory-page :is(
+    .inventory-catalog__filters-toggle,
+    .inventory-operations__filters-toggle,
+    .inventory-movements__filters-toggle
+) {
+    min-height: 32px;
+    padding: 0 2px;
+    letter-spacing: 0.02em;
+}
+
+.inventory-page :is(
+    .inventory-catalog__filters-icon,
+    .inventory-operations__filters-icon,
+    .inventory-movements__filters-icon
+) {
+    width: 28px;
+    height: 28px;
+    border-radius: 999px;
+    align-items: center;
+    justify-content: center;
+    background: color-mix(in srgb, var(--inventory-toolbar-bg) 88%, transparent);
+    border: 1px solid color-mix(in srgb, var(--inventory-panel-border) 76%, transparent);
+}
+
+.inventory-page :is(
+    .inventory-catalog__tree-toolbar,
+    .inventory-balance__tree-toolbar
+) {
+    padding: 14px 14px 2px;
+}
+
+.inventory-page :is(
+    .inventory-catalog__tree-toolbar,
+    .inventory-balance__tree-toolbar
+) :deep(.button) {
+    min-height: 34px;
+    border-radius: 999px;
+}
+
+.inventory-page :is(
+    .inventory-catalog__icon-btn,
+    .inventory-balance__icon-btn,
+    .inventory-items__icon-btn,
+    .catalog-tree__icon-btn
+) {
+    box-shadow: 0 10px 18px -16px rgba(15, 12, 9, 0.5);
+}
+
+@media (max-width: 960px) {
+    .inventory-page {
+        gap: 14px;
+    }
+
+    .inventory-page :is(
+        .inventory-catalog__header,
+        .inventory-balance__header,
+        .inventory-operations__header,
+        .inventory-items__header,
+        .inventory-movements__header
+    ) {
+        padding: 18px;
+        border-radius: 18px;
+    }
+
+    .inventory-page__section {
+        padding: 14px;
+        border-radius: 14px;
+    }
+}

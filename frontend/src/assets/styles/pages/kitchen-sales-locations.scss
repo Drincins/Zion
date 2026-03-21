@@ -1,0 +1,27 @@
+.kitchen-sales-locations-page__section-title {
+    margin: 0 0 12px;
+}
+
+.kitchen-sales-locations-page__editor-grid {
+    display: grid;
+    gap: 12px;
+    grid-template-columns: repeat(3, minmax(220px, 1fr));
+}
+
+.kitchen-sales-locations-page__editor-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 12px;
+}
+
+.kitchen-sales-locations-page__hint {
+    margin: 0 0 12px;
+    color: var(--color-text-soft);
+}
+
+@media (max-width: 1100px) {
+    .kitchen-sales-locations-page__editor-grid {
+        grid-template-columns: 1fr;
+    }
+}

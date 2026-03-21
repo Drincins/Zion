@@ -1,0 +1,33 @@
+.kitchen-settings-page {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.kitchen-settings-page__tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.kitchen-settings-page__tab {
+    border: 1px solid var(--color-border);
+    border-radius: 10px;
+    background: var(--color-surface);
+    color: var(--color-text);
+    font: inherit;
+    font-weight: 600;
+    padding: 10px 14px;
+    cursor: pointer;
+    transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+}
+
+.kitchen-settings-page__tab:hover {
+    border-color: var(--color-primary);
+}
+
+.kitchen-settings-page__tab.is-active {
+    background: var(--color-primary);
+    border-color: var(--color-primary);
+    color: var(--color-primary-text, #111);
+}
