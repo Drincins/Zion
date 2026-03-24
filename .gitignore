@@ -1,14 +1,68 @@
+# Environment and secrets
+.env
+.env.*
+!.env.example
+
+# Python
 __pycache__/
 *.pyc
+*.pyo
+*.pyd
+*.so
+.venv/
+venv/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Node / frontend
+node_modules/
+frontend/node_modules/
+dist/
+frontend/dist/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Build artifacts / binaries
+*.tmp
+*.temp
+*.log
+*.dump
+*.cache
+*.pdb
+*.obj
+*.exe
+*.dll
+*.class
+
+# IDE / OS
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.suo
+*.swp
+*.user
+
+# Project-specific generated files
 db.sql
 db.sql.old
 db.sql.*
-*.dump
-*.tmp
-.env
-=
-tools/pgbin/
-GIT_SYNC_INSTRUCTIONS.md
-.DS_Store
 media/
 zion_raw.bin
+GIT_SYNC_INSTRUCTIONS.md
+=
+tools/pgbin/
+tools/zkfinger-gui/obj/
+tools/zkfinger-gui/bin/x86/
+tmp_*
+temp*
+tmp_iiko_pdf_texts/
+frontend/temp_segment.txt
+
+# Vendor metadata
+**/.svn/

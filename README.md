@@ -62,3 +62,9 @@ alembic upgrade head
 ```bash
 docker compose run --rm backend alembic stamp head
 ```
+
+## Python-зависимости (lock-стратегия)
+
+- `requirements.in` и `requirements-dev.in` — верхнеуровневые списки зависимостей.
+- `requirements.txt` и `requirements-dev.txt` — зафиксированные версии для установки в CI/production.
+- Обновление зависимостей делаем только через PR с синхронным изменением `*.in` и соответствующих lock-файлов.

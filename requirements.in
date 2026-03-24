@@ -1,0 +1,27 @@
+# Top-level runtime dependencies.
+# Keep this file concise; lock exact versions in requirements.txt.
+
+alembic
+bcrypt>=4.1.2
+boto3
+fastapi
+gunicorn
+openai
+openpyxl
+pandas
+passlib[bcrypt]
+pdf2image
+Pillow
+psycopg2-binary
+pytesseract
+python-dotenv
+python-jose
+python-multipart
+pytz
+reportlab
+requests
+socksio
+sqlalchemy
+urllib3
+uvicorn
+xlsxwriter

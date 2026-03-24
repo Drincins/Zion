@@ -1,25 +1,30 @@
-fastapi
-uvicorn
-gunicorn
-pandas
-pytz
-requests
-sqlalchemy
-python-dotenv
-psycopg2-binary
-passlib[bcrypt]
-python-jose
-alembic
-xlsxwriter
-pandas
-openpyxl
-python-multipart
-bcrypt>=4.1.2
-urllib3
-boto3
-pytesseract
-pdf2image
-Pillow
-openai
-reportlab
-socksio
+# Runtime dependencies (locked versions).
+# Lock strategy:
+# 1) Update top-level constraints in requirements.in
+# 2) Regenerate this file with pip-tools (pip-compile), or update pins explicitly in PR
+# 3) Commit requirements.in + requirements.txt together
+
+alembic==1.14.0
+bcrypt==4.2.1
+boto3==1.35.81
+fastapi==0.115.6
+gunicorn==23.0.0
+openai==1.57.4
+openpyxl==3.1.5
+pandas==2.2.3
+passlib[bcrypt]==1.7.4
+pdf2image==1.17.0
+Pillow==11.0.0
+psycopg2-binary==2.9.10
+pytesseract==0.3.13
+python-dotenv==1.0.1
+python-jose==3.3.0
+python-multipart==0.0.20
+pytz==2024.2
+reportlab==4.2.5
+requests==2.32.3
+socksio==1.0.0
+sqlalchemy==2.0.36
+urllib3==2.2.3
+uvicorn==0.34.0
+xlsxwriter==3.2.0

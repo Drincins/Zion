@@ -1,4 +1,5 @@
-from sqlalchemy.orm import sessionmaker, declarative_base
+from collections.abc import Generator
+from sqlalchemy.orm import Session, sessionmaker, declarative_base
 from sqlalchemy import create_engine
 from dotenv import load_dotenv
 import os
@@ -32,6 +33,13 @@ if not DATABASE_URL:
         f"postgresql+psycopg2://{POSTGRES_USER}:{POSTGRES_PASSWORD}"
         f"@{POSTGRES_HOST}:{POSTGRES_PORT}/{POSTGRES_DB}"
     )
+
+if not DATABASE_URL:
+    raise RuntimeError("DATABASE_URL resolved to an empty value")
+
+DATABASE_URL = DATABASE_URL.strip()
+if not DATABASE_URL:
+    raise RuntimeError("DATABASE_URL resolved to an empty value")
 
 
 def _env_int(name: str, default: int, min_value: int = 0) -> int:
@@ -70,7 +78,7 @@ SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
 Base = declarative_base()
 
 
-def get_db():
+def get_db() -> Generator[Session, None, None]:
     db = SessionLocal()
     try:
         yield db
