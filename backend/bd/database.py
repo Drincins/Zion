@@ -1,4 +1,5 @@
 from collections.abc import Generator
+from typing import Any
 from sqlalchemy.orm import Session, sessionmaker, declarative_base
 from sqlalchemy import create_engine
 from dotenv import load_dotenv
@@ -53,7 +54,7 @@ def _env_int(name: str, default: int, min_value: int = 0) -> int:
     return value if value >= min_value else min_value
 
 
-engine_options = {
+engine_options: dict[str, Any] = {
     "pool_pre_ping": True,
     "future": True,
 }
