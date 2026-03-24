@@ -46,3 +46,19 @@ npm run lint
 npm run build
 npm run dev
 ```
+
+## Схема БД (только Alembic)
+
+Создание схемы в runtime через `create_all` отключено. Схема управляется только миграциями Alembic.
+
+При старте backend выполняется:
+
+```bash
+alembic upgrade head
+```
+
+Если восстановили дамп, в котором уже есть актуальная схема, но нет таблицы `alembic_version`, один раз выполните `stamp` перед обычным запуском:
+
+```bash
+docker compose run --rm backend alembic stamp head
+```

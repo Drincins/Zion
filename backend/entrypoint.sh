@@ -1,52 +1,8 @@
 #!/usr/bin/env sh
 set -e
 
-# Decide whether to run Alembic migrations. Some databases are provisioned
-# from a prebuilt dump that lacks the Alembic history tables; in that case
-# running migrations will fail because base tables (like users) are absent.
-
-should_run=$(python - <<'PY'
-import os
-from sqlalchemy import create_engine, text
-
-# Build the same URL the application uses
-url = os.getenv("DATABASE_URL")
-if not url:
-    host = os.getenv("POSTGRES_HOST", "db")
-    port = os.getenv("POSTGRES_PORT", "5432")
-    user = os.getenv("POSTGRES_USER", "zion_user")
-    password = (os.getenv("POSTGRES_PASSWORD") or "").strip()
-    if not password:
-        raise SystemExit("POSTGRES_PASSWORD must be set when DATABASE_URL is not configured")
-    database = os.getenv("POSTGRES_DB", "zion")
-    url = f"postgresql+psycopg2://{user}:{password}@{host}:{port}/{database}"
-
-engine = create_engine(url, future=True)
-
-with engine.connect() as conn:
-    # Only attempt Alembic migrations if the history table is present.
-    result = conn.execute(
-        text(
-            """
-            SELECT EXISTS (
-                SELECT 1
-                FROM information_schema.tables
-                WHERE table_schema = 'public'
-                  AND table_name = 'alembic_version'
-            )
-            """
-        )
-    ).scalar()
-    print("yes" if result else "no")
-PY
-)
-
-if [ "$should_run" = "yes" ]; then
-  echo "Running Alembic migrations before starting the app..."
-  alembic upgrade heads
-else
-  echo "Skipping Alembic migrations because alembic_version table is missing."
-fi
+echo "Running Alembic migrations before starting the app..."
+alembic upgrade head
 
 cpu_count="$(getconf _NPROCESSORS_ONLN 2>/dev/null || printf '1')"
 case "$cpu_count" in

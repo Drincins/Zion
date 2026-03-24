@@ -14,12 +14,12 @@ This document gives a compact, practical map of the repo so an assistant can nav
 
 ## Run (local)
 1. `docker-compose up --build` (backend + db; frontend static is served by backend if built).
-2. Dev frontend: `cd frontend`, then `yarn install` and `yarn dev`.
+2. Dev frontend: `cd frontend`, then `npm ci` and `npm run dev`.
 3. Optional: `docker compose --profile dev up --build` (runs the frontend container on port 5173).
 
 ## Entry Points
 - Backend app: `app/main.py` (FastAPI app and router registration).
-- Backend container: `backend/entrypoint.sh` (optionally runs Alembic).
+- Backend container: `backend/entrypoint.sh` (runs `alembic upgrade head` before app start).
 - Frontend app: `frontend/src/main.js`.
 - Frontend routes: `frontend/src/router/index.js`.
 - Frontend API client: `frontend/src/api.js`.
@@ -73,6 +73,8 @@ This document gives a compact, practical map of the repo so an assistant can nav
 ## Environment Variables (names only)
 - App and auth: `DEFAULT_USERNAME`, `DEFAULT_PASSWORD`, `SECRET_KEY`, `APP_TZ`, `PORT`.
 - Database: `DATABASE_URL`, `DATABASE_PUBLIC_URL`, `POSTGRES_HOST`, `POSTGRES_PORT`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`.
+- Secret manager: `SECRET_MANAGER_PROVIDER`, `SECRET_MANAGER_SECRET_ID`, `SECRET_MANAGER_AWS_REGION`, `AWS_REGION`, `AWS_DEFAULT_REGION`.
+- iiko config: `IIKO_LOGIN`, `IIKO_PASSWORD`, `IIKO_RESTAURANTS_JSON`, `IIKO_TRANSLATIONS_JSON`, `IIKO_DATA_DIR`, `IIKO_MENU_DIR`.
 - S3: `S3_ENDPOINT`, `S3_ACCESS_KEY`, `S3_SECRET_KEY`, `S3_BUCKET`, `S3_CHECKLIST_BUCKET`, `S3_REGION`, `S3_PRESIGNED_EXPIRES`, `ACCOUNTING_S3_PREFIX`.
 - LLM: `OPENAI_API_KEY`, `OPENAI_MODEL`, `OPENAI_VISION_MODEL`, `OPENAI_BASE_URL`, `OPENAI_PROXY_URL`.
 - Frontend: `VITE_SERVER_URL`, `VITE_FINGER_AGENT_URL`.

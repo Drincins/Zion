@@ -9,11 +9,8 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, JSONResponse
 
 # ---- Импорты моделей и утилит ----
-from backend.bd.database import SessionLocal, engine
-from backend.bd.models import Base, Permission, User
-# Register iiko-related tables in metadata before create_all.
-from backend.bd import iiko_catalog as _iiko_catalog  # noqa: F401
-from backend.bd import iiko_sales as _iiko_sales  # noqa: F401
+from backend.bd.database import SessionLocal
+from backend.bd.models import Permission, User
 from backend.utils import (
     extract_auth_token_from_request,
     get_expected_auth_scopes_for_request,
@@ -62,8 +59,6 @@ from backend.services.request_context import (
 load_dotenv()
 DEFAULT_USERNAME = os.getenv("DEFAULT_USERNAME")
 DEFAULT_PASSWORD = os.getenv("DEFAULT_PASSWORD")
-
-Base.metadata.create_all(bind=engine)
 
 # ---- Админ по умолчанию ----
 def create_default_admin():
