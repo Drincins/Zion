@@ -14,7 +14,7 @@ from fastapi import Depends, HTTPException, Request, Response, status
 from fastapi.security import OAuth2PasswordBearer
 
 from backend.bd.database import get_db
-from backend.bd.models import AuthSession, User, user_restaurants
+from backend.bd.models import AuthSession, Restaurant, User, user_restaurants
 from backend.services.permissions import has_global_access
 
 
@@ -346,6 +346,39 @@ def get_user_restaurant_ids(db: Session, user: User) -> Optional[Set[int]]:
     )
     ids = {row[0] for row in result}
     return ids
+
+
+def get_user_company_ids(db: Session, user: User) -> Optional[Set[int]]:
+    """Return company IDs visible to the user. None means unrestricted global access."""
+    if user_has_global_access(user):
+        return None
+
+    direct_company_id = getattr(user, "company_id", None)
+    if direct_company_id is not None:
+        return {int(direct_company_id)}
+
+    company_ids: Set[int] = set()
+    result = db.execute(
+        select(Restaurant.company_id)
+        .select_from(Restaurant)
+        .join(user_restaurants, user_restaurants.c.restaurant_id == Restaurant.id)
+        .where(user_restaurants.c.user_id == user.id)
+        .where(Restaurant.company_id.is_not(None))
+    )
+    company_ids.update(int(row[0]) for row in result if row[0] is not None)
+
+    workplace_restaurant_id = getattr(user, "workplace_restaurant_id", None)
+    if workplace_restaurant_id is not None:
+        workplace_company_id = db.execute(
+            select(Restaurant.company_id)
+            .where(Restaurant.id == workplace_restaurant_id)
+            .where(Restaurant.company_id.is_not(None))
+            .limit(1)
+        ).scalar_one_or_none()
+        if workplace_company_id is not None:
+            company_ids.add(int(workplace_company_id))
+
+    return company_ids
 
 
 def users_share_restaurant(db: Session, viewer: User, target_user_id: int) -> bool:

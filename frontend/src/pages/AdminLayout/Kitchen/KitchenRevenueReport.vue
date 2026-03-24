@@ -68,6 +68,91 @@
             </p>
         </section>
 
+        <section
+            v-if="canViewMoney && !loading && reportDates.length && reportMethods.length"
+            class="admin-page__section"
+        >
+            <div class="kitchen-revenue-page__dashboard-header">
+                <div>
+                    <h3 class="kitchen-revenue-page__dashboard-title">Дашборд выручки</h3>
+                    <p class="kitchen-revenue-page__dashboard-subtitle">
+                        Управленческий обзор по выбранному периоду: динамика, структура методов
+                        оплаты и лидеры по объёму выручки.
+                    </p>
+                </div>
+            </div>
+
+            <div class="kitchen-revenue-page__stats">
+                <article class="kitchen-revenue-page__stat-card">
+                    <p>Выручка периода</p>
+                    <strong>{{ formatMoney(totalAmount) }}</strong>
+                </article>
+                <article class="kitchen-revenue-page__stat-card">
+                    <p>Среднее за день</p>
+                    <strong>{{ formatMoney(averageRevenuePerDay) }}</strong>
+                </article>
+                <article class="kitchen-revenue-page__stat-card">
+                    <p>Активных дней</p>
+                    <strong>{{ formatNumber(activeRevenueDaysCount) }}</strong>
+                </article>
+                <article class="kitchen-revenue-page__stat-card">
+                    <p>Главный метод оплаты</p>
+                    <strong>{{ topRevenueMethodLabel }}</strong>
+                    <span>{{ formatMoney(topRevenueMethodAmount) }}</span>
+                </article>
+            </div>
+
+            <div class="kitchen-revenue-page__dashboard-grid">
+                <div class="kitchen-revenue-page__chart-card kitchen-revenue-page__chart-card--wide">
+                    <div class="kitchen-revenue-page__chart-head">
+                        <div>
+                            <p class="kitchen-revenue-page__chart-title">Динамика по дням</p>
+                            <p class="kitchen-revenue-page__chart-note">
+                                Дневная выручка и средний уровень по периоду
+                            </p>
+                        </div>
+                    </div>
+                    <VChart
+                        class="kitchen-revenue-page__chart"
+                        :option="revenueDailyTrendOption"
+                        autoresize
+                    />
+                </div>
+
+                <div class="kitchen-revenue-page__chart-card">
+                    <div class="kitchen-revenue-page__chart-head">
+                        <div>
+                            <p class="kitchen-revenue-page__chart-title">Структура оплат</p>
+                            <p class="kitchen-revenue-page__chart-note">
+                                Доля каждого метода оплаты в итоговой выручке
+                            </p>
+                        </div>
+                    </div>
+                    <VChart
+                        class="kitchen-revenue-page__chart"
+                        :option="revenueMethodShareOption"
+                        autoresize
+                    />
+                </div>
+
+                <div class="kitchen-revenue-page__chart-card">
+                    <div class="kitchen-revenue-page__chart-head">
+                        <div>
+                            <p class="kitchen-revenue-page__chart-title">Методы-лидеры</p>
+                            <p class="kitchen-revenue-page__chart-note">
+                                Основной вклад в выручку по способам оплаты
+                            </p>
+                        </div>
+                    </div>
+                    <VChart
+                        class="kitchen-revenue-page__chart"
+                        :option="revenueMethodRankingOption"
+                        autoresize
+                    />
+                </div>
+            </div>
+        </section>
+
         <section v-if="canViewMoney" class="admin-page__section">
             <div v-if="loading" class="admin-page__empty">
                 Загрузка выручки...
@@ -120,6 +205,10 @@
 
 <script setup>
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
+import { use } from 'echarts/core';
+import { BarChart, LineChart, PieChart } from 'echarts/charts';
+import { CanvasRenderer } from 'echarts/renderers';
+import { GridComponent, LegendComponent, TooltipComponent } from 'echarts/components';
 import { fetchKitchenRestaurants, fetchKitchenRevenueByPaymentMethods } from '@/api';
 import { useToast } from 'vue-toastification';
 import { useUserStore } from '@/stores/user';
@@ -127,7 +216,10 @@ import Button from '@/components/UI-components/Button.vue';
 import DateInput from '@/components/UI-components/DateInput.vue';
 import Table from '@/components/UI-components/Table.vue';
 import Checkbox from '@/components/UI-components/Checkbox.vue';
+import VChart from 'vue-echarts';
 import { formatNumberValue } from '@/utils/format';
+
+use([CanvasRenderer, BarChart, LineChart, PieChart, GridComponent, LegendComponent, TooltipComponent]);
 
 const userStore = useUserStore();
 const toast = useToast();
@@ -175,6 +267,149 @@ const isAllRestaurantsSelected = computed(() => {
         return false;
     }
     return selectedRestaurantIdsNormalized.value.length === allCount;
+});
+
+const averageRevenuePerDay = computed(() =>
+    reportDates.value.length ? totalAmount.value / reportDates.value.length : 0,
+);
+
+const activeRevenueDaysCount = computed(
+    () =>
+        reportDates.value.filter((dateKey) => Number(totalsByDate.value?.[dateKey] || 0) > 0)
+            .length,
+);
+
+const revenueMethodRows = computed(() =>
+    [...reportMethods.value].sort((left, right) => Number(right.total_amount || 0) - Number(left.total_amount || 0)),
+);
+
+const topRevenueMethod = computed(() => revenueMethodRows.value[0] || null);
+const topRevenueMethodLabel = computed(
+    () => topRevenueMethod.value?.method_name || topRevenueMethod.value?.method_guid || 'Нет данных',
+);
+const topRevenueMethodAmount = computed(() => Number(topRevenueMethod.value?.total_amount || 0));
+
+const revenueDailyTrendOption = computed(() => ({
+    color: ['#c79b63', '#5ea1ff'],
+    tooltip: {
+        trigger: 'axis',
+        backgroundColor: 'rgba(16, 13, 10, 0.94)',
+        borderColor: 'rgba(199, 155, 99, 0.35)',
+        textStyle: { color: '#f8f3ec' },
+        formatter(params) {
+            const lines = [`<strong>${params[0]?.axisValue || '-'}</strong>`];
+            for (const item of params) {
+                lines.push(`${item.marker}${item.seriesName}: ${formatMoney(item.value)}`);
+            }
+            return lines.join('<br/>');
+        },
+    },
+    grid: { left: 56, right: 24, top: 24, bottom: 48 },
+    xAxis: {
+        type: 'category',
+        data: reportDates.value.map((dateKey) => formatDateLabel(dateKey)),
+        axisLabel: { color: '#b9aa95' },
+        axisLine: { lineStyle: { color: 'rgba(185, 170, 149, 0.2)' } },
+    },
+    yAxis: {
+        type: 'value',
+        axisLabel: {
+            color: '#b9aa95',
+            formatter: (value) => formatAxisShortValue(value),
+        },
+        splitLine: { lineStyle: { color: 'rgba(185, 170, 149, 0.12)' } },
+    },
+    series: [
+        {
+            name: 'Выручка',
+            type: 'bar',
+            barMaxWidth: 28,
+            data: reportDates.value.map((dateKey) => Number(totalsByDate.value?.[dateKey] || 0)),
+            itemStyle: { borderRadius: [10, 10, 0, 0] },
+        },
+        {
+            name: 'Среднее за день',
+            type: 'line',
+            smooth: true,
+            showSymbol: false,
+            data: reportDates.value.map(() => averageRevenuePerDay.value),
+            lineStyle: { width: 3, type: 'dashed' },
+        },
+    ],
+}));
+
+const revenueMethodShareOption = computed(() => ({
+    color: ['#c79b63', '#5ea1ff', '#54c38f', '#d97ab0', '#e07c68', '#9f7aea', '#606a7b'],
+    tooltip: {
+        trigger: 'item',
+        backgroundColor: 'rgba(16, 13, 10, 0.94)',
+        borderColor: 'rgba(199, 155, 99, 0.35)',
+        textStyle: { color: '#f8f3ec' },
+        formatter(params) {
+            return `<strong>${params.name}</strong><br/>Выручка: ${formatMoney(params.value)}<br/>Доля: ${formatNumber(params.percent)}%`;
+        },
+    },
+    legend: {
+        bottom: 0,
+        textStyle: { color: '#b9aa95' },
+    },
+    series: [
+        {
+            name: 'Методы оплаты',
+            type: 'pie',
+            radius: ['48%', '72%'],
+            center: ['50%', '44%'],
+            label: {
+                color: '#f4ede3',
+                formatter: ({ percent }) => `${formatNumber(percent)}%`,
+            },
+            labelLine: { lineStyle: { color: 'rgba(185, 170, 149, 0.4)' } },
+            data: collapseRevenueMethods(revenueMethodRows.value, 6),
+        },
+    ],
+}));
+
+const revenueMethodRankingOption = computed(() => {
+    const rows = revenueMethodRows.value.slice(0, 8).reverse();
+    return {
+        color: ['#c79b63'],
+        tooltip: {
+            trigger: 'axis',
+            axisPointer: { type: 'shadow' },
+            backgroundColor: 'rgba(16, 13, 10, 0.94)',
+            borderColor: 'rgba(199, 155, 99, 0.35)',
+            textStyle: { color: '#f8f3ec' },
+            formatter(params) {
+                const item = params[0];
+                return `<strong>${item?.name || '-'}</strong><br/>Выручка: ${formatMoney(item?.value)}`;
+            },
+        },
+        grid: { left: 150, right: 24, top: 20, bottom: 20 },
+        xAxis: {
+            type: 'value',
+            axisLabel: {
+                color: '#b9aa95',
+                formatter: (value) => formatAxisShortValue(value),
+            },
+            splitLine: { lineStyle: { color: 'rgba(185, 170, 149, 0.12)' } },
+        },
+        yAxis: {
+            type: 'category',
+            data: rows.map((row) => row.method_name || row.method_guid || 'Не указано'),
+            axisLabel: { color: '#d7c8b4' },
+            axisLine: { show: false },
+            axisTick: { show: false },
+        },
+        series: [
+            {
+                name: 'Выручка',
+                type: 'bar',
+                barMaxWidth: 22,
+                data: rows.map((row) => Number(row.total_amount || 0)),
+                itemStyle: { borderRadius: [0, 10, 10, 0] },
+            },
+        ],
+    };
 });
 
 function defaultToday() {
@@ -230,6 +465,44 @@ function formatMoney(value) {
         minimumFractionDigits: 2,
         maximumFractionDigits: 2,
     });
+}
+
+function formatNumber(value) {
+    return formatNumberValue(value, {
+        emptyValue: '-',
+        invalidValue: '-',
+        locale: 'ru-RU',
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 2,
+    });
+}
+
+function formatAxisShortValue(value) {
+    const numeric = Number(value || 0);
+    if (!Number.isFinite(numeric)) {
+        return '-';
+    }
+    if (Math.abs(numeric) >= 1000000) {
+        return `${formatNumber(numeric / 1000000)}м`;
+    }
+    if (Math.abs(numeric) >= 1000) {
+        return `${formatNumber(numeric / 1000)}к`;
+    }
+    return formatNumber(numeric);
+}
+
+function collapseRevenueMethods(rows, limit = 6) {
+    const top = (rows || []).slice(0, limit).map((row) => ({
+        name: row.method_name || row.method_guid || 'Не указано',
+        value: Number(row.total_amount || 0),
+    }));
+    const rest = (rows || [])
+        .slice(limit)
+        .reduce((sum, row) => sum + Number(row.total_amount || 0), 0);
+    if (rest > 0) {
+        top.push({ name: 'Прочее', value: rest });
+    }
+    return top.filter((item) => item.value > 0);
 }
 
 function formatDateLabel(dateValue) {

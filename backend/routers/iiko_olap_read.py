@@ -7,20 +7,23 @@ from sqlalchemy.orm import Session
 
 from backend.bd.database import get_db
 from backend.bd.models import User, Restaurant
-from backend.utils import get_current_user
+from backend.utils import get_current_user, get_user_company_ids
 from backend.services.permissions import ensure_permissions, PermissionCode, has_permission, has_global_access
 from backend.bd.iiko_olap import IikoOlapRow
 
 router = APIRouter(prefix="/iiko-olap", tags=["iiko-olap"])
 
 def _ensure_restaurant_access(db: Session, user: User, restaurant_id: int) -> None:
-    if has_global_access(user) or has_permission(user, PermissionCode.IIKO_MANAGE):
-        return
-    match = (
-        db.query(Restaurant)
-        .filter(Restaurant.id == restaurant_id, Restaurant.users.contains(user))
-        .first()
-    )
+    query = db.query(Restaurant).filter(Restaurant.id == restaurant_id)
+    if not has_global_access(user):
+        company_ids = sorted(get_user_company_ids(db, user) or [])
+        if company_ids:
+            query = query.filter(Restaurant.company_id.in_(company_ids))
+            if not has_permission(user, PermissionCode.IIKO_MANAGE):
+                query = query.filter(Restaurant.users.contains(user))
+        else:
+            query = query.filter(Restaurant.users.contains(user))
+    match = query.first()
     if not match:
         raise HTTPException(status_code=404, detail="Restaurant not found for the requested report")
 

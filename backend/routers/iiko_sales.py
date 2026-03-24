@@ -39,7 +39,7 @@ from backend.bd.iiko_sales import (
 from backend.services.iiko_api import get_olap_columns, get_token, post_olap_report, to_iso_date
 from backend.services.permissions import PermissionCode, ensure_permissions, has_global_access, has_permission
 from backend.services.reference_cache import cached_reference_data
-from backend.utils import get_current_user, now_local
+from backend.utils import get_current_user, get_user_company_ids, now_local
 
 router = APIRouter(prefix="/iiko-sales", tags=["iiko-sales"])
 
@@ -73,6 +73,55 @@ DEFAULT_SALES_SYNC_LOCK_WAIT_SECONDS = 300.0
 SYNC_APPLICATION_NAME_PREFIX = "zion_sync"
 WAITER_SALES_OPTIONS_CACHE_SCOPE = "iiko-sales:waiter-sales-options"
 WAITER_SALES_OPTIONS_CACHE_TTL_SECONDS = 45
+
+
+def _get_user_company_scope_ids(db: Session, current_user: User) -> Optional[List[int]]:
+    company_ids = get_user_company_ids(db, current_user)
+    if company_ids is None:
+        return None
+    return sorted(int(company_id) for company_id in company_ids if company_id is not None)
+
+
+def _restrict_company_scoped_query(query, company_column, db: Session, current_user: User):
+    company_ids = _get_user_company_scope_ids(db, current_user)
+    if company_ids is None:
+        return query
+    if not company_ids:
+        return query.filter(sa.literal(False))
+    if len(company_ids) == 1:
+        return query.filter(company_column == int(company_ids[0]))
+    return query.filter(company_column.in_(company_ids))
+
+
+def _resolve_scoped_company_id(
+    db: Session,
+    current_user: User,
+    requested_company_id: Optional[int] = None,
+) -> int:
+    if requested_company_id is not None:
+        requested = int(requested_company_id)
+        if not has_global_access(current_user):
+            company_ids = _get_user_company_scope_ids(db, current_user) or []
+            if requested not in company_ids:
+                raise HTTPException(status_code=403, detail="Company is outside of your scope")
+        return requested
+
+    direct_company_id = getattr(current_user, "company_id", None)
+    if direct_company_id is not None:
+        return int(direct_company_id)
+
+    if has_global_access(current_user):
+        raise HTTPException(status_code=400, detail="company_id is required")
+
+    company_ids = _get_user_company_scope_ids(db, current_user) or []
+    if not company_ids:
+        raise HTTPException(status_code=403, detail="Company scope is unavailable for the current user")
+    if len(company_ids) == 1:
+        return int(company_ids[0])
+    raise HTTPException(
+        status_code=400,
+        detail="Multiple companies available; pass company_id explicitly.",
+    )
 
 
 def _can_view_sales_money(current_user: User) -> bool:
@@ -250,14 +299,16 @@ def _ensure_user_access_to_restaurant(
     *,
     require_credentials: bool = True,
 ) -> Restaurant:
-    if has_global_access(current_user) or has_permission(current_user, PermissionCode.IIKO_MANAGE):
-        restaurant = db.query(Restaurant).filter(Restaurant.id == restaurant_id).first()
-    else:
-        restaurant = (
-            db.query(Restaurant)
-            .filter(Restaurant.id == restaurant_id, Restaurant.users.contains(current_user))
-            .first()
-        )
+    query = db.query(Restaurant).filter(Restaurant.id == restaurant_id)
+    if not has_global_access(current_user):
+        company_ids = _get_user_company_scope_ids(db, current_user) or []
+        if company_ids:
+            query = query.filter(Restaurant.company_id.in_(company_ids))
+            if not has_permission(current_user, PermissionCode.IIKO_MANAGE):
+                query = query.filter(Restaurant.users.contains(current_user))
+        else:
+            query = query.filter(Restaurant.users.contains(current_user))
+    restaurant = query.first()
     if not restaurant:
         raise HTTPException(status_code=404, detail="Restaurant not found or unavailable")
     if require_credentials and (not restaurant.server or not restaurant.iiko_login or not restaurant.iiko_password_sha1):
@@ -267,10 +318,14 @@ def _ensure_user_access_to_restaurant(
 
 def _list_accessible_restaurants(db: Session, current_user: User) -> List[Restaurant]:
     q = db.query(Restaurant)
-    if not (has_global_access(current_user) or has_permission(current_user, PermissionCode.IIKO_MANAGE)):
-        q = q.filter(Restaurant.users.contains(current_user))
-    if getattr(current_user, "company_id", None) is not None:
-        q = q.filter(Restaurant.company_id == current_user.company_id)
+    if not has_global_access(current_user):
+        company_ids = _get_user_company_scope_ids(db, current_user) or []
+        if company_ids:
+            q = q.filter(Restaurant.company_id.in_(company_ids))
+            if not has_permission(current_user, PermissionCode.IIKO_MANAGE):
+                q = q.filter(Restaurant.users.contains(current_user))
+        else:
+            q = q.filter(Restaurant.users.contains(current_user))
     q = q.filter(Restaurant.participates_in_sales.is_(True))
     return q.order_by(Restaurant.id.asc()).all()
 
@@ -406,103 +461,25 @@ def _release_sales_sync_lock(db: Session, lock_key: int) -> None:
 
 
 def _payment_methods_query(db: Session, current_user: User):
-    q = db.query(IikoPaymentMethod)
-    company_id = getattr(current_user, "company_id", None)
-    if company_id is not None:
-        return q.filter(
-            sa.or_(
-                IikoPaymentMethod.company_id == company_id,
-                IikoPaymentMethod.company_id.is_(None),
-            )
-        )
-
-    accessible_restaurants = _list_accessible_restaurants(db, current_user)
-    company_ids = sorted(
-        {
-            restaurant.company_id
-            for restaurant in accessible_restaurants
-            if restaurant.company_id is not None
-        }
-    )
-
-    if company_ids:
-        return q.filter(
-            sa.or_(
-                IikoPaymentMethod.company_id.in_(company_ids),
-                IikoPaymentMethod.company_id.is_(None),
-            )
-        )
-
-    if has_global_access(current_user) or has_permission(current_user, PermissionCode.IIKO_MANAGE):
-        return q
-
-    return q.filter(sa.literal(False))
+    return _restrict_company_scoped_query(db.query(IikoPaymentMethod), IikoPaymentMethod.company_id, db, current_user)
 
 
 def _non_cash_types_query(db: Session, current_user: User):
-    q = db.query(IikoNonCashPaymentType)
-    company_id = getattr(current_user, "company_id", None)
-    if company_id is not None:
-        return q.filter(
-            sa.or_(
-                IikoNonCashPaymentType.company_id == company_id,
-                IikoNonCashPaymentType.company_id.is_(None),
-            )
-        )
-
-    accessible_restaurants = _list_accessible_restaurants(db, current_user)
-    company_ids = sorted(
-        {
-            restaurant.company_id
-            for restaurant in accessible_restaurants
-            if restaurant.company_id is not None
-        }
+    return _restrict_company_scoped_query(
+        db.query(IikoNonCashPaymentType),
+        IikoNonCashPaymentType.company_id,
+        db,
+        current_user,
     )
-    if company_ids:
-        return q.filter(
-            sa.or_(
-                IikoNonCashPaymentType.company_id.in_(company_ids),
-                IikoNonCashPaymentType.company_id.is_(None),
-            )
-        )
-
-    if has_global_access(current_user) or has_permission(current_user, PermissionCode.IIKO_MANAGE):
-        return q
-
-    return q.filter(sa.literal(False))
 
 
 def _non_cash_limits_query(db: Session, current_user: User):
-    q = db.query(IikoNonCashEmployeeLimit)
-    company_id = getattr(current_user, "company_id", None)
-    if company_id is not None:
-        return q.filter(
-            sa.or_(
-                IikoNonCashEmployeeLimit.company_id == company_id,
-                IikoNonCashEmployeeLimit.company_id.is_(None),
-            )
-        )
-
-    accessible_restaurants = _list_accessible_restaurants(db, current_user)
-    company_ids = sorted(
-        {
-            restaurant.company_id
-            for restaurant in accessible_restaurants
-            if restaurant.company_id is not None
-        }
+    return _restrict_company_scoped_query(
+        db.query(IikoNonCashEmployeeLimit),
+        IikoNonCashEmployeeLimit.company_id,
+        db,
+        current_user,
     )
-    if company_ids:
-        return q.filter(
-            sa.or_(
-                IikoNonCashEmployeeLimit.company_id.in_(company_ids),
-                IikoNonCashEmployeeLimit.company_id.is_(None),
-            )
-        )
-
-    if has_global_access(current_user) or has_permission(current_user, PermissionCode.IIKO_MANAGE):
-        return q
-
-    return q.filter(sa.literal(False))
 
 
 def _serialize_payment_method(row: IikoPaymentMethod) -> Dict[str, Any]:
@@ -1553,36 +1530,12 @@ def _normalize_int_list(values: Optional[List[int]]) -> List[int]:
 
 
 def _waiter_turnover_settings_query(db: Session, current_user: User):
-    q = db.query(IikoWaiterTurnoverSetting)
-    company_id = getattr(current_user, "company_id", None)
-    if company_id is not None:
-        return q.filter(
-            sa.or_(
-                IikoWaiterTurnoverSetting.company_id == company_id,
-                IikoWaiterTurnoverSetting.company_id.is_(None),
-            )
-        )
-
-    accessible_restaurants = _list_accessible_restaurants(db, current_user)
-    company_ids = sorted(
-        {
-            restaurant.company_id
-            for restaurant in accessible_restaurants
-            if restaurant.company_id is not None
-        }
+    return _restrict_company_scoped_query(
+        db.query(IikoWaiterTurnoverSetting),
+        IikoWaiterTurnoverSetting.company_id,
+        db,
+        current_user,
     )
-    if company_ids:
-        return q.filter(
-            sa.or_(
-                IikoWaiterTurnoverSetting.company_id.in_(company_ids),
-                IikoWaiterTurnoverSetting.company_id.is_(None),
-            )
-        )
-
-    if has_global_access(current_user) or has_permission(current_user, PermissionCode.IIKO_MANAGE):
-        return q
-
-    return q.filter(sa.literal(False))
 
 
 def _resolve_settings_company_id(
@@ -1590,29 +1543,7 @@ def _resolve_settings_company_id(
     current_user: User,
     requested_company_id: Optional[int] = None,
 ) -> Optional[int]:
-    if requested_company_id is not None:
-        return int(requested_company_id)
-
-    direct_company_id = getattr(current_user, "company_id", None)
-    if direct_company_id is not None:
-        return int(direct_company_id)
-
-    accessible_restaurants = _list_accessible_restaurants(db, current_user)
-    company_ids = sorted(
-        {
-            int(restaurant.company_id)
-            for restaurant in accessible_restaurants
-            if restaurant.company_id is not None
-        }
-    )
-    if not company_ids:
-        return None
-    if len(company_ids) == 1:
-        return company_ids[0]
-    raise HTTPException(
-        status_code=400,
-        detail="Multiple companies available; pass company_id explicitly.",
-    )
+    return _resolve_scoped_company_id(db, current_user, requested_company_id)
 
 
 def _waiter_turnover_settings_company_query(
@@ -1622,7 +1553,7 @@ def _waiter_turnover_settings_company_query(
 ):
     q = _waiter_turnover_settings_query(db, current_user)
     if company_id is None:
-        return q.filter(IikoWaiterTurnoverSetting.company_id.is_(None))
+        return q.filter(sa.literal(False))
     return q.filter(IikoWaiterTurnoverSetting.company_id == company_id)
 
 
@@ -1673,6 +1604,7 @@ def _apply_waiter_turnover_settings_payload(
     db: Session,
     row: IikoWaiterTurnoverSetting,
     payload: UpdateIikoWaiterTurnoverSettingsRequest,
+    company_id: Optional[int],
 ) -> None:
     if payload.rule_name is not None:
         row.rule_name = _normalize_rule_name(payload.rule_name, row.rule_name or "Правило")
@@ -1692,11 +1624,26 @@ def _apply_waiter_turnover_settings_payload(
     if payload.position_ids is not None:
         candidate_ids = _normalize_int_list(payload.position_ids)
         if candidate_ids:
+            if company_id is None:
+                raise HTTPException(status_code=400, detail="Company scope is required for position filters")
             existing_ids = {
                 int(pos_id)
-                for (pos_id,) in db.query(Position.id).filter(Position.id.in_(candidate_ids)).all()
+                for (pos_id,) in (
+                    db.query(Position.id)
+                    .join(User, User.position_id == Position.id)
+                    .filter(User.company_id == company_id)
+                    .filter(Position.id.in_(candidate_ids))
+                    .distinct()
+                    .all()
+                )
                 if pos_id is not None
             }
+            invalid_ids = [pos_id for pos_id in candidate_ids if pos_id not in existing_ids]
+            if invalid_ids:
+                raise HTTPException(
+                    status_code=400,
+                    detail="One or more positions are outside of your company scope",
+                )
             row.position_ids = [pos_id for pos_id in candidate_ids if pos_id in existing_ids]
         else:
             row.position_ids = []
@@ -1730,8 +1677,17 @@ def _deactivate_other_waiter_turnover_rules(
     q.update({IikoWaiterTurnoverSetting.is_active: False}, synchronize_session=False)
 
 
-def _position_options_for_settings(db: Session) -> List[Dict[str, Any]]:
-    rows = db.query(Position.id, Position.name).order_by(Position.name.asc(), Position.id.asc()).all()
+def _position_options_for_settings(db: Session, company_id: Optional[int]) -> List[Dict[str, Any]]:
+    if company_id is None:
+        return []
+    rows = (
+        db.query(Position.id, Position.name)
+        .join(User, User.position_id == Position.id)
+        .filter(User.company_id == company_id)
+        .distinct()
+        .order_by(Position.name.asc(), Position.id.asc())
+        .all()
+    )
     result: List[Dict[str, Any]] = []
     for pos_id, pos_name in rows:
         if pos_id is None:
@@ -1971,7 +1927,7 @@ def _build_department_code_restaurant_map(
     if company_id is not None:
         q = q.filter(Restaurant.company_id == company_id)
     else:
-        q = q.filter(Restaurant.company_id.is_(None))
+        q = q.filter(sa.literal(False))
 
     by_code: Dict[str, int] = {}
     ambiguous: set[str] = set()
@@ -2024,12 +1980,10 @@ def _build_sales_target_restaurant_resolver(
     source_restaurant_id: int,
 ):
     mappings_q = db.query(IikoSalesLocationMapping).filter(IikoSalesLocationMapping.is_active.is_(True))
-    mappings_q = mappings_q.filter(
-        sa.or_(
-            IikoSalesLocationMapping.company_id == company_id,
-            IikoSalesLocationMapping.company_id.is_(None),
-        )
-    )
+    if company_id is None:
+        mappings_q = mappings_q.filter(sa.literal(False))
+    else:
+        mappings_q = mappings_q.filter(IikoSalesLocationMapping.company_id == company_id)
     mappings_q = mappings_q.filter(
         sa.or_(
             IikoSalesLocationMapping.source_restaurant_id == source_restaurant_id,
@@ -2085,12 +2039,10 @@ def _build_sales_target_restaurant_resolver(
         mapping_department.pop(key, None)
 
     hall_rows_q = db.query(IikoSalesHallTable).filter(IikoSalesHallTable.is_active.is_(True))
-    hall_rows_q = hall_rows_q.filter(
-        sa.or_(
-            IikoSalesHallTable.company_id == company_id,
-            IikoSalesHallTable.company_id.is_(None),
-        )
-    )
+    if company_id is None:
+        hall_rows_q = hall_rows_q.filter(sa.literal(False))
+    else:
+        hall_rows_q = hall_rows_q.filter(IikoSalesHallTable.company_id == company_id)
     hall_rows_q = hall_rows_q.filter(
         sa.or_(
             IikoSalesHallTable.source_restaurant_id == source_restaurant_id,
@@ -2171,36 +2123,12 @@ def _build_sales_target_restaurant_resolver(
 
 
 def _sales_location_mappings_query(db: Session, current_user: User):
-    q = db.query(IikoSalesLocationMapping)
-    company_id = getattr(current_user, "company_id", None)
-    if company_id is not None:
-        return q.filter(
-            sa.or_(
-                IikoSalesLocationMapping.company_id == company_id,
-                IikoSalesLocationMapping.company_id.is_(None),
-            )
-        )
-
-    accessible_restaurants = _list_accessible_restaurants(db, current_user)
-    company_ids = sorted(
-        {
-            restaurant.company_id
-            for restaurant in accessible_restaurants
-            if restaurant.company_id is not None
-        }
+    return _restrict_company_scoped_query(
+        db.query(IikoSalesLocationMapping),
+        IikoSalesLocationMapping.company_id,
+        db,
+        current_user,
     )
-    if company_ids:
-        return q.filter(
-            sa.or_(
-                IikoSalesLocationMapping.company_id.in_(company_ids),
-                IikoSalesLocationMapping.company_id.is_(None),
-            )
-        )
-
-    if has_global_access(current_user) or has_permission(current_user, PermissionCode.IIKO_MANAGE):
-        return q
-
-    return q.filter(sa.literal(False))
 
 
 def _serialize_sales_location_mapping(
@@ -2228,69 +2156,21 @@ def _serialize_sales_location_mapping(
 
 
 def _sales_halls_query(db: Session, current_user: User):
-    q = db.query(IikoSalesHall)
-    company_id = getattr(current_user, "company_id", None)
-    if company_id is not None:
-        return q.filter(
-            sa.or_(
-                IikoSalesHall.company_id == company_id,
-                IikoSalesHall.company_id.is_(None),
-            )
-        )
-
-    accessible_restaurants = _list_accessible_restaurants(db, current_user)
-    company_ids = sorted(
-        {
-            restaurant.company_id
-            for restaurant in accessible_restaurants
-            if restaurant.company_id is not None
-        }
+    return _restrict_company_scoped_query(
+        db.query(IikoSalesHall),
+        IikoSalesHall.company_id,
+        db,
+        current_user,
     )
-    if company_ids:
-        return q.filter(
-            sa.or_(
-                IikoSalesHall.company_id.in_(company_ids),
-                IikoSalesHall.company_id.is_(None),
-            )
-        )
-
-    if has_global_access(current_user) or has_permission(current_user, PermissionCode.IIKO_MANAGE):
-        return q
-
-    return q.filter(sa.literal(False))
 
 
 def _sales_hall_zones_query(db: Session, current_user: User):
-    q = db.query(IikoSalesHallZone)
-    company_id = getattr(current_user, "company_id", None)
-    if company_id is not None:
-        return q.filter(
-            sa.or_(
-                IikoSalesHallZone.company_id == company_id,
-                IikoSalesHallZone.company_id.is_(None),
-            )
-        )
-
-    accessible_restaurants = _list_accessible_restaurants(db, current_user)
-    company_ids = sorted(
-        {
-            restaurant.company_id
-            for restaurant in accessible_restaurants
-            if restaurant.company_id is not None
-        }
+    return _restrict_company_scoped_query(
+        db.query(IikoSalesHallZone),
+        IikoSalesHallZone.company_id,
+        db,
+        current_user,
     )
-    if company_ids:
-        return q.filter(
-            sa.or_(
-                IikoSalesHallZone.company_id.in_(company_ids),
-                IikoSalesHallZone.company_id.is_(None),
-            )
-        )
-
-    if has_global_access(current_user) or has_permission(current_user, PermissionCode.IIKO_MANAGE):
-        return q
-
-    return q.filter(sa.literal(False))
 
 
 def _serialize_sales_hall(row: IikoSalesHall) -> Dict[str, Any]:
@@ -2329,36 +2209,12 @@ def _serialize_sales_hall_zone(
 
 
 def _sales_hall_tables_query(db: Session, current_user: User):
-    q = db.query(IikoSalesHallTable)
-    company_id = getattr(current_user, "company_id", None)
-    if company_id is not None:
-        return q.filter(
-            sa.or_(
-                IikoSalesHallTable.company_id == company_id,
-                IikoSalesHallTable.company_id.is_(None),
-            )
-        )
-
-    accessible_restaurants = _list_accessible_restaurants(db, current_user)
-    company_ids = sorted(
-        {
-            restaurant.company_id
-            for restaurant in accessible_restaurants
-            if restaurant.company_id is not None
-        }
+    return _restrict_company_scoped_query(
+        db.query(IikoSalesHallTable),
+        IikoSalesHallTable.company_id,
+        db,
+        current_user,
     )
-    if company_ids:
-        return q.filter(
-            sa.or_(
-                IikoSalesHallTable.company_id.in_(company_ids),
-                IikoSalesHallTable.company_id.is_(None),
-            )
-        )
-
-    if has_global_access(current_user) or has_permission(current_user, PermissionCode.IIKO_MANAGE):
-        return q
-
-    return q.filter(sa.literal(False))
 
 
 def _serialize_sales_hall_table(
@@ -2726,12 +2582,7 @@ def _sync_sales_orders_and_items(
 
     # Optional location mapping: source restaurant + department (+table) -> target restaurant.
     mappings_q = db.query(IikoSalesLocationMapping).filter(IikoSalesLocationMapping.is_active.is_(True))
-    mappings_q = mappings_q.filter(
-        sa.or_(
-            IikoSalesLocationMapping.company_id == company_id,
-            IikoSalesLocationMapping.company_id.is_(None),
-        )
-    )
+    mappings_q = mappings_q.filter(IikoSalesLocationMapping.company_id == company_id)
     mappings_q = mappings_q.filter(
         sa.or_(
             IikoSalesLocationMapping.source_restaurant_id == source_restaurant_id,
@@ -2787,12 +2638,7 @@ def _sync_sales_orders_and_items(
         mapping_department.pop(key, None)
 
     hall_rows_q = db.query(IikoSalesHallTable).filter(IikoSalesHallTable.is_active.is_(True))
-    hall_rows_q = hall_rows_q.filter(
-        sa.or_(
-            IikoSalesHallTable.company_id == company_id,
-            IikoSalesHallTable.company_id.is_(None),
-        )
-    )
+    hall_rows_q = hall_rows_q.filter(IikoSalesHallTable.company_id == company_id)
     hall_rows_q = hall_rows_q.filter(
         sa.or_(
             IikoSalesHallTable.source_restaurant_id == source_restaurant_id,
@@ -3724,15 +3570,18 @@ def upsert_sales_location_mapping(
         require_credentials=False,
     )
 
-    company_id = getattr(current_user, "company_id", None)
-    if company_id is None:
-        company_id = source_restaurant.company_id if source_restaurant is not None else target_restaurant.company_id
-
-    if company_id is not None:
-        if source_restaurant is not None and source_restaurant.company_id not in {None, company_id}:
-            raise HTTPException(status_code=400, detail="Source restaurant is outside of your company scope")
-        if target_restaurant.company_id not in {None, company_id}:
-            raise HTTPException(status_code=400, detail="Target restaurant is outside of your company scope")
+    company_candidates = [target_restaurant.company_id]
+    if source_restaurant is not None:
+        company_candidates.append(source_restaurant.company_id)
+    company_id = _resolve_scoped_company_id(
+        db,
+        current_user,
+        next((int(company_id) for company_id in company_candidates if company_id is not None), None),
+    )
+    if source_restaurant is not None and source_restaurant.company_id != company_id:
+        raise HTTPException(status_code=400, detail="Source restaurant is outside of your company scope")
+    if target_restaurant.company_id != company_id:
+        raise HTTPException(status_code=400, detail="Target restaurant is outside of your company scope")
 
     department = (payload.department or "").strip() or None
     table_num = (payload.table_num or "").strip() or None
@@ -3979,24 +3828,10 @@ def create_sales_hall(
         raise HTTPException(status_code=400, detail="name is required")
     name_norm = _normalize_location_token(name)
 
-    company_id = getattr(current_user, "company_id", None)
-    if company_id is None:
-        accessible_restaurants = _list_accessible_restaurants(db, current_user)
-        company_ids = sorted(
-            {
-                int(restaurant.company_id)
-                for restaurant in accessible_restaurants
-                if restaurant.company_id is not None
-            }
-        )
-        if len(company_ids) == 1:
-            company_id = int(company_ids[0])
+    company_id = _resolve_scoped_company_id(db, current_user)
 
     dup_q = db.query(IikoSalesHall).filter(IikoSalesHall.name_norm == name_norm)
-    if company_id is None:
-        dup_q = dup_q.filter(IikoSalesHall.company_id.is_(None))
-    else:
-        dup_q = dup_q.filter(IikoSalesHall.company_id == company_id)
+    dup_q = dup_q.filter(IikoSalesHall.company_id == company_id)
     if dup_q.first() is not None:
         raise HTTPException(status_code=400, detail="Hall with this name already exists")
 
@@ -4172,16 +4007,19 @@ def create_sales_hall_zone(
         raise HTTPException(status_code=400, detail="name is required")
     name_norm = _normalize_location_token(name)
 
-    company_id = getattr(current_user, "company_id", None)
-    if company_id is None:
-        company_id = restaurant.company_id if restaurant.company_id is not None else hall.company_id
-    if company_id is not None:
-        if restaurant.company_id not in {None, company_id}:
-            raise HTTPException(status_code=400, detail="Restaurant is outside of your company scope")
-        if hall.company_id not in {None, company_id}:
-            raise HTTPException(status_code=400, detail="Hall is outside of your company scope")
-    if hall.company_id is None and company_id is not None:
-        hall.company_id = company_id
+    requested_company_id = next(
+        (int(candidate) for candidate in (restaurant.company_id, hall.company_id) if candidate is not None),
+        None,
+    )
+    company_id = _resolve_scoped_company_id(
+        db,
+        current_user,
+        requested_company_id,
+    )
+    if restaurant.company_id != company_id:
+        raise HTTPException(status_code=400, detail="Restaurant is outside of your company scope")
+    if hall.company_id != company_id:
+        raise HTTPException(status_code=400, detail="Hall is outside of your company scope")
 
     dup_q = (
         db.query(IikoSalesHallZone)
@@ -4189,10 +4027,7 @@ def create_sales_hall_zone(
         .filter(IikoSalesHallZone.restaurant_id == int(restaurant.id))
         .filter(IikoSalesHallZone.name_norm == name_norm)
     )
-    if company_id is None:
-        dup_q = dup_q.filter(IikoSalesHallZone.company_id.is_(None))
-    else:
-        dup_q = dup_q.filter(IikoSalesHallZone.company_id == company_id)
+    dup_q = dup_q.filter(IikoSalesHallZone.company_id == company_id)
     if dup_q.first() is not None:
         raise HTTPException(status_code=400, detail="Zone with this name already exists for this hall and restaurant")
 
@@ -4306,11 +4141,19 @@ def assign_tables_to_sales_hall_zone(
         require_credentials=False,
     )
 
-    company_id = getattr(current_user, "company_id", None)
-    if company_id is None:
-        company_id = zone.company_id if zone.company_id is not None else restaurant.company_id
-    if company_id is None:
-        company_id = hall.company_id
+    requested_company_id = next(
+        (
+            int(candidate)
+            for candidate in (zone.company_id, restaurant.company_id, hall.company_id)
+            if candidate is not None
+        ),
+        None,
+    )
+    company_id = _resolve_scoped_company_id(
+        db,
+        current_user,
+        requested_company_id,
+    )
 
     if payload.replace_zone_tables:
         old_rows = (
@@ -4510,14 +4353,15 @@ def upsert_sales_hall_table(
             require_credentials=False,
         )
 
-    company_id = getattr(current_user, "company_id", None)
-    if company_id is None:
-        company_id = restaurant.company_id
-    if company_id is not None:
-        if restaurant.company_id not in {None, company_id}:
-            raise HTTPException(status_code=400, detail="Restaurant is outside of your company scope")
-        if source_restaurant is not None and source_restaurant.company_id not in {None, company_id}:
-            raise HTTPException(status_code=400, detail="Source restaurant is outside of your company scope")
+    company_id = _resolve_scoped_company_id(
+        db,
+        current_user,
+        int(restaurant.company_id) if restaurant.company_id is not None else None,
+    )
+    if restaurant.company_id != company_id:
+        raise HTTPException(status_code=400, detail="Restaurant is outside of your company scope")
+    if source_restaurant is not None and source_restaurant.company_id != company_id:
+        raise HTTPException(status_code=400, detail="Source restaurant is outside of your company scope")
 
     department = (payload.department or "").strip() or None
     table_num = (payload.table_num or "").strip() or None
@@ -4620,12 +4464,18 @@ def update_sales_hall_table(
         )
         row.source_restaurant_id = int(payload.source_restaurant_id)
 
-    company_id = getattr(current_user, "company_id", None)
-    if company_id is None:
-        if restaurant is not None:
-            company_id = restaurant.company_id
-        else:
-            company_id = row.company_id
+    requested_company_id = (
+        int(restaurant.company_id)
+        if restaurant is not None and restaurant.company_id is not None
+        else int(row.company_id)
+        if row.company_id is not None
+        else None
+    )
+    company_id = _resolve_scoped_company_id(
+        db,
+        current_user,
+        requested_company_id,
+    )
     row.company_id = company_id
 
     if payload.department is not None:
@@ -4856,7 +4706,7 @@ def list_waiter_turnover_rules(
     return {
         "company_id": resolved_company_id,
         "items": _waiter_turnover_rules_list_payload(rows),
-        "position_options": _position_options_for_settings(db),
+        "position_options": _position_options_for_settings(db, resolved_company_id),
     }
 
 
@@ -4873,7 +4723,7 @@ def get_waiter_turnover_rule(
     if not row:
         raise HTTPException(status_code=404, detail="Rule not found")
     payload = _serialize_waiter_turnover_settings(row, resolved_company_id)
-    payload["position_options"] = _position_options_for_settings(db)
+    payload["position_options"] = _position_options_for_settings(db, resolved_company_id)
     return payload
 
 
@@ -4896,7 +4746,7 @@ def create_waiter_turnover_rule(
     )
     row.is_active = bool(payload.is_active) if payload.is_active is not None else existing_count == 0
     db.add(row)
-    _apply_waiter_turnover_settings_payload(db, row, payload)
+    _apply_waiter_turnover_settings_payload(db, row, payload, resolved_company_id)
     db.flush()
     if row.is_active:
         _deactivate_other_waiter_turnover_rules(db, resolved_company_id, row.id)
@@ -4904,7 +4754,7 @@ def create_waiter_turnover_rule(
     db.refresh(row)
 
     result = _serialize_waiter_turnover_settings(row, resolved_company_id)
-    result["position_options"] = _position_options_for_settings(db)
+    result["position_options"] = _position_options_for_settings(db, resolved_company_id)
     return result
 
 
@@ -4922,7 +4772,7 @@ def update_waiter_turnover_rule(
     if not row:
         raise HTTPException(status_code=404, detail="Rule not found")
 
-    _apply_waiter_turnover_settings_payload(db, row, payload)
+    _apply_waiter_turnover_settings_payload(db, row, payload, resolved_company_id)
     db.add(row)
     db.flush()
     if row.is_active:
@@ -4931,7 +4781,7 @@ def update_waiter_turnover_rule(
     db.refresh(row)
 
     result = _serialize_waiter_turnover_settings(row, resolved_company_id)
-    result["position_options"] = _position_options_for_settings(db)
+    result["position_options"] = _position_options_for_settings(db, resolved_company_id)
     return result
 
 
@@ -4985,7 +4835,7 @@ def get_waiter_turnover_settings(
             IikoWaiterTurnoverSetting.updated_at.desc().nullslast(),
         ).first()
     payload = _serialize_waiter_turnover_settings(row, resolved_company_id)
-    payload["position_options"] = _position_options_for_settings(db)
+    payload["position_options"] = _position_options_for_settings(db, resolved_company_id)
     payload["rules"] = _waiter_turnover_rules_list_payload(
         q.order_by(
             IikoWaiterTurnoverSetting.is_active.desc(),
@@ -5025,7 +4875,7 @@ def upsert_waiter_turnover_settings(
         )
         db.add(row)
 
-    _apply_waiter_turnover_settings_payload(db, row, payload)
+    _apply_waiter_turnover_settings_payload(db, row, payload, resolved_company_id)
     db.add(row)
     db.flush()
     if row.is_active:
@@ -5034,7 +4884,7 @@ def upsert_waiter_turnover_settings(
     db.refresh(row)
 
     result = _serialize_waiter_turnover_settings(row, resolved_company_id)
-    result["position_options"] = _position_options_for_settings(db)
+    result["position_options"] = _position_options_for_settings(db, resolved_company_id)
     result["rules"] = _waiter_turnover_rules_list_payload(
         q.order_by(
             IikoWaiterTurnoverSetting.is_active.desc(),
@@ -5145,9 +4995,10 @@ def create_non_cash_type(
     if existing:
         raise HTTPException(status_code=409, detail="Non-cash type already exists")
 
+    company_id = _resolve_scoped_company_id(db, current_user)
     row = IikoNonCashPaymentType(
         id=clean_id,
-        company_id=getattr(current_user, "company_id", None),
+        company_id=company_id,
         name=clean_name,
         category=(payload.category or "").strip() or None,
         comment=(payload.comment or "").strip() or None,
@@ -5258,7 +5109,10 @@ def upsert_non_cash_employee_limit(
     user_row = db.query(User).filter(User.id == payload.user_id).first()
     if not user_row:
         raise HTTPException(status_code=404, detail="User not found")
-    if getattr(current_user, "company_id", None) is not None and user_row.company_id != current_user.company_id:
+    company_scope_ids = _get_user_company_scope_ids(db, current_user)
+    if company_scope_ids is not None and (
+        user_row.company_id is None or int(user_row.company_id) not in company_scope_ids
+    ):
         raise HTTPException(status_code=400, detail="User is outside of your company scope")
 
     row = (

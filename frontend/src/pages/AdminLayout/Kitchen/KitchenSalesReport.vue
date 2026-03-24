@@ -111,65 +111,29 @@
                             >
                                 <div class="kitchen-sales-page__builder-card">
                                     <p class="kitchen-sales-page__card-title">Строки</p>
-                                    <div class="kitchen-sales-page__card-input">
-                                        <Select
-                                            v-model="constructorDraft.rowField"
-                                            :options="rowFieldSelectorOptions"
-                                            placeholder="Выберите поле"
-                                            searchable
-                                            search-placeholder="Поиск поля"
-                                        />
-                                        <Button color="ghost" @click="addRowField">Добавить</Button>
-                                    </div>
-                                    <div
-                                        v-if="selectedRowFieldObjects.length"
-                                        class="kitchen-sales-page__chips"
-                                    >
-                                        <button
-                                            v-for="field in selectedRowFieldObjects"
-                                            :key="`row-field-${field.key}`"
-                                            type="button"
-                                            class="kitchen-sales-page__chip"
-                                            @click="removeRowField(field.key)"
-                                        >
-                                            {{ field.label }} x
-                                        </button>
-                                    </div>
-                                    <p v-else class="kitchen-sales-page__card-hint">
-                                        Поля строк не выбраны.
+                                    <Select
+                                        v-model="constructorDraft.rowField"
+                                        :options="rowFieldSelectorOptions"
+                                        placeholder="Выберите поле"
+                                        searchable
+                                        search-placeholder="Поиск поля"
+                                    />
+                                    <p class="kitchen-sales-page__card-hint">
+                                        В строках теперь выбирается только одно поле.
                                     </p>
                                 </div>
 
                                 <div class="kitchen-sales-page__builder-card">
                                     <p class="kitchen-sales-page__card-title">Столбцы</p>
-                                    <div class="kitchen-sales-page__card-input">
-                                        <Select
-                                            v-model="constructorDraft.columnField"
-                                            :options="columnFieldSelectorOptions"
-                                            placeholder="Выберите поле"
-                                            searchable
-                                            search-placeholder="Поиск поля"
-                                        />
-                                        <Button color="ghost" @click="addColumnField"
-                                            >Добавить</Button
-                                        >
-                                    </div>
-                                    <div
-                                        v-if="selectedColumnFieldObjects.length"
-                                        class="kitchen-sales-page__chips"
-                                    >
-                                        <button
-                                            v-for="field in selectedColumnFieldObjects"
-                                            :key="`column-field-${field.key}`"
-                                            type="button"
-                                            class="kitchen-sales-page__chip"
-                                            @click="removeColumnField(field.key)"
-                                        >
-                                            {{ field.label }} x
-                                        </button>
-                                    </div>
-                                    <p v-else class="kitchen-sales-page__card-hint">
-                                        Если строки и столбцы не выбраны, отчет покажет общий итог.
+                                    <Select
+                                        v-model="constructorDraft.columnField"
+                                        :options="columnFieldSelectorOptions"
+                                        placeholder="Выберите поле"
+                                        searchable
+                                        search-placeholder="Поиск поля"
+                                    />
+                                    <p class="kitchen-sales-page__card-hint">
+                                        В столбцах тоже используется только одно поле.
                                     </p>
                                 </div>
                             </div>
@@ -750,9 +714,6 @@
         tables: [],
     });
 
-    const selectedRowFields = ref([]);
-    const selectedColumnFields = ref([]);
-
     const constructorDraft = reactive({
         rowField: '',
         columnField: '',
@@ -882,24 +843,22 @@
     });
 
     const rowFieldSelectorOptions = computed(() =>
-        dimensionOptions.value
-            .filter((item) => !selectedRowFields.value.includes(item.key))
-            .map((item) => ({ value: item.key, label: item.label })),
+        dimensionOptions.value.map((item) => ({ value: item.key, label: item.label })),
     );
 
     const columnFieldSelectorOptions = computed(() =>
-        dimensionOptions.value
-            .filter((item) => !selectedColumnFields.value.includes(item.key))
-            .map((item) => ({ value: item.key, label: item.label })),
+        dimensionOptions.value.map((item) => ({ value: item.key, label: item.label })),
     );
 
-    const selectedRowFieldObjects = computed(() =>
-        selectedRowFields.value.map((key) => dimensionByKey.get(key)).filter(Boolean),
-    );
+    const selectedRowFieldObjects = computed(() => {
+        const selected = dimensionByKey.get(constructorDraft.rowField);
+        return selected ? [selected] : [];
+    });
 
-    const selectedColumnFieldObjects = computed(() =>
-        selectedColumnFields.value.map((key) => dimensionByKey.get(key)).filter(Boolean),
-    );
+    const selectedColumnFieldObjects = computed(() => {
+        const selected = dimensionByKey.get(constructorDraft.columnField);
+        return selected ? [selected] : [];
+    });
 
     const activeMetricDef = computed(() => {
         const options = metricOptions.value;
@@ -1181,38 +1140,6 @@
         return null;
     }
 
-    function addRowField() {
-        const key = String(constructorDraft.rowField || '').trim();
-        if (!key || selectedRowFields.value.includes(key)) {
-            return;
-        }
-        selectedRowFields.value.push(key);
-        constructorDraft.rowField = rowFieldSelectorOptions.value[0]?.value || '';
-    }
-
-    function removeRowField(key) {
-        selectedRowFields.value = selectedRowFields.value.filter((item) => item !== key);
-        if (!selectedRowFields.value.length) {
-            constructorDraft.rowField = '';
-        }
-    }
-
-    function addColumnField() {
-        const key = String(constructorDraft.columnField || '').trim();
-        if (!key || selectedColumnFields.value.includes(key)) {
-            return;
-        }
-        selectedColumnFields.value.push(key);
-        constructorDraft.columnField = columnFieldSelectorOptions.value[0]?.value || '';
-    }
-
-    function removeColumnField(key) {
-        selectedColumnFields.value = selectedColumnFields.value.filter((item) => item !== key);
-        if (!selectedColumnFields.value.length) {
-            constructorDraft.columnField = '';
-        }
-    }
-
     function startRuleComposer(mode) {
         const normalizedMode = mode === 'exclude' ? 'exclude' : 'include';
         if (activeRuleMode.value === normalizedMode) {
@@ -1282,16 +1209,12 @@
         fieldSettings.value = normalizeSalesReportFieldSettings(rawSettings);
 
         const enabledRowKeys = new Set(dimensionOptions.value.map((item) => item.key));
-        selectedRowFields.value = selectedRowFields.value.filter((key) => enabledRowKeys.has(key));
-        if (!enabledRowKeys.has(constructorDraft.rowField)) {
+        if (constructorDraft.rowField && !enabledRowKeys.has(constructorDraft.rowField)) {
             constructorDraft.rowField = rowFieldSelectorOptions.value[0]?.value || '';
         }
 
         const enabledColumnKeys = new Set(dimensionOptions.value.map((item) => item.key));
-        selectedColumnFields.value = selectedColumnFields.value.filter((key) =>
-            enabledColumnKeys.has(key),
-        );
-        if (!enabledColumnKeys.has(constructorDraft.columnField)) {
+        if (constructorDraft.columnField && !enabledColumnKeys.has(constructorDraft.columnField)) {
             constructorDraft.columnField = columnFieldSelectorOptions.value[0]?.value || '';
         }
 

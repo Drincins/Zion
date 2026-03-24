@@ -95,6 +95,114 @@
     font-size: 13px;
 }
 
+.kitchen-revenue-page__dashboard-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 16px;
+}
+
+.kitchen-revenue-page__dashboard-title {
+    margin: 0;
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--color-text);
+}
+
+.kitchen-revenue-page__dashboard-subtitle {
+    margin: 6px 0 0;
+    max-width: 760px;
+    color: var(--color-text-soft);
+    font-size: 14px;
+    line-height: 1.5;
+}
+
+.kitchen-revenue-page__stats {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 12px;
+    margin-bottom: 14px;
+}
+
+.kitchen-revenue-page__stat-card {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-height: 110px;
+    padding: 14px 16px;
+    border-radius: 14px;
+    border: 1px solid color-mix(in srgb, var(--color-primary) 18%, var(--color-border));
+    background: color-mix(in srgb, var(--color-surface) 90%, var(--color-surface-100) 10%);
+    box-shadow: 0 14px 34px -26px rgba(24, 16, 10, 0.62);
+}
+
+.kitchen-revenue-page__stat-card p {
+    margin: 0;
+    color: var(--color-text-soft);
+    font-size: 13px;
+}
+
+.kitchen-revenue-page__stat-card strong {
+    font-size: 24px;
+    line-height: 1.15;
+    color: var(--color-text);
+}
+
+.kitchen-revenue-page__stat-card span {
+    color: color-mix(in srgb, var(--color-primary) 74%, #f7e9d5 26%);
+    font-size: 13px;
+}
+
+.kitchen-revenue-page__dashboard-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1.35fr) minmax(320px, 0.9fr);
+    gap: 14px;
+}
+
+.kitchen-revenue-page__chart-card {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    min-height: 330px;
+    padding: 16px;
+    border-radius: 16px;
+    border: 1px solid color-mix(in srgb, var(--color-primary) 18%, var(--color-border));
+    background:
+        radial-gradient(circle at top right, rgba(199, 155, 99, 0.08), transparent 30%),
+        color-mix(in srgb, var(--color-surface) 92%, var(--color-surface-100) 8%);
+}
+
+.kitchen-revenue-page__chart-card--wide {
+    grid-column: 1 / -1;
+}
+
+.kitchen-revenue-page__chart-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 10px;
+}
+
+.kitchen-revenue-page__chart-title {
+    margin: 0;
+    font-size: 17px;
+    font-weight: 700;
+    color: var(--color-text);
+}
+
+.kitchen-revenue-page__chart-note {
+    margin: 4px 0 0;
+    color: var(--color-text-soft);
+    font-size: 13px;
+    line-height: 1.45;
+}
+
+.kitchen-revenue-page__chart {
+    width: 100%;
+    min-height: 250px;
+}
+
 .kitchen-revenue-page__table-wrap {
     width: 100%;
     overflow-x: auto;
@@ -125,10 +233,28 @@
     .kitchen-revenue-page__filters-grid {
         grid-template-columns: 1fr;
     }
+
+    .kitchen-revenue-page__stats,
+    .kitchen-revenue-page__dashboard-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .kitchen-revenue-page__chart-card--wide {
+        grid-column: auto;
+    }
 }
 
 @media (max-width: 760px) {
     .kitchen-revenue-page__dates-grid {
         grid-template-columns: 1fr;
+    }
+
+    .kitchen-revenue-page__stats,
+    .kitchen-revenue-page__dashboard-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .kitchen-revenue-page__dashboard-header {
+        flex-direction: column;
     }
 }

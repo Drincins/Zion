@@ -21,7 +21,13 @@ from backend.routers.iiko_sales import (
 from backend.schemas import RestaurantCreate, RestaurantRead
 from backend.services.permissions import PermissionCode, require_permissions, has_permission
 from backend.services.reference_cache import cached_reference_data, invalidate_reference_scope
-from backend.utils import get_user_restaurant_ids, user_has_global_access, get_current_user, now_local
+from backend.utils import (
+    get_current_user,
+    get_user_company_ids,
+    get_user_restaurant_ids,
+    now_local,
+    user_has_global_access,
+)
 
 router = APIRouter(prefix="/restaurants", tags=["Restaurants"])
 TIME_HHMM_RE = re.compile(r"^(?:[01]\d|2[0-3]):[0-5]\d$")
@@ -118,14 +124,16 @@ def ensure_user_access_to_restaurant(
     *,
     require_credentials: bool = False,
 ) -> Restaurant:
-    if user_has_global_access(current_user) or has_permission(current_user, PermissionCode.RESTAURANTS_MANAGE):
-        restaurant = db.query(Restaurant).filter(Restaurant.id == restaurant_id).first()
-    else:
-        restaurant = (
-            db.query(Restaurant)
-            .filter(Restaurant.id == restaurant_id, Restaurant.users.contains(current_user))
-            .first()
-        )
+    query = db.query(Restaurant).filter(Restaurant.id == restaurant_id)
+    if not user_has_global_access(current_user):
+        company_ids = sorted(get_user_company_ids(db, current_user) or [])
+        if company_ids:
+            query = query.filter(Restaurant.company_id.in_(company_ids))
+            if not has_permission(current_user, PermissionCode.RESTAURANTS_MANAGE):
+                query = query.filter(Restaurant.users.contains(current_user))
+        else:
+            query = query.filter(Restaurant.users.contains(current_user))
+    restaurant = query.first()
     if not restaurant:
         raise HTTPException(status_code=404, detail="Restaurant not found or unavailable")
     if require_credentials and (not restaurant.server or not restaurant.iiko_login or not restaurant.iiko_password_sha1):
