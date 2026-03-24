@@ -30,28 +30,28 @@
         </div>
         <div class="kb-access-selector__grid">
             <div class="kb-access-selector__group">
-                <h4 class="kb-access-selector__title">Роли</h4>
+                <h4 class="kb-access-selector__title">Рестораны</h4>
                 <div class="kb-access-selector__search-wrap">
                     <input
-                        v-model.trim="searchRole"
+                        v-model.trim="searchRestaurant"
                         type="text"
                         class="kb-access-selector__search"
-                        placeholder="Поиск роли"
+                        placeholder="Поиск ресторана"
                         :disabled="disabled"
                     >
                 </div>
                 <div class="kb-access-selector__list">
-                    <label v-for="item in filteredRoleOptions" :key="`role-${item.id}`" class="kb-access-selector__option">
+                    <label v-for="item in filteredRestaurantOptions" :key="`restaurant-${item.id}`" class="kb-access-selector__option">
                         <input
                             type="checkbox"
-                            :checked="isChecked('role_ids', item.id)"
+                            :checked="isChecked('restaurant_ids', item.id)"
                             :disabled="disabled"
-                            @change="toggle('role_ids', item.id, $event.target.checked)"
+                            @change="toggle('restaurant_ids', item.id, $event.target.checked)"
                         >
                         <span>{{ item.name }}</span>
                     </label>
-                    <p v-if="!roleOptions.length" class="kb-access-selector__empty">Нет ролей</p>
-                    <p v-else-if="!filteredRoleOptions.length" class="kb-access-selector__empty">Ничего не найдено</p>
+                    <p v-if="!restaurantOptions.length" class="kb-access-selector__empty">Нет ресторанов</p>
+                    <p v-else-if="!filteredRestaurantOptions.length" class="kb-access-selector__empty">Ничего не найдено</p>
                 </div>
             </div>
 
@@ -77,6 +77,9 @@
                         <span>{{ item.name }}</span>
                     </label>
                     <p v-if="!positionOptions.length" class="kb-access-selector__empty">Нет должностей</p>
+                    <p v-else-if="hasRestaurantFilter && !scopedPositionOptions.length" class="kb-access-selector__empty">
+                        Нет должностей для выбранных ресторанов
+                    </p>
                     <p v-else-if="!filteredPositionOptions.length" class="kb-access-selector__empty">Ничего не найдено</p>
                 </div>
             </div>
@@ -103,33 +106,10 @@
                         <span>{{ item.name }}</span>
                     </label>
                     <p v-if="!userOptions.length" class="kb-access-selector__empty">Нет сотрудников</p>
+                    <p v-else-if="hasUserScopeFilters && !scopedUserOptions.length" class="kb-access-selector__empty">
+                        Нет сотрудников по выбранным фильтрам
+                    </p>
                     <p v-else-if="!filteredUserOptions.length" class="kb-access-selector__empty">Ничего не найдено</p>
-                </div>
-            </div>
-
-            <div class="kb-access-selector__group">
-                <h4 class="kb-access-selector__title">Рестораны</h4>
-                <div class="kb-access-selector__search-wrap">
-                    <input
-                        v-model.trim="searchRestaurant"
-                        type="text"
-                        class="kb-access-selector__search"
-                        placeholder="Поиск ресторана"
-                        :disabled="disabled"
-                    >
-                </div>
-                <div class="kb-access-selector__list">
-                    <label v-for="item in filteredRestaurantOptions" :key="`restaurant-${item.id}`" class="kb-access-selector__option">
-                        <input
-                            type="checkbox"
-                            :checked="isChecked('restaurant_ids', item.id)"
-                            :disabled="disabled"
-                            @change="toggle('restaurant_ids', item.id, $event.target.checked)"
-                        >
-                        <span>{{ item.name }}</span>
-                    </label>
-                    <p v-if="!restaurantOptions.length" class="kb-access-selector__empty">Нет ресторанов</p>
-                    <p v-else-if="!filteredRestaurantOptions.length" class="kb-access-selector__empty">Ничего не найдено</p>
                 </div>
             </div>
         </div>
@@ -167,28 +147,61 @@ const props = defineProps({
 
 const emit = defineEmits(['update:modelValue']);
 
-const normalizeAccess = normalizeKnowledgeBaseAccess;
+const normalizeAccess = (value) => ({
+    ...normalizeKnowledgeBaseAccess(value),
+    role_ids: [],
+});
 const isSameAccess = areKnowledgeBaseAccessEqual;
 
 const localValue = ref(normalizeAccess(props.modelValue));
-const searchRole = ref('');
 const searchPosition = ref('');
 const searchUser = ref('');
 const searchRestaurant = ref('');
 
-const roleOptions = computed(() => normalizeOptions(props.options?.roles));
 const positionOptions = computed(() => normalizeOptions(props.options?.positions));
 const userOptions = computed(() => normalizeOptions(props.options?.users));
 const restaurantOptions = computed(() => normalizeOptions(props.options?.restaurants));
-const roleOptionsMap = computed(() => toOptionsMap(roleOptions.value));
 const positionOptionsMap = computed(() => toOptionsMap(positionOptions.value));
 const userOptionsMap = computed(() => toOptionsMap(userOptions.value));
 const restaurantOptionsMap = computed(() => toOptionsMap(restaurantOptions.value));
-const filteredRoleOptions = computed(() => filterOptions(roleOptions.value, searchRole.value));
-const filteredPositionOptions = computed(() => filterOptions(positionOptions.value, searchPosition.value));
-const filteredUserOptions = computed(() => filterOptions(userOptions.value, searchUser.value));
+
+const selectedRestaurantIdSet = computed(() => new Set(localValue.value?.restaurant_ids || []));
+const selectedPositionIdSet = computed(() => new Set(localValue.value?.position_ids || []));
+
+const hasRestaurantFilter = computed(() => selectedRestaurantIdSet.value.size > 0);
+const hasUserScopeFilters = computed(() => hasRestaurantFilter.value || selectedPositionIdSet.value.size > 0);
+
+const scopedPositionOptions = computed(() => {
+    if (!hasRestaurantFilter.value) {
+        return positionOptions.value;
+    }
+    return positionOptions.value.filter((item) =>
+        item.restaurantIds.some((restaurantId) => selectedRestaurantIdSet.value.has(restaurantId)),
+    );
+});
+
+const scopedUserOptions = computed(() => {
+    let list = userOptions.value;
+    if (hasRestaurantFilter.value) {
+        list = list.filter((item) =>
+            item.restaurantIds.some((restaurantId) => selectedRestaurantIdSet.value.has(restaurantId)),
+        );
+    }
+    if (selectedPositionIdSet.value.size) {
+        list = list.filter((item) =>
+            Number.isFinite(item.positionId) && selectedPositionIdSet.value.has(item.positionId),
+        );
+    }
+    return list;
+});
+
+const filteredPositionOptions = computed(() => filterOptions(scopedPositionOptions.value, searchPosition.value));
+const filteredUserOptions = computed(() => filterOptions(scopedUserOptions.value, searchUser.value));
 const filteredRestaurantOptions = computed(() => filterOptions(restaurantOptions.value, searchRestaurant.value));
 const selectedGroups = computed(() => buildSelectedGroups());
+
+const scopedPositionIds = computed(() => scopedPositionOptions.value.map((item) => item.id));
+const scopedUserIds = computed(() => scopedUserOptions.value.map((item) => item.id));
 
 watch(
     () => props.modelValue,
@@ -212,6 +225,29 @@ watch(
     { deep: true },
 );
 
+watch(
+    [scopedPositionIds, scopedUserIds],
+    () => {
+        const next = normalizeAccess(localValue.value);
+        const allowedPositionIds = new Set(scopedPositionIds.value);
+        const allowedUserIds = new Set(scopedUserIds.value);
+
+        const nextPositionIds = (next.position_ids || []).filter((id) => allowedPositionIds.has(Number(id)));
+        const nextUserIds = (next.user_ids || []).filter((id) => allowedUserIds.has(Number(id)));
+
+        const positionChanged = nextPositionIds.length !== (next.position_ids || []).length;
+        const usersChanged = nextUserIds.length !== (next.user_ids || []).length;
+        if (!positionChanged && !usersChanged) {
+            return;
+        }
+
+        next.position_ids = nextPositionIds;
+        next.user_ids = nextUserIds;
+        localValue.value = next;
+    },
+    { immediate: true },
+);
+
 function normalizeOptions(value) {
     if (!Array.isArray(value)) {
         return [];
@@ -220,8 +256,32 @@ function normalizeOptions(value) {
         .map((item) => ({
             id: Number(item?.id),
             name: String(item?.name || '').trim(),
+            restaurantIds: normalizeIdList(item?.restaurant_ids),
+            positionId: normalizeSingleId(item?.position_id),
         }))
         .filter((item) => Number.isFinite(item.id) && item.id > 0);
+}
+
+function normalizeIdList(value) {
+    if (!Array.isArray(value)) {
+        return [];
+    }
+    const unique = new Set();
+    value.forEach((item) => {
+        const parsed = Number(item);
+        if (Number.isFinite(parsed) && parsed > 0) {
+            unique.add(parsed);
+        }
+    });
+    return Array.from(unique).sort((a, b) => a - b);
+}
+
+function normalizeSingleId(value) {
+    const parsed = Number(value);
+    if (!Number.isFinite(parsed) || parsed <= 0) {
+        return null;
+    }
+    return parsed;
 }
 
 function toOptionsMap(list) {
@@ -254,10 +314,10 @@ function resolveSelectedItems(scopeKey, optionsMap) {
 function buildSelectedGroups() {
     const groups = [
         {
-            key: 'roles',
-            label: 'Роли',
-            scopeKey: 'role_ids',
-            items: resolveSelectedItems('role_ids', roleOptionsMap.value),
+            key: 'restaurants',
+            label: 'Рестораны',
+            scopeKey: 'restaurant_ids',
+            items: resolveSelectedItems('restaurant_ids', restaurantOptionsMap.value),
         },
         {
             key: 'positions',
@@ -270,12 +330,6 @@ function buildSelectedGroups() {
             label: 'Сотрудники',
             scopeKey: 'user_ids',
             items: resolveSelectedItems('user_ids', userOptionsMap.value),
-        },
-        {
-            key: 'restaurants',
-            label: 'Рестораны',
-            scopeKey: 'restaurant_ids',
-            items: resolveSelectedItems('restaurant_ids', restaurantOptionsMap.value),
         },
     ];
     return groups.filter((group) => group.items.length > 0);
@@ -302,7 +356,7 @@ function toggle(scopeKey, optionId, checked) {
 <style scoped lang="scss">
 .kb-access-selector {
     display: flex;
-    flex-direction: column;
+    flex-direction: column-reverse;
     gap: 8px;
 }
 
@@ -376,7 +430,7 @@ function toggle(scopeKey, optionId, checked) {
 .kb-access-selector__grid {
     display: grid;
     gap: 8px;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
 .kb-access-selector__group {
@@ -415,7 +469,7 @@ function toggle(scopeKey, optionId, checked) {
     display: flex;
     flex-direction: column;
     gap: 6px;
-    max-height: 170px;
+    max-height: 308px;
     overflow: auto;
 }
 

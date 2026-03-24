@@ -191,6 +191,8 @@ class KnowledgeBaseDocumentHistoryResponse(BaseModel):
 class KnowledgeBaseAccessOption(BaseModel):
     id: int
     name: str
+    restaurant_ids: list[int] = Field(default_factory=list)
+    position_id: int | None = None
 
 
 class KnowledgeBaseAccessOptionsResponse(BaseModel):
