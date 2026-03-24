@@ -615,20 +615,6 @@ watch(
     { immediate: true },
 );
 
-function buildOptions(rows, resolver) {
-    const set = new Set();
-    for (const row of rows) {
-        const value = typeof resolver === 'function' ? resolver(row) : row?.[resolver];
-        const normalized = normalizeSelectValue(value);
-        if (normalized) {
-            set.add(normalized);
-        }
-    }
-    return Array.from(set)
-        .sort((a, b) => a.localeCompare(b, 'ru', { sensitivity: 'base' }))
-        .map((value) => ({ value, label: value }));
-}
-
 function buildParentGroupOptions(rows) {
     const map = new Map();
     for (const row of rows) {
