@@ -784,54 +784,46 @@
                         <p v-else class="advance-list__empty advance-consolidated-card__empty">Нет ведомостей внутри этой общей ведомости.</p>
                     </div>
 
-                    <div v-else class="advance-consolidated-card__panel">
-                        <div class="advance-consolidated-histogram">
-                            <p class="advance-consolidated-histogram__title">Гистограмма к выплате по ведомостям</p>
-                            <p class="advance-consolidated-histogram__subtitle">
-                                Сравнение по сумме «К выплате». На полосе отображается доля от общего ФОТ.
-                            </p>
-
-                            <p v-if="consolidatedTotalsLoading" class="advance-consolidated-summary__loading">
-                                Считаем итоги...
-                            </p>
-                            <p v-else-if="consolidatedTotalsError" class="advance-consolidated-summary__error">
-                                {{ consolidatedTotalsError }}
-                            </p>
-                            <p v-else-if="!consolidatedHistogramRows.length" class="advance-list__empty">
-                                Нет данных для гистограммы.
-                            </p>
-                            <div v-else class="advance-consolidated-histogram__list">
-                                <div
-                                    v-for="row in consolidatedHistogramRows"
-                                    :key="row.id"
-                                    class="advance-consolidated-histogram__row"
-                                >
-                                    <div class="advance-consolidated-histogram__head">
-                                        <p class="advance-consolidated-histogram__name">№ {{ row.id }} · {{ row.restaurant_name }}</p>
-                                        <p
-                                            class="advance-consolidated-histogram__amount"
-                                            :class="{ 'is-negative': row.amount < 0 }"
-                                        >
-                                            {{ formatMoney(row.amount) }} ₽
-                                        </p>
-                                    </div>
-                                    <div class="advance-consolidated-histogram__track">
-                                        <span
-                                            class="advance-consolidated-histogram__fill"
-                                            :class="{ 'is-negative': row.amount < 0 }"
-                                            :style="{ width: `${row.percent_of_max}%` }"
-                                        />
-                                    </div>
-                                    <div class="advance-consolidated-histogram__meta">
-                                        <span>Доля ФОТ: {{ formatPercent(row.share_of_total) }}</span>
-                                        <span>Строк: {{ row.row_count }}</span>
-                                    </div>
-                                </div>
+                    <div v-else class="advance-consolidated-histogram advance-statement-histogram advance-consolidated-card__panel">
+                        <div class="advance-statement-histogram__header">
+                            <div>
+                                <p class="advance-consolidated-histogram__title">Гистограмма по подразделениям</p>
+                                <p class="advance-consolidated-histogram__subtitle">
+                                    {{ consolidatedHistogramSubtitle }}
+                                </p>
                             </div>
-                            <p v-if="consolidatedTotalsWarning" class="advance-consolidated-summary__warning">
-                                {{ consolidatedTotalsWarning }}
-                            </p>
+                            <Button
+                                v-if="consolidatedHistogramSelectedSubdivision"
+                                color="ghost"
+                                size="sm"
+                                @click="resetConsolidatedHistogramDrilldown"
+                            >
+                                Назад к подразделениям
+                            </Button>
                         </div>
+
+                        <p v-if="consolidatedHistogramLoading" class="advance-consolidated-summary__loading">
+                            Загружаем гистограмму...
+                        </p>
+                        <p v-else-if="consolidatedHistogramError" class="advance-consolidated-summary__error">
+                            {{ consolidatedHistogramError }}
+                        </p>
+                        <p v-else-if="!consolidatedHistogramItems.length" class="advance-list__empty">
+                            Нет данных для гистограммы.
+                        </p>
+                        <VChart
+                            v-else
+                            class="advance-statement-histogram__chart"
+                            :option="consolidatedHistogramOption"
+                            autoresize
+                            @click="handleConsolidatedHistogramClick"
+                        />
+                        <p class="advance-statement-histogram__hint">
+                            Клик по столбцу подразделения показывает столбцы должностей этого подразделения во всей компании.
+                        </p>
+                        <p v-if="consolidatedTotalsWarning" class="advance-consolidated-summary__warning">
+                            {{ consolidatedTotalsWarning }}
+                        </p>
                     </div>
                 </div>
                 <div class="advance-modal__actions advance-consolidated-card__actions">
@@ -1111,6 +1103,10 @@ let pendingItemSaveRequest = null;
 const consolidatedTotalsLoading = ref(false);
 const consolidatedTotalsError = ref('');
 const consolidatedTotalsWarning = ref('');
+const consolidatedHistogramLoading = ref(false);
+const consolidatedHistogramError = ref('');
+const consolidatedHistogramRows = ref([]);
+const consolidatedHistogramSubdivisionKey = ref('');
 const consolidatedTotals = ref({
     statement_count: 0,
     loaded_statement_count: 0,
@@ -1456,38 +1452,8 @@ const consolidatedStatementsInCurrent = computed(() => {
     });
 });
 
-const consolidatedHistogramRows = computed(() => {
-    const rows = consolidatedStatementsInCurrent.value
-        .filter((stmt) => !stmt.missing)
-        .map((stmt) => {
-            const totals = consolidatedStatementTotals.value[String(stmt.id)];
-            const amount = Number(totals?.final_total ?? 0) || 0;
-            const rowCount = Number(totals?.row_count ?? 0) || 0;
-            return {
-                id: Number(stmt.id),
-                restaurant_name: stmt.restaurant_name || 'Ресторан не задан',
-                amount,
-                row_count: rowCount,
-            };
-        });
-
-    if (!rows.length) return [];
-
-    const maxAmount = rows.reduce((acc, item) => Math.max(acc, Math.abs(item.amount)), 0);
-    const totalBase = Math.abs(Number(consolidatedTotals.value?.final_total ?? 0));
-    const fallbackBase = rows.reduce((acc, item) => acc + Math.abs(item.amount), 0);
-    const shareBase = totalBase > 0 ? totalBase : fallbackBase;
-
-    return rows
-        .sort((a, b) => Math.abs(b.amount) - Math.abs(a.amount))
-        .map((item) => ({
-            ...item,
-            percent_of_max: maxAmount > 0 ? Math.max(0, Math.min(100, (Math.abs(item.amount) / maxAmount) * 100)) : 0,
-            share_of_total: shareBase > 0 ? Math.abs(item.amount) / shareBase : 0,
-        }));
-});
-
 let consolidatedTotalsRunId = 0;
+let consolidatedHistogramRunId = 0;
 
 async function loadConsolidatedTotals() {
     const group = currentConsolidated.value;
@@ -1591,6 +1557,341 @@ async function loadConsolidatedTotals() {
 
 function normalizeText(value) {
     return String(value ?? '').trim().toLowerCase();
+}
+
+function getConsolidatedSubdivisionHistogramKey(row) {
+    return `name:${normalizeText(row?.subdivision_name || 'Без подразделения')}`;
+}
+
+function getConsolidatedPositionHistogramKey(position) {
+    return `name:${normalizeText(position?.position_name || 'Без должности')}`;
+}
+
+async function loadConsolidatedHistogram() {
+    consolidatedHistogramRows.value = [];
+    consolidatedHistogramError.value = '';
+    consolidatedHistogramSubdivisionKey.value = '';
+
+    const group = currentConsolidated.value;
+    if (!group) {
+        consolidatedHistogramLoading.value = false;
+        return;
+    }
+
+    const rawIds = Array.isArray(group.statement_ids) ? group.statement_ids : [];
+    const ids = [];
+    const seen = new Set();
+    for (const rawId of rawIds) {
+        const id = Number(rawId);
+        if (!Number.isFinite(id) || seen.has(id)) continue;
+        seen.add(id);
+        ids.push(id);
+    }
+    if (!ids.length) {
+        consolidatedHistogramLoading.value = false;
+        return;
+    }
+
+    const runId = (consolidatedHistogramRunId += 1);
+    const groupId = Number(group.id);
+    consolidatedHistogramLoading.value = true;
+
+    try {
+        const statementsPayload = await Promise.all(ids.map(async (id) => {
+            try {
+                return await fetchAdvanceStatement(id);
+            } catch (error) {
+                if (Number(error?.response?.status) === 404) {
+                    return null;
+                }
+                throw error;
+            }
+        }));
+        if (runId !== consolidatedHistogramRunId) return;
+        if (!showConsolidatedStatementModal.value || Number(currentConsolidated.value?.id) !== groupId) return;
+
+        const subdivisionMap = new Map();
+
+        for (const statement of statementsPayload) {
+            if (!statement || !Array.isArray(statement.items)) continue;
+            const statementKind = statement.statement_kind;
+            for (const item of statement.items) {
+                const subdivisionName = String(item?.subdivision_name || '').trim() || 'Без подразделения';
+                const positionName = String(item?.position_name || '').trim() || 'Без должности';
+                const subdivisionKey = getConsolidatedSubdivisionHistogramKey({ subdivision_name: subdivisionName });
+                const positionKey = getConsolidatedPositionHistogramKey({ position_name: positionName });
+                const totalAccrued = getItemTotalAccruedValue(item, statementKind);
+                const hours = Number(item?.fact_hours ?? 0) || 0;
+                const nightHours = Number(item?.night_hours ?? 0) || 0;
+                const accrualAmount = Number(item?.accrual_amount ?? 0) || 0;
+                const deductionAmount = Number(item?.deduction_amount ?? 0) || 0;
+
+                if (!subdivisionMap.has(subdivisionKey)) {
+                    subdivisionMap.set(subdivisionKey, {
+                        subdivision_name: subdivisionName,
+                        hours: 0,
+                        night_hours: 0,
+                        accrual_amount: 0,
+                        deduction_amount: 0,
+                        total_cost: 0,
+                        row_count: 0,
+                        positions: new Map(),
+                    });
+                }
+                const subdivisionEntry = subdivisionMap.get(subdivisionKey);
+                subdivisionEntry.hours += hours;
+                subdivisionEntry.night_hours += nightHours;
+                subdivisionEntry.accrual_amount += accrualAmount;
+                subdivisionEntry.deduction_amount += deductionAmount;
+                subdivisionEntry.total_cost += totalAccrued;
+                subdivisionEntry.row_count += 1;
+
+                if (!subdivisionEntry.positions.has(positionKey)) {
+                    subdivisionEntry.positions.set(positionKey, {
+                        position_name: positionName,
+                        hours: 0,
+                        night_hours: 0,
+                        accrual_amount: 0,
+                        deduction_amount: 0,
+                        total_cost: 0,
+                        row_count: 0,
+                    });
+                }
+                const positionEntry = subdivisionEntry.positions.get(positionKey);
+                positionEntry.hours += hours;
+                positionEntry.night_hours += nightHours;
+                positionEntry.accrual_amount += accrualAmount;
+                positionEntry.deduction_amount += deductionAmount;
+                positionEntry.total_cost += totalAccrued;
+                positionEntry.row_count += 1;
+            }
+        }
+
+        consolidatedHistogramRows.value = Array.from(subdivisionMap.values())
+            .map((subdivision) => ({
+                subdivision_name: subdivision.subdivision_name,
+                hours: quantizeMoney(subdivision.hours),
+                night_hours: quantizeMoney(subdivision.night_hours),
+                accrual_amount: quantizeMoney(subdivision.accrual_amount),
+                deduction_amount: quantizeMoney(subdivision.deduction_amount),
+                total_cost: quantizeMoney(subdivision.total_cost),
+                row_count: subdivision.row_count,
+                positions: Array.from(subdivision.positions.values())
+                    .map((position) => ({
+                        position_name: position.position_name,
+                        hours: quantizeMoney(position.hours),
+                        night_hours: quantizeMoney(position.night_hours),
+                        accrual_amount: quantizeMoney(position.accrual_amount),
+                        deduction_amount: quantizeMoney(position.deduction_amount),
+                        total_cost: quantizeMoney(position.total_cost),
+                        row_count: position.row_count,
+                    }))
+                    .sort((a, b) => b.total_cost - a.total_cost),
+            }))
+            .sort((a, b) => b.total_cost - a.total_cost);
+    } catch (error) {
+        const detail = error?.response?.data?.detail;
+        consolidatedHistogramError.value = detail || 'Не удалось загрузить гистограмму общей ведомости.';
+        console.error(error);
+    } finally {
+        if (runId === consolidatedHistogramRunId) {
+            consolidatedHistogramLoading.value = false;
+        }
+    }
+}
+
+const consolidatedHistogramSelectedSubdivision = computed(() => {
+    if (!consolidatedHistogramSubdivisionKey.value) return null;
+    return (
+        consolidatedHistogramRows.value.find(
+            (row) => getConsolidatedSubdivisionHistogramKey(row) === consolidatedHistogramSubdivisionKey.value,
+        ) || null
+    );
+});
+
+const consolidatedHistogramItems = computed(() => {
+    const rows = Array.isArray(consolidatedHistogramRows.value) ? consolidatedHistogramRows.value : [];
+    const totalAccruedAll = rows.reduce((acc, row) => acc + Math.max(0, Number(row?.total_cost || 0)), 0);
+
+    if (consolidatedHistogramSelectedSubdivision.value) {
+        const subdivision = consolidatedHistogramSelectedSubdivision.value;
+        const positions = Array.isArray(subdivision?.positions) ? subdivision.positions : [];
+        const parentCost = Math.max(0, Number(subdivision?.total_cost || 0));
+        return positions
+            .map((position) => {
+                const value = Number(position?.total_cost || 0);
+                if (value <= 0) return null;
+                return {
+                    key: `${getConsolidatedSubdivisionHistogramKey(subdivision)}::${getConsolidatedPositionHistogramKey(position)}`,
+                    sourceKey: getConsolidatedPositionHistogramKey(position),
+                    nodeType: 'position',
+                    label: position?.position_name || 'Без должности',
+                    value,
+                    metrics: {
+                        hours: Number(position?.hours || 0),
+                        night_hours: Number(position?.night_hours || 0),
+                        accrual_amount: Number(position?.accrual_amount || 0),
+                        deduction_amount: Number(position?.deduction_amount || 0),
+                        total_cost: value,
+                        row_count: Number(position?.row_count || 0),
+                    },
+                    sharePercent: totalAccruedAll > 0 ? (value / totalAccruedAll) * 100 : 0,
+                    shareInParentPercent: parentCost > 0 ? (value / parentCost) * 100 : 0,
+                };
+            })
+            .filter(Boolean)
+            .sort((a, b) => b.value - a.value);
+    }
+
+    return rows
+        .map((row) => {
+            const value = Number(row?.total_cost || 0);
+            if (value <= 0) return null;
+            return {
+                key: getConsolidatedSubdivisionHistogramKey(row),
+                sourceKey: getConsolidatedSubdivisionHistogramKey(row),
+                nodeType: 'subdivision',
+                label: row?.subdivision_name || 'Без подразделения',
+                value,
+                metrics: {
+                    hours: Number(row?.hours || 0),
+                    night_hours: Number(row?.night_hours || 0),
+                    accrual_amount: Number(row?.accrual_amount || 0),
+                    deduction_amount: Number(row?.deduction_amount || 0),
+                    total_cost: value,
+                    row_count: Number(row?.row_count || 0),
+                },
+                sharePercent: totalAccruedAll > 0 ? (value / totalAccruedAll) * 100 : 0,
+                shareInParentPercent: 100,
+            };
+        })
+        .filter(Boolean)
+        .sort((a, b) => b.value - a.value);
+});
+
+const consolidatedHistogramSubtitle = computed(() => {
+    if (consolidatedHistogramSelectedSubdivision.value) {
+        const name = consolidatedHistogramSelectedSubdivision.value?.subdivision_name || 'Без подразделения';
+        return `Должности подразделения «${name}» по итогу начислено во всей компании.`;
+    }
+    return 'Подразделения всей компании по итогу начислено. Кликни столбец для детализации должностей.';
+});
+
+const consolidatedHistogramOption = computed(() => {
+    const items = consolidatedHistogramItems.value;
+    if (!items.length) return null;
+    const maxValue = Math.max(...items.map((item) => Number(item.value || 0)), 0);
+
+    return {
+        animationDuration: 220,
+        grid: {
+            left: 230,
+            right: 26,
+            top: 12,
+            bottom: 18,
+            containLabel: false,
+        },
+        tooltip: {
+            trigger: 'item',
+            confine: true,
+            backgroundColor: 'rgba(17, 19, 24, 0.96)',
+            borderColor: 'rgba(212, 163, 115, 0.45)',
+            borderWidth: 1,
+            textStyle: {
+                color: '#f5efe6',
+                fontSize: 12,
+            },
+            formatter: (params) => {
+                const node = params?.data || {};
+                const metrics = node?.metrics || {};
+                const title = escapeHtml(node?.label || '—');
+                const typeLabel = node?.nodeType === 'position' ? 'Должность' : 'Подразделение';
+                const lines = [
+                    `<div style="font-weight:700;font-size:13px;margin-bottom:6px;">${title}</div>`,
+                    `<div style="opacity:.9;margin-bottom:6px;">${typeLabel}</div>`,
+                    `<div><span style="opacity:.75;">Итого начислено:</span> <b>${escapeHtml(`${formatMoney(node?.value || 0)} ₽`)}</b></div>`,
+                    `<div><span style="opacity:.75;">Часы:</span> <b>${escapeHtml(formatNumber(metrics?.hours || 0))}</b></div>`,
+                    `<div><span style="opacity:.75;">Ночные:</span> <b>${escapeHtml(formatNumber(metrics?.night_hours || 0))}</b></div>`,
+                    `<div><span style="opacity:.75;">Начисления:</span> <b>${escapeHtml(`${formatMoney(metrics?.accrual_amount || 0)} ₽`)}</b></div>`,
+                    `<div><span style="opacity:.75;">Удержания:</span> <b>${escapeHtml(`${formatMoney(metrics?.deduction_amount || 0)} ₽`)}</b></div>`,
+                    `<div><span style="opacity:.75;">Строк:</span> <b>${escapeHtml(String(metrics?.row_count || 0))}</b></div>`,
+                    `<div><span style="opacity:.75;">Доля общей суммы:</span> <b>${escapeHtml(formatPercent((Number(node?.sharePercent || 0)) / 100))}</b></div>`,
+                ];
+                if (node?.nodeType === 'position') {
+                    lines.push(`<div><span style="opacity:.75;">Доля в подразделении:</span> <b>${escapeHtml(formatPercent((Number(node?.shareInParentPercent || 0)) / 100))}</b></div>`);
+                }
+                return lines.join('');
+            },
+        },
+        xAxis: {
+            type: 'value',
+            max: maxValue > 0 ? maxValue * 1.12 : undefined,
+            axisLabel: {
+                color: '#b8b3a9',
+                formatter: (value) => `${formatMoney(value)} ₽`,
+            },
+            splitLine: {
+                lineStyle: {
+                    color: 'rgba(255, 255, 255, 0.08)',
+                },
+            },
+        },
+        yAxis: {
+            type: 'category',
+            inverse: true,
+            data: items.map((item) => item.label),
+            axisTick: { show: false },
+            axisLine: { show: false },
+            axisLabel: {
+                color: '#d7d2c9',
+                width: 210,
+                overflow: 'truncate',
+            },
+        },
+        series: [
+            {
+                type: 'bar',
+                data: items.map((item) => ({
+                    ...item,
+                    itemStyle: {
+                        color: 'rgba(212, 163, 115, 0.72)',
+                        borderRadius: [6, 6, 6, 6],
+                    },
+                })),
+                barMaxWidth: 28,
+                label: {
+                    show: true,
+                    position: 'right',
+                    color: '#d8d3c9',
+                    formatter: ({ data }) => formatPercent((Number(data?.sharePercent || 0)) / 100),
+                },
+                emphasis: {
+                    itemStyle: {
+                        color: 'rgba(212, 163, 115, 0.9)',
+                    },
+                },
+            },
+        ],
+    };
+});
+
+function handleConsolidatedHistogramClick(params) {
+    if (consolidatedHistogramSelectedSubdivision.value) {
+        return;
+    }
+    const sourceKey = String(params?.data?.sourceKey || '');
+    if (!sourceKey) return;
+    const row = consolidatedHistogramRows.value.find(
+        (item) => getConsolidatedSubdivisionHistogramKey(item) === sourceKey,
+    );
+    if (!row || !Array.isArray(row?.positions) || !row.positions.length) {
+        return;
+    }
+    consolidatedHistogramSubdivisionKey.value = sourceKey;
+}
+
+function resetConsolidatedHistogramDrilldown() {
+    consolidatedHistogramSubdivisionKey.value = '';
 }
 
 function getItemSortValue(item, key) {
@@ -2653,6 +2954,10 @@ function closeConsolidatedStatementModal() {
     showConsolidatedStatementModal.value = false;
     currentConsolidated.value = null;
     consolidatedViewTab.value = 'statements';
+    consolidatedHistogramRows.value = [];
+    consolidatedHistogramError.value = '';
+    consolidatedHistogramLoading.value = false;
+    consolidatedHistogramSubdivisionKey.value = '';
 }
 
 async function openStatementFromConsolidated(id) {
@@ -2840,6 +3145,25 @@ watch(
     ([isOpen, groupId]) => {
         if (!isOpen || !groupId) return;
         void loadConsolidatedTotals();
+        if (consolidatedViewTab.value === 'histogram') {
+            void loadConsolidatedHistogram();
+        }
+    },
+);
+
+watch(
+    () => consolidatedViewTab.value,
+    (tab) => {
+        if (
+            tab === 'histogram'
+            && showConsolidatedStatementModal.value
+            && currentConsolidated.value?.id
+            && !consolidatedHistogramLoading.value
+            && !consolidatedHistogramRows.value.length
+            && !consolidatedHistogramError.value
+        ) {
+            void loadConsolidatedHistogram();
+        }
     },
 );
 

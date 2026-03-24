@@ -1,27 +1,40 @@
 ﻿import { computed, reactive, ref } from 'vue';
 import { useToast } from 'vue-toastification';
 import {
+    createEmploymentDocumentRecord,
     createCisDocumentRecord,
     createMedicalCheckRecord,
+    deleteEmploymentDocumentRecord,
     deleteCisDocumentRecord,
     deleteMedicalCheckRecord,
+    fetchCisDocumentRecords,
     fetchCisDocumentTypes,
-    fetchEmployeeCard,
+    fetchEmploymentDocumentRecords,
+    fetchMedicalCheckRecords,
     fetchMedicalCheckTypes,
+    updateEmploymentDocumentRecord,
     updateCisDocumentRecord,
     updateMedicalCheckRecord,
+    uploadEmploymentDocumentAttachment,
     uploadCisDocumentAttachment,
 } from '@/api';
 
+const EMPLOYMENT_DOCUMENT_OPTIONS = [
+    { value: 'employment_order', label: 'Приказ о приеме на работу' },
+    { value: 'employment_contract', label: 'Договор' },
+];
+
 export function useEmployeeDocuments({
     activeEmployee,
-    employeeCard,
     canViewDocuments,
+    canViewMedicalChecks,
+    canViewCisDocuments,
 }) {
     const toast = useToast();
 
     const medicalCheckRecords = ref([]);
     const cisDocumentRecords = ref([]);
+    const employmentDocumentRecords = ref([]);
     const medicalCheckTypes = ref([]);
     const cisDocumentTypes = ref([]);
     const medicalCheckTypesLoading = ref(false);
@@ -43,14 +56,25 @@ export function useEmployeeDocuments({
         attachmentUrl: '',
         comment: '',
     });
+    const employmentDocumentForm = reactive({
+        id: null,
+        documentKind: null,
+        issuedAt: '',
+        attachmentUrl: '',
+        comment: '',
+    });
     const isMedicalFormOpen = ref(false);
     const isMedicalBulkMode = ref(false);
     const isCisFormOpen = ref(false);
+    const isEmploymentFormOpen = ref(false);
     const savingMedicalRecord = ref(false);
     const savingCisDocument = ref(false);
+    const savingEmploymentDocument = ref(false);
     const uploadingCisAttachment = ref(false);
+    const uploadingEmploymentAttachment = ref(false);
     const deletingMedicalRecordId = ref(null);
     const deletingCisDocumentId = ref(null);
+    const deletingEmploymentDocumentId = ref(null);
 
     const medicalCheckTypeOptions = computed(() =>
         medicalCheckTypes.value
@@ -63,6 +87,37 @@ export function useEmployeeDocuments({
             .map((type) => ({ value: String(type.id), label: type.name }))
             .sort((a, b) => a.label.localeCompare(b.label, 'ru', { sensitivity: 'base' })),
     );
+
+    const employmentDocumentRows = computed(() =>
+        EMPLOYMENT_DOCUMENT_OPTIONS.map((item) => {
+            const existing = employmentDocumentRecords.value.find(
+                (record) => record.document_kind === item.value,
+            );
+            if (existing) {
+                return {
+                    ...existing,
+                    document_name: existing.document_name || item.label,
+                    exists: true,
+                };
+            }
+            return {
+                id: `placeholder-${item.value}`,
+                document_kind: item.value,
+                document_name: item.label,
+                issued_at: '',
+                comment: '',
+                attachment_url: '',
+                exists: false,
+            };
+        }),
+    );
+
+    const employmentDocumentFormLabel = computed(() => {
+        const option = EMPLOYMENT_DOCUMENT_OPTIONS.find(
+            (item) => item.value === employmentDocumentForm.documentKind,
+        );
+        return option?.label || 'Документ оформления';
+    });
 
     function resetMedicalForm() {
         medicalForm.id = null;
@@ -82,6 +137,14 @@ export function useEmployeeDocuments({
         cisDocumentForm.comment = '';
     }
 
+    function resetEmploymentDocumentForm() {
+        employmentDocumentForm.id = null;
+        employmentDocumentForm.documentKind = null;
+        employmentDocumentForm.issuedAt = '';
+        employmentDocumentForm.attachmentUrl = '';
+        employmentDocumentForm.comment = '';
+    }
+
     function startCreateMedicalRecord() {
         isMedicalBulkMode.value = false;
         resetMedicalForm();
@@ -97,6 +160,18 @@ export function useEmployeeDocuments({
     function startCreateCisDocument() {
         resetCisDocumentForm();
         isCisFormOpen.value = true;
+    }
+
+    function startEditEmploymentDocument(record) {
+        if (!record?.document_kind) {
+            return;
+        }
+        isEmploymentFormOpen.value = true;
+        employmentDocumentForm.id = record.exists ? record.id ?? null : null;
+        employmentDocumentForm.documentKind = record.document_kind;
+        employmentDocumentForm.issuedAt = record.issued_at || '';
+        employmentDocumentForm.attachmentUrl = record.attachment_url || '';
+        employmentDocumentForm.comment = record.comment || '';
     }
 
     function startEditMedicalRecord(record) {
@@ -139,6 +214,12 @@ export function useEmployeeDocuments({
         resetCisDocumentForm();
     }
 
+    function cancelEmploymentDocumentForm() {
+        isEmploymentFormOpen.value = false;
+        savingEmploymentDocument.value = false;
+        resetEmploymentDocumentForm();
+    }
+
     function normalizeOptional(value) {
         if (value === null || value === undefined) {
             return null;
@@ -151,7 +232,7 @@ export function useEmployeeDocuments({
     }
 
     async function loadMedicalCheckTypes() {
-        if (!canViewDocuments.value || medicalCheckTypesLoading.value) {
+        if (!canViewMedicalChecks.value || medicalCheckTypesLoading.value) {
             return;
         }
         medicalCheckTypesLoading.value = true;
@@ -174,7 +255,7 @@ export function useEmployeeDocuments({
     }
 
     async function loadCisDocumentTypes() {
-        if (!canViewDocuments.value || cisDocumentTypesLoading.value) {
+        if (!canViewCisDocuments.value || cisDocumentTypesLoading.value) {
             return;
         }
         cisDocumentTypesLoading.value = true;
@@ -207,19 +288,44 @@ export function useEmployeeDocuments({
 
     async function refreshEmployeeDocuments() {
         if (!activeEmployee.value || !canViewDocuments.value) {
+            medicalCheckRecords.value = [];
+            cisDocumentRecords.value = [];
+            employmentDocumentRecords.value = [];
             return;
         }
         documentsLoading.value = true;
         try {
-            const data = await fetchEmployeeCard(activeEmployee.value.id);
-            employeeCard.value = data;
-            syncEmployeeDocumentsFromCard(data);
+            const [medicalData, cisData, employmentData] = await Promise.all([
+                canViewMedicalChecks.value
+                    ? fetchMedicalCheckRecords({ user_id: activeEmployee.value.id })
+                    : Promise.resolve({ items: [] }),
+                canViewCisDocuments.value
+                    ? fetchCisDocumentRecords({ user_id: activeEmployee.value.id })
+                    : Promise.resolve({ items: [] }),
+                fetchEmploymentDocumentRecords({ user_id: activeEmployee.value.id }),
+            ]);
+
+            medicalCheckRecords.value = Array.isArray(medicalData?.items)
+                ? medicalData.items
+                : [];
+            cisDocumentRecords.value = Array.isArray(cisData?.items)
+                ? cisData.items
+                : [];
+            employmentDocumentRecords.value = Array.isArray(employmentData?.items)
+                ? employmentData.items
+                : [];
 
             if (medicalForm.id && !medicalCheckRecords.value.some((item) => item.id === medicalForm.id)) {
                 cancelMedicalForm();
             }
             if (cisDocumentForm.id && !cisDocumentRecords.value.some((item) => item.id === cisDocumentForm.id)) {
                 cancelCisDocumentForm();
+            }
+            if (
+                employmentDocumentForm.id &&
+                !employmentDocumentRecords.value.some((item) => item.id === employmentDocumentForm.id)
+            ) {
+                cancelEmploymentDocumentForm();
             }
         } catch (error) {
             const detail = error?.response?.data?.detail;
@@ -420,6 +526,86 @@ export function useEmployeeDocuments({
         }
     }
 
+    async function handleSaveEmploymentDocument() {
+        if (!activeEmployee.value) {
+            toast.error('Не выбран сотрудник');
+            return;
+        }
+        if (!employmentDocumentForm.documentKind) {
+            toast.error('Не выбран документ');
+            return;
+        }
+
+        savingEmploymentDocument.value = true;
+        try {
+            const payload = {
+                document_kind: employmentDocumentForm.documentKind,
+                issued_at: employmentDocumentForm.issuedAt || null,
+                comment: normalizeOptional(employmentDocumentForm.comment),
+                attachment_url: normalizeOptional(employmentDocumentForm.attachmentUrl),
+            };
+
+            if (employmentDocumentForm.id) {
+                await updateEmploymentDocumentRecord(employmentDocumentForm.id, payload);
+                toast.success('Документ оформления обновлен');
+            } else {
+                await createEmploymentDocumentRecord({
+                    user_id: activeEmployee.value.id,
+                    ...payload,
+                });
+                toast.success('Документ оформления добавлен');
+            }
+
+            await refreshEmployeeDocuments();
+            cancelEmploymentDocumentForm();
+        } catch (error) {
+            const detail = error?.response?.data?.detail;
+            toast.error(detail || 'Не удалось выполнить операцию');
+            console.error(error);
+        } finally {
+            savingEmploymentDocument.value = false;
+        }
+    }
+
+    async function handleDeleteEmploymentDocument(recordId) {
+        if (!recordId) {
+            return;
+        }
+        deletingEmploymentDocumentId.value = recordId;
+        try {
+            await deleteEmploymentDocumentRecord(recordId);
+            toast.success('Документ удален');
+            if (employmentDocumentForm.id === recordId) {
+                cancelEmploymentDocumentForm();
+            }
+            await refreshEmployeeDocuments();
+        } catch (error) {
+            const detail = error?.response?.data?.detail;
+            toast.error(detail || 'Не удалось выполнить операцию');
+            console.error(error);
+        } finally {
+            deletingEmploymentDocumentId.value = null;
+        }
+    }
+
+    async function handleUploadEmploymentAttachment(file) {
+        if (!activeEmployee.value || !file) {
+            return;
+        }
+        uploadingEmploymentAttachment.value = true;
+        try {
+            const response = await uploadEmploymentDocumentAttachment(activeEmployee.value.id, file);
+            employmentDocumentForm.attachmentUrl = response?.attachment_key || response?.attachment_url || '';
+            toast.success('Файл загружен');
+        } catch (error) {
+            const detail = error?.response?.data?.detail;
+            toast.error(detail || 'Не удалось загрузить файл');
+            console.error(error);
+        } finally {
+            uploadingEmploymentAttachment.value = false;
+        }
+    }
+
     async function handleUploadCisAttachment(file) {
         if (!activeEmployee.value || !file) {
             return;
@@ -441,6 +627,7 @@ export function useEmployeeDocuments({
     function resetEmployeeDocumentsState() {
         medicalCheckRecords.value = [];
         cisDocumentRecords.value = [];
+        employmentDocumentRecords.value = [];
         medicalCheckTypes.value = [];
         cisDocumentTypes.value = [];
         documentsLoading.value = false;
@@ -448,11 +635,13 @@ export function useEmployeeDocuments({
         cisDocumentTypesLoading.value = false;
         cancelMedicalForm();
         cancelCisDocumentForm();
+        cancelEmploymentDocumentForm();
     }
 
     return {
         medicalCheckRecords,
         cisDocumentRecords,
+        employmentDocumentRecords,
         medicalCheckTypes,
         cisDocumentTypes,
         medicalCheckTypesLoading,
@@ -460,23 +649,32 @@ export function useEmployeeDocuments({
         documentsLoading,
         medicalForm,
         cisDocumentForm,
+        employmentDocumentForm,
         isMedicalFormOpen,
         isMedicalBulkMode,
         isCisFormOpen,
+        isEmploymentFormOpen,
         savingMedicalRecord,
         savingCisDocument,
+        savingEmploymentDocument,
         uploadingCisAttachment,
+        uploadingEmploymentAttachment,
         deletingMedicalRecordId,
         deletingCisDocumentId,
+        deletingEmploymentDocumentId,
         medicalCheckTypeOptions,
         cisDocumentTypeOptions,
+        employmentDocumentRows,
+        employmentDocumentFormLabel,
         startCreateMedicalRecord,
         startCreateMedicalRecordsBulk,
         startCreateCisDocument,
         startEditMedicalRecord,
         startEditCisDocument,
+        startEditEmploymentDocument,
         cancelMedicalForm,
         cancelCisDocumentForm,
+        cancelEmploymentDocumentForm,
         loadMedicalCheckTypes,
         loadCisDocumentTypes,
         refreshEmployeeDocuments,
@@ -484,9 +682,11 @@ export function useEmployeeDocuments({
         handleDeleteMedicalRecord,
         handleSaveCisDocument,
         handleDeleteCisDocument,
+        handleSaveEmploymentDocument,
+        handleDeleteEmploymentDocument,
+        handleUploadEmploymentAttachment,
         handleUploadCisAttachment,
         syncEmployeeDocumentsFromCard,
         resetEmployeeDocumentsState,
     };
 }
-

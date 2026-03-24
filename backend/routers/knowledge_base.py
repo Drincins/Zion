@@ -7,7 +7,7 @@ from uuid import uuid4
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile, status
 from sqlalchemy import and_, func, or_
-from sqlalchemy.orm import Session, load_only
+from sqlalchemy.orm import Session, load_only, selectinload
 
 from backend.bd.database import get_db
 from backend.bd.models import (
@@ -563,6 +563,24 @@ def _to_access_options(rows: list[tuple[int, str]]) -> list[KnowledgeBaseAccessO
     ]
 
 
+def _resolve_user_restaurant_ids_for_access_options(user: User, all_restaurant_ids: set[int]) -> list[int]:
+    restaurant_ids: set[int] = set()
+    for restaurant in user.restaurants or []:
+        restaurant_id = getattr(restaurant, "id", None)
+        if restaurant_id is None:
+            continue
+        restaurant_ids.add(int(restaurant_id))
+
+    workplace_restaurant_id = getattr(user, "workplace_restaurant_id", None)
+    if workplace_restaurant_id:
+        restaurant_ids.add(int(workplace_restaurant_id))
+
+    if bool(getattr(user, "has_full_restaurant_access", False)):
+        restaurant_ids = set(all_restaurant_ids)
+
+    return sorted(restaurant_ids)
+
+
 @router.get("/bootstrap", response_model=KnowledgeBaseBootstrapResponse)
 def get_bootstrap(current_user: User = Depends(get_current_user)) -> KnowledgeBaseBootstrapResponse:
     _ensure_can_view(current_user)
@@ -588,23 +606,65 @@ def get_access_options(
         .order_by(func.lower(Restaurant.name).asc(), Restaurant.id.asc())
         .all()
     )
+    all_restaurant_ids = {
+        int(restaurant_id)
+        for restaurant_id, _restaurant_name in restaurants_raw
+        if restaurant_id is not None
+    }
     users_raw = (
-        db.query(User.id, User.first_name, User.last_name, User.username)
+        db.query(User)
+        .options(
+            load_only(
+                User.id,
+                User.first_name,
+                User.last_name,
+                User.username,
+                User.position_id,
+                User.workplace_restaurant_id,
+                User.has_full_restaurant_access,
+            ),
+            selectinload(User.restaurants).load_only(Restaurant.id),
+        )
         .filter(User.fired.is_(False))
         .order_by(func.lower(User.last_name).nullslast(), func.lower(User.first_name).nullslast(), User.id.asc())
         .limit(1000)
         .all()
     )
-    user_options = []
+    position_restaurant_ids_map: dict[int, set[int]] = {}
+    user_options: list[KnowledgeBaseAccessOption] = []
     for row in users_raw:
+        user_restaurant_ids = _resolve_user_restaurant_ids_for_access_options(row, all_restaurant_ids)
+        position_id = int(row.position_id) if row.position_id is not None else None
+        if position_id is not None and user_restaurant_ids:
+            position_restaurant_ids_map.setdefault(position_id, set()).update(user_restaurant_ids)
         full_name = " ".join(part for part in [(row.first_name or "").strip(), (row.last_name or "").strip()] if part)
         label = full_name or (row.username or f"Сотрудник #{row.id}")
-        user_options.append((int(row.id), label))
+        user_options.append(
+            KnowledgeBaseAccessOption(
+                id=int(row.id),
+                name=label,
+                position_id=position_id,
+                restaurant_ids=user_restaurant_ids,
+            )
+        )
+
+    position_options: list[KnowledgeBaseAccessOption] = []
+    for position_id, position_name in positions_raw:
+        if position_id is None:
+            continue
+        numeric_position_id = int(position_id)
+        position_options.append(
+            KnowledgeBaseAccessOption(
+                id=numeric_position_id,
+                name=(position_name or "").strip() or f"#{position_id}",
+                restaurant_ids=sorted(position_restaurant_ids_map.get(numeric_position_id, set())),
+            )
+        )
 
     return KnowledgeBaseAccessOptionsResponse(
         roles=_to_access_options(roles_raw),
-        positions=_to_access_options(positions_raw),
-        users=_to_access_options(user_options),
+        positions=position_options,
+        users=user_options,
         restaurants=_to_access_options(restaurants_raw),
     )
 

@@ -246,23 +246,34 @@
                 <EmployeeDocumentsTab
                     :medical-records="medicalCheckRecords"
                     :cis-documents="cisDocumentRecords"
+                    :employment-documents="employmentDocumentRecords"
                     :medical-type-options="medicalCheckTypeOptions"
                     :cis-document-type-options="cisDocumentTypeOptions"
                     :is-loading="documentsLoading"
                     :show-cis-documents="showCisDocuments"
+                    :show-formalized-documents="showFormalizedDocuments"
                     :format-date="formatDate"
+                    :can-view-medical="canViewMedicalChecks"
+                    :can-view-cis="canViewCisDocuments"
                     :can-manage-medical="canManageMedicalChecks"
                     :can-manage-cis="canManageCisDocuments"
+                    :can-manage-formalized="canManageDocuments"
                     :medical-form="medicalForm"
                     :cis-document-form="cisDocumentForm"
+                    :employment-document-form="employmentDocumentForm"
                     :is-medical-bulk-mode="isMedicalBulkMode"
                     :is-medical-form-open="isMedicalFormOpen"
                     :is-cis-form-open="isCisFormOpen"
+                    :is-employment-form-open="isEmploymentFormOpen"
                     :saving-medical="savingMedicalRecord"
                     :saving-cis="savingCisDocument"
+                    :saving-employment="savingEmploymentDocument"
                     :uploading-cis-attachment="uploadingCisAttachment"
+                    :uploading-employment-attachment="uploadingEmploymentAttachment"
                     :deleting-medical-id="deletingMedicalRecordId"
                     :deleting-cis-id="deletingCisDocumentId"
+                    :deleting-employment-id="deletingEmploymentDocumentId"
+                    :employment-document-form-label="employmentDocumentFormLabel"
                     @start-create-medical="emit('start-create-medical')"
                     @start-create-medical-bulk="emit('start-create-medical-bulk')"
                     @start-edit-medical="(record) => emit('start-edit-medical', record)"
@@ -275,6 +286,11 @@
                     @submit-cis-document-form="emit('submit-cis-document-form')"
                     @delete-cis-document="(id) => emit('delete-cis-document', id)"
                     @upload-cis-attachment="(file) => emit('upload-cis-attachment', file)"
+                    @start-edit-employment-document="(record) => emit('start-edit-employment-document', record)"
+                    @cancel-employment-document-form="emit('cancel-employment-document-form')"
+                    @submit-employment-document-form="emit('submit-employment-document-form')"
+                    @delete-employment-document="(id) => emit('delete-employment-document', id)"
+                    @upload-employment-attachment="(file) => emit('upload-employment-attachment', file)"
                 />
             </div>
             <EmployeeModalChangesTab
@@ -375,23 +391,33 @@ const props = defineProps({
     updatingTrainingRecord: { type: Boolean, default: false },
     deletingTrainingRecordId: { type: [Number, String], default: null },
     canViewDocuments: { type: Boolean, default: false },
+    canViewMedicalChecks: { type: Boolean, default: false },
+    canViewCisDocuments: { type: Boolean, default: false },
     medicalCheckRecords: { type: Array, default: () => [] },
     cisDocumentRecords: { type: Array, default: () => [] },
+    employmentDocumentRecords: { type: Array, default: () => [] },
     medicalCheckTypeOptions: { type: Array, default: () => [] },
     cisDocumentTypeOptions: { type: Array, default: () => [] },
     documentsLoading: { type: Boolean, default: false },
     canManageMedicalChecks: { type: Boolean, default: false },
     canManageCisDocuments: { type: Boolean, default: false },
+    canManageDocuments: { type: Boolean, default: false },
     medicalForm: { type: Object, default: () => ({}) },
     cisDocumentForm: { type: Object, default: () => ({}) },
+    employmentDocumentForm: { type: Object, default: () => ({}) },
     isMedicalBulkMode: { type: Boolean, default: false },
     isMedicalFormOpen: { type: Boolean, default: false },
     isCisFormOpen: { type: Boolean, default: false },
+    isEmploymentFormOpen: { type: Boolean, default: false },
     savingMedicalRecord: { type: Boolean, default: false },
     savingCisDocument: { type: Boolean, default: false },
+    savingEmploymentDocument: { type: Boolean, default: false },
     uploadingCisAttachment: { type: Boolean, default: false },
+    uploadingEmploymentAttachment: { type: Boolean, default: false },
     deletingMedicalRecordId: { type: [Number, String], default: null },
     deletingCisDocumentId: { type: [Number, String], default: null },
+    deletingEmploymentDocumentId: { type: [Number, String], default: null },
+    employmentDocumentFormLabel: { type: String, default: '' },
     userPermissionCatalog: { type: Array, default: () => [] },
     userAssignedPermissionCodes: { type: Array, default: () => [] },
     userPermissions: { type: Array, default: () => [] },
@@ -457,6 +483,11 @@ const emit = defineEmits([
     'submit-cis-document-form',
     'delete-cis-document',
     'upload-cis-attachment',
+    'start-edit-employment-document',
+    'cancel-employment-document-form',
+    'submit-employment-document-form',
+    'delete-employment-document',
+    'upload-employment-attachment',
     'upload-photo',
     'toggle-user-permission',
     'update:delete-from-iiko',
@@ -495,23 +526,33 @@ const {
     updatingTrainingRecord,
     deletingTrainingRecordId,
     canViewDocuments,
+    canViewMedicalChecks,
+    canViewCisDocuments,
     medicalCheckRecords,
     cisDocumentRecords,
+    employmentDocumentRecords,
     medicalCheckTypeOptions,
     cisDocumentTypeOptions,
     documentsLoading,
     canManageMedicalChecks,
     canManageCisDocuments,
+    canManageDocuments,
     medicalForm,
     cisDocumentForm,
+    employmentDocumentForm,
     isMedicalBulkMode,
     isMedicalFormOpen,
     isCisFormOpen,
+    isEmploymentFormOpen,
     savingMedicalRecord,
     savingCisDocument,
+    savingEmploymentDocument,
     uploadingCisAttachment,
+    uploadingEmploymentAttachment,
     deletingMedicalRecordId,
     deletingCisDocumentId,
+    deletingEmploymentDocumentId,
+    employmentDocumentFormLabel,
     payrollAdjustmentTypeOptions,
     payrollRestaurantOptions,
     payrollAdjustmentTypes,
@@ -546,6 +587,18 @@ const showCisDocuments = computed(() => {
         return Boolean(cardFlag);
     }
     const activeFlag = activeEmployee.value?.is_cis_employee;
+    return Boolean(activeFlag);
+});
+
+const showFormalizedDocuments = computed(() => {
+    const cardFlag = employeeCard.value?.is_formalized;
+    if (cardFlag !== undefined && cardFlag !== null) {
+        return Boolean(cardFlag);
+    }
+    const activeFlag =
+        activeEmployee.value?.is_formalized ??
+        activeEmployee.value?.isFormalized ??
+        activeEmployee.value?.formalized;
     return Boolean(activeFlag);
 });
 

@@ -1,0 +1,6 @@
+# Top-level development dependencies.
+# Lock exact versions in requirements-dev.txt.
+
+mypy
+ruff
+types-requests

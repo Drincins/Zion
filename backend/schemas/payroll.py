@@ -216,6 +216,7 @@ class PayrollAdvanceItemPublic(BaseModel):
     staff_code: Optional[str] = None
     full_name: str
     position_name: Optional[str] = None
+    subdivision_name: Optional[str] = None
     restaurant_id: Optional[int] = None
     restaurant_name: Optional[str] = None
     fact_hours: float

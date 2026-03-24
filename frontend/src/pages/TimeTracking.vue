@@ -549,7 +549,7 @@ const actionDisabled = computed(() => {
     const selectionMissing = requiresSelection && !isRestaurantSelected.value && !hasOpenShift.value;
     const positionRequired = isMultiSubdivision.value && !hasOpenShift.value && positionSelectOptions.value.length > 0;
     const positionMissing = positionRequired && !isPositionSelected.value;
-    return !userStore.token || isLoading.value || isActionLoading.value || selectionMissing || positionMissing;
+    return !userStore.isAuthenticated || isLoading.value || isActionLoading.value || selectionMissing || positionMissing;
 });
 
 const isHistoryLoading = computed(() => {
@@ -1074,7 +1074,7 @@ function handleApiError(error, fallbackMessage) {
 }
 
 async function fetchCurrentAttendance(options = {}) {
-    if (!userStore.token) {
+    if (!userStore.isAuthenticated) {
         return;
     }
 
@@ -1100,7 +1100,7 @@ async function fetchCurrentAttendance(options = {}) {
 }
 
 async function fetchAvailableRestaurants() {
-    if (!userStore.token) {
+    if (!userStore.isAuthenticated) {
         return;
     }
 
@@ -1124,7 +1124,7 @@ async function fetchAvailableRestaurants() {
 }
 
 async function fetchAvailablePositions() {
-    if (!userStore.token || !isMultiSubdivision.value) {
+    if (!userStore.isAuthenticated || !isMultiSubdivision.value) {
         positionOptions.value = [];
         selectedPositionId.value = null;
         return;
@@ -1144,7 +1144,7 @@ async function fetchAvailablePositions() {
 }
 
 async function fetchEmployeeBirthdays() {
-    if (!userStore.token) {
+    if (!userStore.isAuthenticated) {
         return;
     }
 
@@ -1169,7 +1169,7 @@ async function fetchEmployeeBirthdays() {
 }
 
 async function fetchEmployeeCardData() {
-    if (!userStore.token || !userStore.id) {
+    if (!userStore.isAuthenticated || !userStore.id) {
         return;
     }
 
@@ -1197,7 +1197,7 @@ async function fetchEmployeeCardData() {
 }
 
 async function fetchWaiterTurnoverData() {
-    if (!userStore.token) {
+    if (!userStore.isAuthenticated) {
         return;
     }
 
@@ -1290,7 +1290,7 @@ function handleLogout() {
 }
 
 onMounted(() => {
-    if (!userStore.token) {
+    if (!userStore.isAuthenticated) {
         router.replace({ name: 'user-login' });
         return;
     }

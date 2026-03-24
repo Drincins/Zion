@@ -5,7 +5,7 @@ import os
 from datetime import date, datetime, time
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status, UploadFile, File, Response
+from fastapi import APIRouter, Depends, HTTPException, Query, status, UploadFile, File, Request, Response
 from fastapi.responses import FileResponse
 from sqlalchemy import func
 from sqlalchemy.orm import Session, selectinload
@@ -60,9 +60,17 @@ from backend.schemas.checklists import (
     ChecklistPortalAttemptSummary,
 )
 from backend.services.permissions import PermissionKey, has_any_permission
-from backend.utils import get_current_user, verify_password
+from backend.utils import (
+    AUTH_SESSION_SCOPE_CHECKLIST_PORTAL,
+    clear_auth_cookie,
+    create_jwt_token,
+    get_checklist_portal_auth_cookie_name,
+    get_current_user,
+    revoke_session_token,
+    set_auth_cookie,
+    verify_password,
+)
 from backend.services import s3 as s3_service
-from backend.utils import create_jwt_token
 from backend.services.checklists_export import export_attempt_to_files
 from backend.services.checklists_report_data import get_attempt_data, get_attempt_scores_map, format_attempt_result
 from backend.services.checklists_timezone import format_moscow
@@ -1140,7 +1148,12 @@ def report_metrics(
 
 
 @router.post("/portal/login/start", response_model=ChecklistPortalLoginStartResponse)
-def portal_login_start(payload: ChecklistPortalLoginStartRequest, db: Session = Depends(get_db)):
+def portal_login_start(
+    payload: ChecklistPortalLoginStartRequest,
+    request: Request,
+    response: Response,
+    db: Session = Depends(get_db),
+):
     user = _portal_get_user_by_staff_code(db, payload.staff_code)
     if _portal_requires_password_step(db, user):
         return ChecklistPortalLoginStartResponse(
@@ -1148,16 +1161,26 @@ def portal_login_start(payload: ChecklistPortalLoginStartRequest, db: Session = 
             username_hint=(user.username or "").strip() or None,
         )
 
-    token = create_jwt_token(user.id)
+    token = create_jwt_token(db, user.id, scope=AUTH_SESSION_SCOPE_CHECKLIST_PORTAL)
+    set_auth_cookie(
+        response,
+        token,
+        request,
+        cookie_name=get_checklist_portal_auth_cookie_name(),
+    )
     return ChecklistPortalLoginStartResponse(
         requires_credentials=False,
-        access_token=token,
         user=_portal_user_payload(user),
     )
 
 
 @router.post("/portal/login/finish", response_model=ChecklistPortalLoginResponse)
-def portal_login_finish(payload: ChecklistPortalLoginFinishRequest, db: Session = Depends(get_db)):
+def portal_login_finish(
+    payload: ChecklistPortalLoginFinishRequest,
+    request: Request,
+    response: Response,
+    db: Session = Depends(get_db),
+):
     user = _portal_get_user_by_staff_code(db, payload.staff_code)
     if not _portal_requires_password_step(db, user):
         raise HTTPException(
@@ -1177,11 +1200,32 @@ def portal_login_finish(payload: ChecklistPortalLoginFinishRequest, db: Session 
     if not verify_password(password, user.hashed_password):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Неверный логин или пароль")
 
-    token = create_jwt_token(user.id)
+    token = create_jwt_token(db, user.id, scope=AUTH_SESSION_SCOPE_CHECKLIST_PORTAL)
+    set_auth_cookie(
+        response,
+        token,
+        request,
+        cookie_name=get_checklist_portal_auth_cookie_name(),
+    )
     return ChecklistPortalLoginResponse(
-        access_token=token,
         user=_portal_user_payload(user),
     )
+
+
+@router.post("/portal/logout", status_code=status.HTTP_204_NO_CONTENT)
+def portal_logout(request: Request, response: Response, db: Session = Depends(get_db)):
+    token = (request.cookies.get(get_checklist_portal_auth_cookie_name()) or "").strip()
+    authorization = request.headers.get("Authorization")
+    if authorization and authorization.lower().startswith("bearer "):
+        token = authorization.split(" ", 1)[1].strip() or token
+    if token:
+        revoke_session_token(token, db, reason="portal_logout")
+    clear_auth_cookie(
+        response,
+        request,
+        cookie_name=get_checklist_portal_auth_cookie_name(),
+    )
+    return None
 
 
 @router.get("/portal/me", response_model=ChecklistPortalUser)

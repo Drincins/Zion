@@ -2206,12 +2206,6 @@ def allocate_item_to_location(
         restaurant_id=restaurant_id if payload.location_kind == "restaurant" else None,
         storage_place_id=payload.storage_place_id,
     )
-    storage_place_id = _resolve_storage_place(
-        db=db,
-        current_user=current_user,
-        restaurant_id=restaurant_id if payload.location_kind == "restaurant" else None,
-        storage_place_id=payload.storage_place_id,
-    )
 
     base_cost = item.default_cost if item.default_cost is not None else item.cost
     unit_cost = payload.unit_cost if payload.unit_cost is not None else base_cost
@@ -2312,6 +2306,12 @@ def update_item_quantity_at_location(
         restaurant_required=True,
         subdivision_required=True,
     )
+    storage_place_id = _resolve_storage_place(
+        db=db,
+        current_user=current_user,
+        restaurant_id=restaurant_id if payload.location_kind == "restaurant" else None,
+        storage_place_id=payload.storage_place_id,
+    )
 
     location_filters = [
         InvItemInstance.item_id == item_id,
@@ -2347,6 +2347,7 @@ def update_item_quantity_at_location(
             location_kind=payload.location_kind,
             unit_cost=unit_cost_decimal,
             restaurant_id=restaurant_id,
+            storage_place_id=storage_place_id,
             subdivision_id=subdivision_id,
         )
         if payload.location_kind == "restaurant" and restaurant_id is not None:

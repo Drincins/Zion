@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia';
 import { fetchUser } from '@/api';
+import { logoutUser } from '@/api/auth';
 
 export const useUserStore = defineStore('user', {
     state: () => ({
@@ -123,9 +124,15 @@ export const useUserStore = defineStore('user', {
             this.restaurantSubdivisionIsMulti = false;
             this.isFired = false;
         },
-        logout() {
+        async logout() {
+            try {
+                await logoutUser();
+            } catch {
+                // local cleanup should still happen even if the backend cookie is already gone
+            }
             this.clearUser();
             localStorage.removeItem('pinia-user');
+            sessionStorage.removeItem('pinia-user');
         },
         setFiredFromDetail(detail) {
             if (typeof detail !== 'string') {
@@ -209,6 +216,9 @@ export const useUserStore = defineStore('user', {
                 }
                 return codes.some((code) => this.hasPermission(code));
             };
+        },
+        isAuthenticated(state) {
+            return Boolean(state.id);
         },
     },
 });

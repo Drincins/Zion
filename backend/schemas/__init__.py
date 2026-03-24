@@ -180,6 +180,13 @@ from .cis_documents import (
     CisDocumentRecordPublic,
     CisDocumentRecordListResponse,
 )
+from .employment_documents import (
+    EmploymentDocumentRecordBase,
+    EmploymentDocumentRecordCreate,
+    EmploymentDocumentRecordUpdate,
+    EmploymentDocumentRecordPublic,
+    EmploymentDocumentRecordListResponse,
+)
 from .kpi import (
     KpiCalculationBase,
     KpiThresholdType,

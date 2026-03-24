@@ -12,6 +12,15 @@ export async function loginUser(username, password) {
     return data;
 }
 
+export async function logoutUser() {
+    await api.post('/api/auth/logout');
+}
+
+export async function fetchCurrentSessionUser() {
+    const { data } = await api.get('/api/auth/me');
+    return data;
+}
+
 export async function loginStaffByCode(staffCode, options = {}) {
     const payload = { staff_code: staffCode };
     if (options.authMethod) {

@@ -214,7 +214,7 @@ class ChecklistPortalUser(BaseModel):
 
 
 class ChecklistPortalLoginResponse(BaseModel):
-    access_token: str
+    access_token: Optional[str] = None
     token_type: str = "bearer"
     user: ChecklistPortalUser
 

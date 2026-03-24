@@ -11,6 +11,7 @@ from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
 from backend.bd.models import User, Restaurant
+from backend.services.iiko_http import get_iiko_tls_verify
 
 logger = logging.getLogger(__name__)
 
@@ -146,7 +147,7 @@ def _build_employee_xml(data: Dict[str, Any]) -> str:
 def _fetch_key(server: str, login: str, password_sha1: str) -> str:
     url = f"{server.rstrip('/')}/resto/api/auth"
     try:
-        resp = requests.get(url, params={"login": login, "pass": password_sha1}, verify=False, timeout=30)
+        resp = requests.get(url, params={"login": login, "pass": password_sha1}, verify=get_iiko_tls_verify(), timeout=30)
     except requests.RequestException as exc:  # pragma: no cover - network failures
         raise IikoIntegrationError(f"iiko auth failed: {exc}") from exc
     if resp.status_code != 200:
@@ -251,7 +252,7 @@ def _parse_iiko_employee_snapshots(xml_text: str) -> list[dict[str, str]]:
 def _fetch_iiko_employee_snapshots(server: str, key: str) -> list[dict[str, str]]:
     url = f"{server.rstrip('/')}/resto/api/employees"
     try:
-        resp = requests.get(url, params={"key": key}, verify=False, timeout=30)
+        resp = requests.get(url, params={"key": key}, verify=get_iiko_tls_verify(), timeout=30)
     except requests.RequestException as exc:  # pragma: no cover - network failures
         raise IikoIntegrationError(f"iiko employees lookup failed: {exc}") from exc
     if resp.status_code in (404, 405):
@@ -278,7 +279,7 @@ def _fetch_iiko_employee_snapshot(
     for lookup_kind, path in lookup_paths:
         url = f"{server.rstrip('/')}{path}"
         try:
-            resp = requests.get(url, params={"key": key}, verify=False, timeout=30)
+            resp = requests.get(url, params={"key": key}, verify=get_iiko_tls_verify(), timeout=30)
         except requests.RequestException as exc:  # pragma: no cover - network failures
             raise IikoIntegrationError(
                 f"iiko employee lookup by {lookup_kind} failed: {exc}"
@@ -635,7 +636,7 @@ def add_user_to_iiko(
             params={"key": key},
             data=xml_body.encode("utf-8"),
             headers={"Content-Type": "application/xml"},
-            verify=False,
+            verify=get_iiko_tls_verify(),
             timeout=30,
         )
     except requests.RequestException as exc:  # pragma: no cover - network failures
@@ -647,7 +648,7 @@ def add_user_to_iiko(
     # Fetch assigned iiko GUID by code
     id_url = f"{server.rstrip('/')}/resto/api/employees/byCode/{quote(resolved_iiko_code)}"
     try:
-        resp_id = requests.get(id_url, params={"key": key}, verify=False, timeout=30)
+        resp_id = requests.get(id_url, params={"key": key}, verify=get_iiko_tls_verify(), timeout=30)
     except requests.RequestException as exc:  # pragma: no cover
         raise IikoIntegrationError(f"iiko id lookup failed: {exc}") from exc
     if resp_id.status_code != 200:
@@ -698,7 +699,7 @@ def fire_user_in_iiko(db: Session, user: User) -> None:
             url,
             params={"key": key},
             data=payload,
-            verify=False,
+            verify=get_iiko_tls_verify(),
             timeout=30,
         )
     except requests.RequestException as exc:  # pragma: no cover
@@ -722,7 +723,7 @@ def delete_user_from_iiko(db: Session, user: User) -> None:
     key = _fetch_key(server, login, password_sha1)
     url = f"{server.rstrip('/')}/resto/api/employees/byId/{user.iiko_id}"
     try:
-        resp = requests.delete(url, params={"key": key}, verify=False, timeout=30)
+        resp = requests.delete(url, params={"key": key}, verify=get_iiko_tls_verify(), timeout=30)
     except requests.RequestException as exc:  # pragma: no cover
         raise IikoIntegrationError(f"iiko delete failed: {exc}") from exc
     if resp.status_code not in (200, 202, 204):
@@ -744,7 +745,7 @@ def fetch_iiko_id_by_code(db: Session, user: User) -> Optional[str]:
     key = _fetch_key(server, login, password_sha1)
     url = f"{server.rstrip('/')}/resto/api/employees/byCode/{user.iiko_code}"
     try:
-        resp = requests.get(url, params={"key": key}, verify=False, timeout=30)
+        resp = requests.get(url, params={"key": key}, verify=get_iiko_tls_verify(), timeout=30)
     except requests.RequestException as exc:  # pragma: no cover
         raise IikoIntegrationError(f"iiko id lookup failed: {exc}") from exc
     if resp.status_code != 200:

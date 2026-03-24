@@ -19,7 +19,7 @@ from backend.services.permissions import (
     has_global_access,
     has_permission,
 )
-from backend.utils import get_current_user
+from backend.utils import get_current_user, get_user_company_ids
 
 router = APIRouter(prefix="/iiko-products", tags=["iiko-products-read"])
 
@@ -36,14 +36,16 @@ SALES_DISHES_MANAGE_PERMISSIONS = (
 
 
 def ensure_user_access_to_restaurant(db: Session, current_user: User, restaurant_id: int) -> Restaurant:
-    if has_global_access(current_user) or has_permission(current_user, PermissionCode.IIKO_MANAGE):
-        restaurant = db.query(Restaurant).filter(Restaurant.id == restaurant_id).first()
-    else:
-        restaurant = (
-            db.query(Restaurant)
-            .filter(Restaurant.id == restaurant_id, Restaurant.users.contains(current_user))
-            .first()
-        )
+    query = db.query(Restaurant).filter(Restaurant.id == restaurant_id)
+    if not has_global_access(current_user):
+        company_ids = sorted(get_user_company_ids(db, current_user) or [])
+        if company_ids:
+            query = query.filter(Restaurant.company_id.in_(company_ids))
+            if not has_permission(current_user, PermissionCode.IIKO_MANAGE):
+                query = query.filter(Restaurant.users.contains(current_user))
+        else:
+            query = query.filter(Restaurant.users.contains(current_user))
+    restaurant = query.first()
     if not restaurant:
         raise HTTPException(status_code=404, detail="Restaurant not found or unavailable")
     return restaurant

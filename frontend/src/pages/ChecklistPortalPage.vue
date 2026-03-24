@@ -462,7 +462,6 @@
 <script setup>
 import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue';
 import {
-    clearChecklistPortalToken,
     deleteChecklistPortalDraft,
     exportChecklistPortalAttempt,
     fetchChecklistPortalAttempt,
@@ -472,15 +471,13 @@ import {
     fetchChecklistPortalDraft,
     fetchChecklistPortalMe,
     finishChecklistPortalLogin,
-    setChecklistPortalToken,
+    logoutChecklistPortal,
     startChecklistPortalLogin,
     submitChecklistPortalAttempt,
     uploadChecklistPortalPhoto,
     upsertChecklistPortalDraft,
 } from '@/api';
 import QuestionBlock from '@/components/checklists/ChecklistPortalQuestionBlock.vue';
-
-const portalTokenKey = 'checklist_portal_token';
 
 const step = ref('login');
 const runModalOpen = ref(false);
@@ -654,15 +651,8 @@ function requirementLabel(question) {
     return labels.join(', ');
 }
 
-function setAuthToken(token) {
-    setChecklistPortalToken(token);
-    localStorage.setItem(portalTokenKey, token);
-}
-
 function clearAuth() {
     portalUser.value = null;
-    localStorage.removeItem(portalTokenKey);
-    clearChecklistPortalToken();
     if (draftSaveTimer) {
         clearTimeout(draftSaveTimer);
         draftSaveTimer = null;
@@ -675,7 +665,6 @@ function clearAuth() {
 }
 
 async function finalizePortalLogin(data) {
-    setAuthToken(data.access_token);
     portalUser.value = data.user;
     await loadChecklists();
     step.value = 'list';
@@ -1048,8 +1037,13 @@ function handleSectionsAction() {
     nextSection();
 }
 
-function handleLogout() {
+async function handleLogout() {
     userMenuOpen.value = false;
+    try {
+        await logoutChecklistPortal();
+    } catch {
+        // Even if logout request fails, clear local UI state to avoid a stale session on screen.
+    }
     clearAuth();
 }
 
@@ -1074,20 +1068,15 @@ watch(selectedDepartment, () => {
 });
 
 onMounted(async () => {
-    const token = localStorage.getItem(portalTokenKey);
-    if (token) {
-        setAuthToken(token);
-        try {
-            const data = await fetchChecklistPortalMe();
-            portalUser.value = data;
-            await loadChecklists();
-            step.value = 'list';
-            return;
-        } catch {
-            clearAuth();
-        }
+    try {
+        const data = await fetchChecklistPortalMe();
+        portalUser.value = data;
+        await loadChecklists();
+        step.value = 'list';
+        return;
+    } catch {
+        clearAuth();
     }
-    step.value = 'login';
 });
 
 onBeforeUnmount(() => {

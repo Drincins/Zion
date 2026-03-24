@@ -68,66 +68,8 @@ try:  # pragma: no cover - dependency fallback for standalone usage
         can_view_rate,
     )
     from backend.services.employee_changes import log_employee_changes, format_ref
-except Exception:  # pragma: no cover
-    from fastapi.security import OAuth2PasswordBearer
-    from jose import JWTError, jwt
-
-    oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/login")
-    SECRET_KEY = os.getenv("SECRET_KEY") or os.getenv("JWT_SECRET") or "CHANGE_ME"
-    ALGORITHM = "HS256"
-
-    def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)) -> User:
-        try:
-            payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-            sub = payload.get("sub")
-            if not sub:
-                raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
-            user = db.query(User).get(int(sub))
-            if not user:
-                raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
-            if user.fired:
-                raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Пользователь уволен")
-            return user
-        except JWTError:
-            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
-
-    def get_user_restaurant_ids(db: Session, user: User):
-        return None
-
-    def users_share_restaurant(db: Session, viewer: User, target_user_id: int) -> bool:
-        return viewer.id == target_user_id
-
-    def hash_password(password: str) -> str:
-        return password
-
-    class PermissionCode:
-        STAFF_VIEW_SENSITIVE = "staff.view_sensitive"
-        STAFF_MANAGE_SUBORDINATES = "staff.manage_subordinates"
-        STAFF_MANAGE_ALL = "staff.manage_all"
-        STAFF_EMPLOYEES_IIKO_SYNC = "staff_employees.iiko_sync"
-        IIKO_MANAGE = "iiko.manage"
-
-    def ensure_permissions(user: User, *codes: str) -> None:
-        return
-
-    def has_permission(user: User, code: str) -> bool:
-        return True
-
-    def can_manage_user(viewer: User, target: User) -> bool:
-        return True
-
-    def ensure_can_manage_user(viewer: User, target: User) -> None:
-        return
-
-    def can_view_rate(viewer: User, target: User) -> bool:
-        return True
-
-    def build_employee_row_id(*, last_name, first_name, middle_name, birth_date):
-        return None
-    def log_employee_changes(*_args, **_kwargs):
-        return []
-    def format_ref(_entity, name_attr: str = "name"):
-        return None
+except Exception as exc:  # pragma: no cover
+    raise RuntimeError("Failed to import shared auth dependencies in staff employees router") from exc
 
 from backend.services.s3 import generate_presigned_url, upload_employee_photo_with_url
 

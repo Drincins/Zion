@@ -423,6 +423,7 @@ function resolveAccent(item) {
     flex: 1;
     min-height: 0;
     overflow: auto;
+    padding: 2px 0;
 }
 
 .kb-items__grid {

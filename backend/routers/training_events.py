@@ -37,55 +37,8 @@ try:  # pragma: no cover - shared dependency in project
         can_manage_user,
         ensure_can_manage_user,
     )
-except Exception:  # pragma: no cover
-    from fastapi.security import OAuth2PasswordBearer
-    from jose import JWTError, jwt
-    import os
-
-    oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/login")
-    SECRET_KEY = os.getenv("SECRET_KEY") or os.getenv("JWT_SECRET") or "CHANGE_ME"
-    ALGORITHM = "HS256"
-
-    def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)) -> User:
-        try:
-            payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-            sub = payload.get("sub")
-            if not sub:
-                raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
-            user = db.query(User).get(int(sub))
-            if not user:
-                raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
-            if user.fired:
-                raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Пользователь уволен")
-            return user
-        except JWTError:
-            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
-
-
-    def users_share_restaurant(db: Session, viewer: User, target_user_id: int) -> bool:
-        return viewer.id == target_user_id
-
-
-    class PermissionCode:
-        TRAINING_VIEW = "training.view"
-        TRAINING_MANAGE = "training.manage"
-        STAFF_MANAGE_ALL = "staff.manage_all"
-        STAFF_MANAGE_SUBORDINATES = "staff.manage_subordinates"
-
-    def ensure_permissions(user: User, *codes: str) -> None:
-        return
-
-    def has_permission(user: User, code: str) -> bool:
-        return True
-
-    def has_global_access(user: User) -> bool:
-        return True
-
-    def can_manage_user(viewer: User, target: User) -> bool:
-        return True
-
-    def ensure_can_manage_user(viewer: User, target: User) -> None:
-        return
+except Exception as exc:  # pragma: no cover
+    raise RuntimeError("Failed to import shared auth dependencies in training events router") from exc
 
 
 router = APIRouter(prefix="/training-events", tags=["Training events"])

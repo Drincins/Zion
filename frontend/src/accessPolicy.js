@@ -44,14 +44,23 @@ export const STAFF_LOAD_RESTAURANTS_PERMISSIONS = [
 ];
 export const STAFF_LOAD_COMPANIES_PERMISSIONS = ['companies.manage', 'companies.view', SYSTEM_ADMIN_PERMISSION];
 export const STAFF_LOAD_POSITIONS_PERMISSIONS = unique(POSITIONS_VIEW_PERMISSIONS, [SYSTEM_ADMIN_PERMISSION]);
-export const STAFF_DOCUMENTS_VIEW_PERMISSIONS = [
+export const STAFF_MEDICAL_CHECKS_VIEW_PERMISSIONS = [
     'medical_checks.view',
     'medical_checks.manage',
+    'staff.manage_all',
+    SYSTEM_ADMIN_PERMISSION
+];
+
+export const STAFF_CIS_DOCUMENTS_VIEW_PERMISSIONS = [
     'cis_documents.view',
     'cis_documents.manage',
     'staff.manage_all',
     SYSTEM_ADMIN_PERMISSION
 ];
+export const STAFF_DOCUMENTS_VIEW_PERMISSIONS = unique(
+    STAFF_MEDICAL_CHECKS_VIEW_PERMISSIONS,
+    STAFF_CIS_DOCUMENTS_VIEW_PERMISSIONS
+);
 export const STAFF_MEDICAL_CHECKS_MANAGE_PERMISSIONS = ['medical_checks.manage', SYSTEM_ADMIN_PERMISSION];
 export const STAFF_CIS_DOCUMENTS_MANAGE_PERMISSIONS = ['cis_documents.manage', SYSTEM_ADMIN_PERMISSION];
 export const STAFF_CHANGES_VIEW_PERMISSIONS = [

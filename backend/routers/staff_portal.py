@@ -5,7 +5,7 @@ import os
 from datetime import datetime, timedelta, date, time
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import and_, or_
 import sqlalchemy as sa
@@ -36,7 +36,7 @@ from backend.services.fingerprint_events import log_fingerprint_event
 from backend.services.employee_changes import log_employee_changes
 
 try:
-    from backend.utils import get_current_user, create_access_token, now_local
+    from backend.utils import get_current_user, create_jwt_token, now_local, set_auth_cookie
     from backend.services.permissions import (
         PermissionCode,
         ensure_permissions,
@@ -44,51 +44,8 @@ try:
         can_manage_user,
         ensure_can_manage_user,
     )
-except Exception:
-    from fastapi.security import OAuth2PasswordBearer
-    from jose import jwt, JWTError
-
-    oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/login")
-    SECRET_KEY = os.getenv("SECRET_KEY") or os.getenv("JWT_SECRET") or "CHANGE_ME"
-    ALGORITHM = "HS256"
-
-    def create_access_token(sub: str, expires_minutes: int = 60 * 24) -> str:
-        exp = datetime.utcnow() + timedelta(minutes=expires_minutes)
-        return jwt.encode({"sub": sub, "exp": exp}, SECRET_KEY, algorithm=ALGORITHM)
-
-    def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)) -> User:
-        try:
-            payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-            sub = payload.get("sub")
-            if not sub:
-                raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
-            user = db.query(User).get(int(sub))
-            if not user:
-                raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
-            if user.fired:
-                raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Пользователь уволен")
-            return user
-        except JWTError:
-            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
-
-    class PermissionCode:
-        STAFF_MANAGE_ALL = "staff.manage_all"
-        STAFF_MANAGE_SUBORDINATES = "staff.manage_subordinates"
-
-    def ensure_permissions(user: User, *codes: str) -> None:
-        return
-
-    def has_permission(user: User, code: str) -> bool:
-        return True
-
-    def can_manage_user(viewer: User, target: User) -> bool:
-        return True
-
-    def ensure_can_manage_user(viewer: User, target: User) -> None:
-        return
-
-    def now_local() -> datetime:
-        return datetime.now().replace(microsecond=0)
+except Exception as exc:
+    raise RuntimeError("Failed to import shared auth dependencies in staff portal router") from exc
 
 
 router = APIRouter(prefix="/staff", tags=["Staff portal"])
@@ -452,7 +409,12 @@ def _to_public(a: Attendance) -> AttendancePublic:
 
 
 @router.post("/login", response_model=StaffLoginResponse)
-def staff_login(payload: StaffLoginRequest, db: Session = Depends(get_db)):
+def staff_login(
+    payload: StaffLoginRequest,
+    request: Request,
+    response: Response,
+    db: Session = Depends(get_db),
+):
     code = (payload.staff_code or "").strip()
     if not code:
         raise HTTPException(status_code=400, detail="staff_code is required")
@@ -474,7 +436,8 @@ def staff_login(payload: StaffLoginRequest, db: Session = Depends(get_db)):
     # Требуем право на доступ в портал учёта времени.
     ensure_permissions(user, PermissionCode.STAFF_PORTAL_ACCESS)
 
-    token = create_access_token(str(user.id), expires_minutes=60 * 24)
+    token = create_jwt_token(db, user.id, expires_minutes=60 * 24)
+    set_auth_cookie(response, token, request)
 
     restaurants = [
         {"id": r.id, "name": (r.name or f"Restaurant #{r.id}")}  # type: ignore[arg-type]
@@ -519,7 +482,7 @@ def staff_login(payload: StaffLoginRequest, db: Session = Depends(get_db)):
             slot=payload.fingerprint_slot,
             score=payload.fingerprint_score,
         )
-    return StaffLoginResponse(access_token=token, user=user_pub)
+    return StaffLoginResponse(user=user_pub)
 
 
 @router.get("/attendances/month", response_model=AttendanceListResponse)
@@ -1205,4 +1168,3 @@ def manual_update_attendance(
     db.commit()
     db.refresh(a)
     return _to_public(a)
-

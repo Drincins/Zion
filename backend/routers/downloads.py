@@ -4,8 +4,11 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import FileResponse, RedirectResponse
+
+from backend.bd.models import User
+from backend.utils import get_current_user
 
 router = APIRouter(prefix="/downloads", tags=["Downloads"])
 
@@ -19,7 +22,7 @@ def _resolve_bundle_path() -> Path:
 
 
 @router.get("/zionscan")
-def download_zionscan():
+def download_zionscan(current_user: User = Depends(get_current_user)):
     bundle_url = os.getenv("ZIONSCAN_BUNDLE_URL")
     if bundle_url:
         return RedirectResponse(bundle_url)

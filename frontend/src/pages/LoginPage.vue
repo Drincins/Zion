@@ -23,7 +23,6 @@
 <script setup>
 import { ref } from 'vue';
 import { loginUser } from '@/api';
-import { jwtDecode } from 'jwt-decode';
 import { useRouter } from 'vue-router';
 import { useToast } from 'vue-toastification';
 import { useUserStore } from '@/stores/user';
@@ -40,19 +39,18 @@ const password = ref('');
 async function handleLogin() {
     try {
         const payload = await loginUser(username.value, password.value);
-        const token = payload.access_token;
-        const decoded = jwtDecode(token);
-
-        const userId = decoded.sub;
-        const login = username.value;
-        const fullName = `${decoded.first_name || ''} ${decoded.last_name || ''}`.trim();
+        const user = payload?.user || {};
+        const userId = user.id;
+        const login = user.username ?? username.value;
+        const fullName = `${user.first_name || ''} ${user.last_name || ''}`.trim();
 
         if (userId) {
             userStore.setUser({
                 id: userId,
                 login,
                 fullName,
-                token,
+                firstName: user.first_name ?? '',
+                lastName: user.last_name ?? '',
                 isFired: false,
             });
             await userStore.fetchUserFromApi();

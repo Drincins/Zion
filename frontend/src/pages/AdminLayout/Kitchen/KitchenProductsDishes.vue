@@ -154,7 +154,7 @@
                     <p class="kitchen-products-page__modal-subtitle">
                         {{ valueOrDash(resolveDisplayProductType(selectedProduct)) }}
                         •
-                        {{ valueOrDash(resolveDisplayCategory(selectedProduct.iiko_product_category)) }}
+                        {{ valueOrDash(resolveDisplayCategory(selectedProduct.product_category)) }}
                         • Ед.: {{ valueOrDash(resolveDisplayMainUnit(selectedProduct)) }}
                     </p>
                     <p class="kitchen-products-page__modal-subtitle kitchen-products-page__modal-subtitle--muted">
@@ -522,7 +522,7 @@ const productMainDetails = computed(() => {
         { label: 'Удалена', value: resolveDeletedLabel(row) },
         { label: 'Тип номенклатуры', value: valueOrDash(resolveDisplayProductType(row)) },
         { label: 'Родительская группа', value: valueOrDash(resolveDisplayParentGroup(row)) },
-        { label: 'Категория iiko', value: valueOrDash(resolveDisplayCategory(row.iiko_product_category)) },
+        { label: 'Категория', value: valueOrDash(resolveDisplayCategory(row.product_category)) },
         { label: 'Ед. изм.', value: valueOrDash(resolveDisplayMainUnit(row)) },
     ];
 });
@@ -554,7 +554,7 @@ const categoryLabelByKey = computed(() => buildCategoryLabelMap(products.value))
 const rowsForParentGroupOptions = computed(() =>
     products.value.filter((row) => !selectedType.value || resolveProductTypeCode(row) === selectedType.value),
 );
-const parentGroupOptions = computed(() => buildOptions(rowsForParentGroupOptions.value, resolveDisplayParentGroup));
+const parentGroupOptions = computed(() => buildParentGroupOptions(rowsForParentGroupOptions.value));
 
 const typeOptionsWithAll = computed(() => [{ value: '', label: 'Все' }, ...typeOptions.value]);
 const parentGroupOptionsWithAll = computed(() => [{ value: '', label: 'Все' }, ...parentGroupOptions.value]);
@@ -567,11 +567,12 @@ const filteredProducts = computed(() => {
         const displayParentGroup = resolveDisplayParentGroup(product);
         const displayMainUnit = resolveDisplayMainUnit(product);
         const typeCode = resolveProductTypeCode(product);
+        const parentGroupId = normalizeSelectValue(product?.parent_id);
 
         if (selectedType.value && typeCode !== selectedType.value) {
             return false;
         }
-        if (selectedParentGroup.value && displayParentGroup !== selectedParentGroup.value) {
+        if (selectedParentGroup.value && parentGroupId !== selectedParentGroup.value) {
             return false;
         }
         if (!query) {
@@ -614,18 +615,21 @@ watch(
     { immediate: true },
 );
 
-function buildOptions(rows, resolver) {
-    const set = new Set();
+function buildParentGroupOptions(rows) {
+    const map = new Map();
     for (const row of rows) {
-        const value = typeof resolver === 'function' ? resolver(row) : row?.[resolver];
-        const normalized = normalizeSelectValue(value);
-        if (normalized) {
-            set.add(normalized);
+        const parentId = normalizeSelectValue(row?.parent_id);
+        const parentLabel = normalizeSelectValue(resolveDisplayParentGroup(row));
+        if (!parentId || !parentLabel) {
+            continue;
+        }
+        if (!map.has(parentId)) {
+            map.set(parentId, parentLabel);
         }
     }
-    return Array.from(set)
-        .sort((a, b) => a.localeCompare(b, 'ru', { sensitivity: 'base' }))
-        .map((value) => ({ value, label: value }));
+    return Array.from(map.entries())
+        .sort((a, b) => a[1].localeCompare(b[1], 'ru', { sensitivity: 'base' }))
+        .map(([value, label]) => ({ value, label }));
 }
 
 function normalizeSelectValue(value) {
@@ -654,7 +658,7 @@ function resolveProductTypeKey(product) {
 }
 
 function resolveCategoryKey(product) {
-    const category = normalizeSelectValue(product?.iiko_product_category);
+    const category = normalizeSelectValue(product?.product_category || product?.iiko_product_category);
     return category || CATEGORY_FALLBACK_KEY;
 }
 
@@ -1650,17 +1654,27 @@ async function saveFolderCoefficients() {
     let updated = 0;
     let failed = 0;
     try {
-        for (const row of branchRows) {
-            const rowId = normalizeSelectValue(row?.id);
-            if (!rowId) {
-                continue;
-            }
-            try {
-                const nextRow = await patchKitchenProductRowSettings(rowId, payload);
-                products.value = products.value.map((item) => (item.id === rowId ? { ...item, ...nextRow } : item));
-                updated += 1;
-            } catch {
-                failed += 1;
+        const branchRowIds = branchRows
+            .map((row) => normalizeSelectValue(row?.id))
+            .filter(Boolean);
+
+        for (let index = 0; index < branchRowIds.length; index += 8) {
+            const chunkIds = branchRowIds.slice(index, index + 8);
+            const chunkResults = await Promise.allSettled(
+                chunkIds.map(async (rowId) => ({
+                    rowId,
+                    nextRow: await patchKitchenProductRowSettings(rowId, payload),
+                })),
+            );
+
+            for (const result of chunkResults) {
+                if (result.status === 'fulfilled') {
+                    const { rowId, nextRow } = result.value;
+                    products.value = products.value.map((item) => (item.id === rowId ? { ...item, ...nextRow } : item));
+                    updated += 1;
+                } else {
+                    failed += 1;
+                }
             }
         }
 

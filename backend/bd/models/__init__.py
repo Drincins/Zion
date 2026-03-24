@@ -11,6 +11,7 @@ from .core import (
     RolePermission,
     UserPermission,
     User,
+    AuthSession,
     Restaurant,
 )
 from .hr import PaymentFormat, Position, Attendance, PAYMENT_CALCULATION_MODE, RestaurantSubdivision
@@ -57,6 +58,7 @@ from .cis_documents import (
     CisDocumentType,
     CisDocumentRecord,
 )
+from .employment_documents import EmploymentDocumentKind, EmploymentDocumentRecord
 from .kpi import (
     KPI_CALCULATION_BASE,
     KPI_THRESHOLD_TYPE,
@@ -110,6 +112,7 @@ __all__ = ["Base",
     "RolePermission",
     "UserPermission",
     "User",
+    "AuthSession",
     "Restaurant",
     "PAYMENT_CALCULATION_MODE",
     "PaymentFormat",
@@ -154,6 +157,8 @@ __all__ = ["Base",
     "CisDocumentStatus",
     "CisDocumentType",
     "CisDocumentRecord",
+    "EmploymentDocumentKind",
+    "EmploymentDocumentRecord",
     "KPI_CALCULATION_BASE",
     "KPI_THRESHOLD_TYPE",
     "KPI_EFFECT_TYPE",

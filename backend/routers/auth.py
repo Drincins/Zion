@@ -1,12 +1,21 @@
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from backend.bd.models import Company, User, Restaurant, Role
 from backend.bd.database import get_db
-from backend.utils import hash_password, verify_password, create_jwt_token, get_current_user
+from backend.utils import (
+    hash_password,
+    verify_password,
+    create_jwt_token,
+    get_auth_cookie_name,
+    get_current_user,
+    set_auth_cookie,
+    clear_auth_cookie,
+    revoke_session_token,
+)
 from backend.services.permissions import PermissionCode, ensure_permissions
 from fastapi.security import OAuth2PasswordRequestForm
 
@@ -87,19 +96,29 @@ class LoginRequest(BaseModel):
     password: str
 
 class TokenResponse(BaseModel):
-    access_token: str
+    access_token: str | None = None
     token_type: str = "bearer"
     user: dict | None = None
 
+
+class SessionUserResponse(BaseModel):
+    id: int
+    username: str
+    first_name: str | None = None
+    last_name: str | None = None
+    iiko_code: str | None = None
+
 @router.post("/login", response_model=TokenResponse)
-def login(user: LoginRequest, db: Session = Depends(get_db)):
+def login(user: LoginRequest, request: Request, response: Response, db: Session = Depends(get_db)):
     db_user = db.query(User).filter(User.username == user.username).first()
     if not db_user or not verify_password(user.password, db_user.hashed_password):
         raise HTTPException(status_code=401, detail="Неверный логин или пароль")
+    if db_user.fired:
+        raise HTTPException(status_code=403, detail="Пользователь уволен")
 
-    token = create_jwt_token(db_user.id)
+    token = create_jwt_token(db, db_user.id)
+    set_auth_cookie(response, token, request)
     return TokenResponse(
-        access_token=token,
         user={
             "id": db_user.id,
             "username": db_user.username,
@@ -111,13 +130,20 @@ def login(user: LoginRequest, db: Session = Depends(get_db)):
 
 # ======== JWT login для Swagger (form-data) ========
 @router.post("/login/swag", response_model=TokenResponse)
-def login_swagger(form_data: OAuth2PasswordRequestForm = Depends(),
-                  db: Session = Depends(get_db)):
+def login_swagger(
+    request: Request,
+    response: Response,
+    form_data: OAuth2PasswordRequestForm = Depends(),
+    db: Session = Depends(get_db),
+):
     db_user = db.query(User).filter(User.username == form_data.username).first()
     if not db_user or not verify_password(form_data.password, db_user.hashed_password):
         raise HTTPException(status_code=401, detail="Неверный логин или пароль")
+    if db_user.fired:
+        raise HTTPException(status_code=403, detail="Пользователь уволен")
 
-    token = create_jwt_token(db_user.id)
+    token = create_jwt_token(db, db_user.id)
+    set_auth_cookie(response, token, request)
     return TokenResponse(
         access_token=token,
         user={
@@ -128,3 +154,26 @@ def login_swagger(form_data: OAuth2PasswordRequestForm = Depends(),
             "iiko_code": db_user.iiko_code
         }
     )
+
+
+@router.get("/me", response_model=SessionUserResponse)
+def get_me(current_user: User = Depends(get_current_user)):
+    return SessionUserResponse(
+        id=current_user.id,
+        username=current_user.username,
+        first_name=current_user.first_name,
+        last_name=current_user.last_name,
+        iiko_code=current_user.iiko_code,
+    )
+
+
+@router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
+def logout(request: Request, response: Response, db: Session = Depends(get_db)):
+    authorization = request.headers.get("Authorization")
+    bearer = authorization.split(" ", 1)[1].strip() if authorization and authorization.lower().startswith("bearer ") else None
+    token = bearer or (request.cookies.get(get_auth_cookie_name()) or "").strip()
+    if token:
+        revoke_session_token(token, db, reason="logout")
+    clear_auth_cookie(response, request)
+    response.status_code = status.HTTP_204_NO_CONTENT
+    return response

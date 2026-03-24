@@ -10,7 +10,8 @@ const runtimeServerUrl = envUrl && !isLocalEnv ? envUrl : window.location.origin
 export const serverUrl = runtimeServerUrl;
 
 export const api = axios.create({
-    baseURL: runtimeServerUrl
+    baseURL: runtimeServerUrl,
+    withCredentials: true,
 });
 
 const API_CACHE_PREFIX = `zion-api-cache:v1:${runtimeServerUrl}:`;
@@ -20,7 +21,7 @@ const apiCacheGenerations = new Map();
 
 function getCacheUserKey() {
     try {
-        const raw = localStorage.getItem('pinia-user');
+        const raw = sessionStorage.getItem('pinia-user') || localStorage.getItem('pinia-user');
         if (!raw) {
             return 'anon';
         }
