@@ -3,10 +3,10 @@ import asyncio
 from uuid import uuid4
 from contextlib import suppress
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 
 # ---- Импорты моделей и утилит ----
 from backend.bd.database import SessionLocal, engine
@@ -14,7 +14,12 @@ from backend.bd.models import Base, Permission, User
 # Register iiko-related tables in metadata before create_all.
 from backend.bd import iiko_catalog as _iiko_catalog  # noqa: F401
 from backend.bd import iiko_sales as _iiko_sales  # noqa: F401
-from backend.utils import hash_password
+from backend.utils import (
+    extract_auth_token_from_request,
+    get_expected_auth_scopes_for_request,
+    hash_password,
+    resolve_user_from_token,
+)
 from backend.services.permissions import PermissionKey
 from backend.routers.users import router as users_router
 from backend.routers.restaurants import router as restaurants_router
@@ -34,6 +39,7 @@ from backend.routers.employees_card import router as employees_card_router
 from backend.routers.kpi import router as kpi_router
 from backend.routers.medical_checks import router as medical_checks_router
 from backend.routers.cis_documents import router as cis_documents_router
+from backend.routers.employment_documents import router as employment_documents_router
 from backend.routers.fingerprint_templates import router as fingerprint_templates_router
 from backend.routers.downloads import router as downloads_router
 from backend.routers.employee_change_events import router as employee_change_events_router
@@ -135,6 +141,62 @@ ensure_default_permissions()
 app = FastAPI()
 
 
+PUBLIC_API_PATHS = {
+    "/api/ping",
+    "/api/login",
+    "/api/auth/login",
+    "/api/auth/login/swag",
+    "/api/auth/logout",
+    "/api/staff/login",
+    "/api/checklists/portal/login/start",
+    "/api/checklists/portal/login/finish",
+    "/api/checklists/portal/logout",
+}
+BEARER_AUTH_BYPASS_PREFIXES = ("/api/fingerprints",)
+
+
+def _normalize_request_path(path: str) -> str:
+    if not path or path == "/":
+        return "/"
+    return path.rstrip("/") or "/"
+
+
+def _requires_bearer_auth(path: str, method: str) -> bool:
+    normalized_path = _normalize_request_path(path)
+    if method.upper() == "OPTIONS":
+        return False
+    if not normalized_path.startswith("/api"):
+        return False
+    if normalized_path in PUBLIC_API_PATHS:
+        return False
+    return not any(normalized_path.startswith(prefix) for prefix in BEARER_AUTH_BYPASS_PREFIXES)
+
+
+def _authenticate_api_request(request) -> JSONResponse | None:
+    token = extract_auth_token_from_request(request)
+    if not token:
+        return JSONResponse(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            content={"detail": "Требуется авторизация"},
+        )
+
+    db = SessionLocal()
+    try:
+        user = resolve_user_from_token(
+            token,
+            db,
+            allowed_scopes=get_expected_auth_scopes_for_request(request),
+            not_found_status=status.HTTP_401_UNAUTHORIZED,
+        )
+    except HTTPException as exc:
+        return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail})
+    finally:
+        db.close()
+
+    request.state.current_user_id = user.id
+    return None
+
+
 
 @app.middleware("http")
 async def request_context_middleware(request, call_next):
@@ -150,15 +212,32 @@ async def request_context_middleware(request, call_next):
     )
     token = set_request_context(ctx)
     try:
-        response = await call_next(request)
+        auth_response = None
+        if _requires_bearer_auth(request.url.path, request.method):
+            auth_response = _authenticate_api_request(request)
+        if auth_response is not None:
+            response = auth_response
+        else:
+            response = await call_next(request)
     finally:
         reset_request_context(token)
     response.headers.setdefault("X-Request-Id", request_id)
     return response
 
 # ---- CORS ----
-# Разрешаем запросы с любого источника (фронт крутится на том же домене Railway)
-origins = ["*"]
+def _load_cors_origins() -> list[str]:
+    raw = (os.getenv("CORS_ALLOWED_ORIGINS") or "").strip()
+    if raw:
+        return [item.strip() for item in raw.split(",") if item.strip()]
+    return [
+        "http://localhost:8000",
+        "http://127.0.0.1:8000",
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+    ]
+
+
+origins = _load_cors_origins()
 
 app.add_middleware(
     CORSMiddleware,
@@ -188,6 +267,7 @@ app.include_router(employees_card_router, prefix="/api")
 app.include_router(kpi_router, prefix="/api")
 app.include_router(medical_checks_router, prefix="/api")
 app.include_router(cis_documents_router, prefix="/api")
+app.include_router(employment_documents_router, prefix="/api")
 app.include_router(fingerprint_templates_router, prefix="/api")
 app.include_router(downloads_router, prefix="/api")
 app.include_router(employee_change_events_router, prefix="/api")
@@ -269,4 +349,3 @@ else:
     @app.get("/")
     async def serve_index_root_missing():
         return {"detail": "frontend static not built"}
-

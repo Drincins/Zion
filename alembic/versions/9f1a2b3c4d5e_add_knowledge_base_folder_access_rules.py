@@ -11,6 +11,7 @@ from typing import Sequence, Union
 
 from alembic import op
 import sqlalchemy as sa
+from sqlalchemy.dialects import postgresql
 
 
 # revision identifiers, used by Alembic.
@@ -21,15 +22,22 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
+    scope_type_enum = postgresql.ENUM(
+        "role",
+        "position",
+        "user",
+        "restaurant",
+        name="knowledge_base_access_scope_type",
+        create_type=False,
+    )
+    if op.get_bind().dialect.name == "postgresql":
+        scope_type_enum.create(op.get_bind(), checkfirst=True)
+
     op.create_table(
         "knowledge_base_folder_access_rules",
         sa.Column("id", sa.Integer(), nullable=False),
         sa.Column("folder_id", sa.Integer(), nullable=False),
-        sa.Column(
-            "scope_type",
-            sa.Enum("role", "position", "user", "restaurant", name="knowledge_base_access_scope_type"),
-            nullable=False,
-        ),
+        sa.Column("scope_type", scope_type_enum, nullable=False),
         sa.Column("scope_id", sa.Integer(), nullable=False),
         sa.Column("created_by_user_id", sa.Integer(), nullable=True),
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),

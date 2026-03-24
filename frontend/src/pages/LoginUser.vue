@@ -212,7 +212,7 @@ async function submitCode(
             fingerprintScore,
             fingerprintSlot,
         });
-        const { access_token: token, user } = data;
+        const { user } = data;
 
         const restaurantsFromUser = Array.isArray(user?.restaurants)
             ? user.restaurants
@@ -234,7 +234,6 @@ async function submitCode(
             positionName: user.position_name ?? '',
             positionId: user.position_id ?? null,
             rate: typeof user.rate === 'number' ? user.rate : null,
-            token,
             hasFullRestaurantAccess: Boolean(user?.has_full_restaurant_access),
             hasGlobalAccess: Boolean(user?.has_global_access),
             restaurantIds: restaurantsFromUser,

@@ -15,7 +15,9 @@ if not url:
     host = os.getenv("POSTGRES_HOST", "db")
     port = os.getenv("POSTGRES_PORT", "5432")
     user = os.getenv("POSTGRES_USER", "zion_user")
-    password = os.getenv("POSTGRES_PASSWORD", "supersecret")
+    password = (os.getenv("POSTGRES_PASSWORD") or "").strip()
+    if not password:
+        raise SystemExit("POSTGRES_PASSWORD must be set when DATABASE_URL is not configured")
     database = os.getenv("POSTGRES_DB", "zion")
     url = f"postgresql+psycopg2://{user}:{password}@{host}:{port}/{database}"
 

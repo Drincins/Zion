@@ -43,57 +43,8 @@ try:
 		ensure_can_manage_user,
 		can_view_rate,
 	)
-except Exception:
-	# fallback (на случай отсутствия)
-	# fallback (на случай отсутствия)
-	from fastapi.security import OAuth2PasswordBearer
-	from jose import jwt, JWTError
-	oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
-	SECRET_KEY = os.getenv("SECRET_KEY", "CHANGE_ME")
-	ALGORITHM = "HS256"
-	def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)) -> User:
-		try:
-			payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-			sub = payload.get("sub")
-			if not sub:
-				raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
-			user = db.query(User).get(int(sub))
-			if not user:
-				raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
-			if user.fired:
-				raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Пользователь уволен")
-			return user
-		except JWTError:
-			raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
-
-	def today_local():
-		return date.today()
-
-	def get_user_restaurant_ids(db: Session, user: User):
-		return None
-
-	def users_share_restaurant(db: Session, viewer: User, target_user_id: int) -> bool:
-		return viewer.id == target_user_id
-
-	class PermissionCode:
-		STAFF_VIEW_SENSITIVE = "staff.view_sensitive"
-		STAFF_MANAGE_SUBORDINATES = "staff.manage_subordinates"
-		STAFF_MANAGE_ALL = "staff.manage_all"
-
-	def ensure_permissions(user: User, *codes: str) -> None:
-		return
-
-	def has_permission(user: User, code: str) -> bool:
-		return True
-
-	def can_manage_user(viewer: User, target: User) -> bool:
-		return True
-
-	def ensure_can_manage_user(viewer: User, target: User) -> None:
-		return
-
-	def can_view_rate(viewer: User, target: User) -> bool:
-		return True
+except Exception as exc:
+	raise RuntimeError("Failed to import shared auth dependencies in employees card router") from exc
 
 router = APIRouter(prefix="/employees", tags=["Employees"])
 
@@ -164,18 +115,56 @@ def _resolve_attachment_url(value: str | None) -> str | None:
                 return value
 
 
-def _to_card(u: User, viewer: Optional[User] = None) -> EmployeeCardPublic:
+def _can_view_medical_documents(viewer: Optional[User]) -> bool:
+    if viewer is None:
+        return True
+    return any(
+        has_permission(viewer, permission)
+        for permission in (
+            PermissionCode.MEDICAL_CHECKS_VIEW,
+            PermissionCode.MEDICAL_CHECKS_MANAGE,
+            PermissionCode.STAFF_MANAGE_ALL,
+            PermissionCode.SYSTEM_ADMIN,
+        )
+    )
+
+
+def _can_view_cis_documents(viewer: Optional[User]) -> bool:
+    if viewer is None:
+        return True
+    return any(
+        has_permission(viewer, permission)
+        for permission in (
+            PermissionCode.CIS_DOCUMENTS_VIEW,
+            PermissionCode.CIS_DOCUMENTS_MANAGE,
+            PermissionCode.STAFF_MANAGE_ALL,
+            PermissionCode.SYSTEM_ADMIN,
+        )
+    )
+
+
+def _to_card(
+    u: User,
+    viewer: Optional[User] = None,
+    *,
+    include_medical_checks: bool = True,
+    include_cis_documents: bool = True,
+) -> EmployeeCardPublic:
     can_see_rate = can_view_rate(viewer, u) if viewer else True
-    medical_records = sorted(
-        u.medical_check_records or [],
-        key=lambda record: record.passed_at or date.min,
-        reverse=True,
-    )
-    cis_docs = sorted(
-        u.cis_document_records or [],
-        key=lambda record: record.issued_at or date.min,
-        reverse=True,
-    )
+    medical_records = []
+    cis_docs = []
+    if include_medical_checks:
+        medical_records = sorted(
+            u.medical_check_records or [],
+            key=lambda record: record.passed_at or date.min,
+            reverse=True,
+        )
+    if include_cis_documents:
+        cis_docs = sorted(
+            u.cis_document_records or [],
+            key=lambda record: record.issued_at or date.min,
+            reverse=True,
+        )
     photo_url = None
     if u.photo_key:
         try:
@@ -493,23 +482,41 @@ def get_employee_card(
 	current_user: User = Depends(get_current_user),
 ):
 	_ = _check_permissions(db, current_user, user_id)
+	include_medical_checks = _can_view_medical_documents(current_user)
+	include_cis_documents = _can_view_cis_documents(current_user)
+	options = [
+		joinedload(User.company),
+		joinedload(User.role),
+		joinedload(User.position).joinedload(Position.payment_format),
+		joinedload(User.position).joinedload(Position.restaurant_subdivision),
+	]
+	if include_medical_checks:
+		options.append(
+			selectinload(User.medical_check_records).selectinload(MedicalCheckRecord.check_type)
+		)
+	else:
+		options.append(noload(User.medical_check_records))
+	if include_cis_documents:
+		options.append(
+			selectinload(User.cis_document_records).selectinload(CisDocumentRecord.document_type)
+		)
+	else:
+		options.append(noload(User.cis_document_records))
 
 	u = (
 		db.query(User)
-		  .options(
-			  joinedload(User.company),
-			  joinedload(User.role),
-			  joinedload(User.position).joinedload(Position.payment_format),
-			  joinedload(User.position).joinedload(Position.restaurant_subdivision),
-			  selectinload(User.medical_check_records).selectinload(MedicalCheckRecord.check_type),
-			  selectinload(User.cis_document_records).selectinload(CisDocumentRecord.document_type),
-		  )
+		  .options(*options)
 		  .filter(User.id == user_id)
 		  .first()
 	)
 	if not u:
 		raise HTTPException(status_code=404, detail="User not found")
-	return _to_card(u, current_user)
+	return _to_card(
+		u,
+		current_user,
+		include_medical_checks=include_medical_checks,
+		include_cis_documents=include_cis_documents,
+	)
 
 # -------------------------
 # 3) Смены сотрудника (вкладка 2) — по умолчанию текущий месяц, но есть параметры периода

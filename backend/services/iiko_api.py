@@ -1,13 +1,12 @@
 from __future__ import annotations
 
 import os
-import urllib3
 from datetime import datetime
 from typing import Any, Dict, List
 
 import requests
 
-urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+from backend.services.iiko_http import get_iiko_tls_verify
 
 
 def _olap_timeout_seconds() -> int:
@@ -24,7 +23,7 @@ def get_token(server: str, login: str, password_sha1: str) -> str:
     resp = requests.get(
         url,
         params={"login": login, "pass": password_sha1},
-        verify=False,
+        verify=get_iiko_tls_verify(),
         timeout=60,
     )
     resp.raise_for_status()
@@ -36,7 +35,7 @@ def get_olap_columns(server: str, token: str, report_type: str = "SALES") -> dic
     resp = requests.get(
         url,
         params={"key": token, "reportType": report_type},
-        verify=False,
+        verify=get_iiko_tls_verify(),
         timeout=60,
     )
     resp.raise_for_status()
@@ -119,6 +118,6 @@ def post_olap_report(
         url,
         params={"key": token},
         json=payload,
-        verify=False,
+        verify=get_iiko_tls_verify(),
         timeout=_olap_timeout_seconds(),
     )

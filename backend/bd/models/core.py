@@ -7,6 +7,7 @@ from sqlalchemy import (
     Boolean,
     Column,
     Date,
+    DateTime,
     Enum,
     ForeignKey,
     Index,
@@ -256,6 +257,12 @@ class User(Base):
 
     position = relationship("Position", back_populates="users")
     attendances = relationship("Attendance", back_populates="user", cascade="all, delete-orphan")
+    auth_sessions = relationship(
+        "AuthSession",
+        back_populates="user",
+        cascade="all, delete-orphan",
+        lazy="selectin",
+    )
     payroll_adjustments = relationship(
         "PayrollAdjustment",
         foreign_keys="PayrollAdjustment.user_id",
@@ -312,6 +319,12 @@ class User(Base):
         cascade="all, delete-orphan",
         lazy="selectin",
     )
+    employment_document_records = relationship(
+        "EmploymentDocumentRecord",
+        back_populates="user",
+        cascade="all, delete-orphan",
+        lazy="selectin",
+    )
 
     @property
     def has_global_access(self) -> bool:
@@ -326,6 +339,26 @@ class User(Base):
         from backend.services.permissions import get_user_permission_codes
 
         return sorted(get_user_permission_codes(self))
+
+
+class AuthSession(Base):
+    __tablename__ = "auth_sessions"
+
+    __table_args__ = (
+        Index("ix_auth_sessions_user_id", "user_id"),
+        Index("ix_auth_sessions_scope", "scope"),
+        Index("ix_auth_sessions_revoked_at", "revoked_at"),
+    )
+
+    id = Column(String(32), primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    scope = Column(String(64), nullable=False)
+    created_at = Column(DateTime(timezone=True), nullable=False, server_default=text("now()"))
+    expires_at = Column(DateTime(timezone=True), nullable=False)
+    revoked_at = Column(DateTime(timezone=True), nullable=True)
+    revoked_reason = Column(String, nullable=True)
+
+    user = relationship("User", back_populates="auth_sessions")
 
 
 class Restaurant(Base):

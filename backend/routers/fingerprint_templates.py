@@ -3,11 +3,13 @@ import json
 import logging
 import os
 import re
+import secrets
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, UploadFile, status
 from fastapi.responses import Response
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
+from dotenv import load_dotenv
 
 from backend.bd.database import get_db
 from backend.bd.models import User
@@ -16,18 +18,27 @@ from backend.services.s3 import download_bytes, upload_bytes
 
 router = APIRouter(prefix="/fingerprints", tags=["Fingerprint templates"])
 
-_SYNC_TOKEN = os.getenv("FINGERPRINT_SYNC_TOKEN")
 _DATASET_RE = re.compile(r"^[A-Za-z0-9_.-]{1,64}$")
 _RESET_MISSING = os.getenv("FINGERPRINT_RESET_MISSING", "").lower() in {"1", "true", "yes"}
 _ALLOWED_ACTIONS = {"enroll", "identify", "login"}
 logger = logging.getLogger(__name__)
 
 
+def _get_sync_token() -> str:
+    load_dotenv()
+    token = (os.getenv("FINGERPRINT_SYNC_TOKEN") or "").strip()
+    if not token:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Fingerprint sync token is not configured",
+        )
+    return token
+
+
 def _ensure_token(request: Request) -> None:
-    if not _SYNC_TOKEN:
-        return
-    token = request.headers.get("X-Fingerprint-Token")
-    if token != _SYNC_TOKEN:
+    expected_token = _get_sync_token()
+    token = (request.headers.get("X-Fingerprint-Token") or "").strip()
+    if not token or not secrets.compare_digest(token, expected_token):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
 
 

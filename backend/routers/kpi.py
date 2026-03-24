@@ -89,52 +89,8 @@ try:  # pragma: no cover - shared dependency injection fallback
         has_permission,
         has_global_access,
     )
-except Exception:  # pragma: no cover
-    from fastapi.security import OAuth2PasswordBearer
-    from jose import JWTError, jwt
-    import os
-
-    oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/login")
-    SECRET_KEY = os.getenv("SECRET_KEY") or os.getenv("JWT_SECRET") or "CHANGE_ME"
-    ALGORITHM = "HS256"
-
-    def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)) -> User:
-        try:
-            payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-            sub = payload.get("sub")
-            if not sub:
-                raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
-            user = db.query(User).get(int(sub))
-            if not user:
-                raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
-            if user.fired:
-                raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Пользователь уволен")
-            return user
-        except JWTError:  # pragma: no cover - fallback branch
-            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
-
-    class PermissionCode:
-        KPI_VIEW = "kpi.view"
-        KPI_MANAGE = "kpi.manage"
-        KPI_METRICS_VIEW = "kpi.metrics.view"
-        KPI_METRICS_MANAGE = "kpi.metrics.manage"
-        KPI_METRIC_GROUPS_VIEW = "kpi.metric_groups.view"
-        KPI_METRIC_GROUPS_MANAGE = "kpi.metric_groups.manage"
-        KPI_RULES_ASSIGN = "kpi.rules.assign"
-        KPI_FACTS_VIEW = "kpi.facts.view"
-        KPI_FACTS_MANAGE = "kpi.facts.manage"
-        KPI_RESULTS_VIEW = "kpi.results.view"
-        KPI_PAYOUTS_VIEW = "kpi.payouts.view"
-        KPI_PAYOUTS_MANAGE = "kpi.payouts.manage"
-
-    def ensure_permissions(user: User, *codes: str) -> None:
-        return
-
-    def has_permission(user: User, code: str) -> bool:
-        return True
-
-    def has_global_access(user: User) -> bool:
-        return True
+except Exception as exc:  # pragma: no cover
+    raise RuntimeError("Failed to import shared auth dependencies in KPI router") from exc
 
 
 router = APIRouter(prefix="/kpi", tags=["KPI"])

@@ -10,11 +10,22 @@ load_dotenv()
 # Prefer full URL if provided
 DATABASE_URL = os.getenv("DATABASE_URL")
 
+
+def _require_env(name: str, *, message: str | None = None) -> str:
+    value = (os.getenv(name) or "").strip()
+    if value:
+        return value
+    raise RuntimeError(message or f"{name} must be set")
+
+
 if not DATABASE_URL:
     POSTGRES_HOST = os.getenv("POSTGRES_HOST", "db")
     POSTGRES_PORT = os.getenv("POSTGRES_PORT", "5432")
     POSTGRES_USER = os.getenv("POSTGRES_USER", "zion_user")
-    POSTGRES_PASSWORD = os.getenv("POSTGRES_PASSWORD", "supersecret")
+    POSTGRES_PASSWORD = _require_env(
+        "POSTGRES_PASSWORD",
+        message="POSTGRES_PASSWORD must be set when DATABASE_URL is not configured",
+    )
     POSTGRES_DB = os.getenv("POSTGRES_DB", "zion")
 
     DATABASE_URL = (

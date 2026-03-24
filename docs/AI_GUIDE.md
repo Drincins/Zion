@@ -51,6 +51,17 @@ This document gives a compact, practical map of the repo so an assistant can nav
 - Staff and HR: `backend/routers/staff_*`, `backend/routers/employees_card.py`, `backend/bd/models/hr.py`.
 - iiko integration: `app/config.py`, `backend/bd/iiko_olap.py`, `backend/routers/iiko_*`.
 
+## Security Rules for New APIs
+- All new business endpoints under `/api/*` must be protected by centralized auth in `app/main.py` and `backend/utils.py`. Do not create public data endpoints by default.
+- Browser sessions must use the current cookie-based flow with `HttpOnly` auth cookies plus server-side session validation via `AuthSession`. Do not build new browser APIs around permanent bearer tokens in storage.
+- Logout must revoke the server-side session, not only clear a cookie or remove client state.
+- If a surface is isolated from the main admin app (for example checklist portal), use a separate auth scope and a separate cookie/session flow instead of reusing the main session blindly.
+- New router code should rely on shared auth helpers (`get_current_user`, centralized token resolution, permission checks). Do not duplicate ad-hoc token parsing inside routers unless there is a strict integration reason.
+- Public endpoints are allowed only for explicit health/login flows and must be intentionally whitelisted with a clear reason. If an endpoint returns business data, it must require auth.
+- Machine-to-machine integrations must use a dedicated token or integration secret, fail closed when the secret is missing, and must not silently fall back to insecure defaults.
+- Do not store browser auth tokens in `localStorage`. Frontend auth state may keep non-sensitive UI data, but access to protected APIs must rely on secure session handling.
+- When adding a new API, always sanity-check: who can call it, how the session is validated, how logout/revocation behaves, and whether the endpoint leaks data without authentication.
+
 ## Frontend Structure
 - Layouts: `frontend/src/layouts/` (AdminLayout and nested layouts).
 - Pages: `frontend/src/pages/` and `frontend/src/pages/AdminLayout/*`.

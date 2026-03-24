@@ -29,6 +29,7 @@ export function useEmployeeListState({
     const onlyFormalized = ref(false);
     const onlyNotFormalized = ref(false);
     const onlyCis = ref(false);
+    const onlyNotCis = ref(false);
     const sortBy = ref('staff_code');
     const sortDirection = ref('asc');
     const isFiltersOpen = ref(false);
@@ -58,6 +59,16 @@ export function useEmployeeListState({
 
     const handleOnlyCisChange = (value) => {
         onlyCis.value = value;
+        if (value) {
+            onlyNotCis.value = false;
+        }
+    };
+
+    const handleOnlyNotCisChange = (value) => {
+        onlyNotCis.value = value;
+        if (value) {
+            onlyCis.value = false;
+        }
     };
 
     const handleSortByChange = (value) => {
@@ -105,6 +116,7 @@ export function useEmployeeListState({
         onlyFormalized,
         onlyNotFormalized,
         onlyCis,
+        onlyNotCis,
         sortBy,
         sortDirection,
         isFiltersOpen,
@@ -114,6 +126,7 @@ export function useEmployeeListState({
         handleOnlyFormalizedChange,
         handleOnlyNotFormalizedChange,
         handleOnlyCisChange,
+        handleOnlyNotCisChange,
         handleSortByChange,
         handleSortDirectionChange,
         handleEmployeeColumnChange,

@@ -175,6 +175,16 @@ export async function uploadCisDocumentAttachment(userId, file) {
     return data;
 }
 
+export async function uploadEmploymentDocumentAttachment(userId, file) {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const { data } = await api.post(`/api/employment-documents/users/${userId}/attachment`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+    });
+    return data;
+}
+
 export async function updateStaffEmployee(userId, payload = {}) {
     const { data } = await api.put(`/api/staff/employees/${userId}`, payload);
     return data;
@@ -201,6 +211,11 @@ export async function fetchMedicalCheckTypes(params = {}) {
     return data;
 }
 
+export async function fetchMedicalCheckRecords(params = {}) {
+    const { data } = await api.get('/api/medical-checks/records', { params });
+    return data;
+}
+
 export async function createMedicalCheckRecord(payload = {}) {
     const { data } = await api.post('/api/medical-checks/records', payload);
     return data;
@@ -221,6 +236,16 @@ export async function fetchCisDocumentTypes(params = {}) {
     return data;
 }
 
+export async function fetchCisDocumentRecords(params = {}) {
+    const { data } = await api.get('/api/cis-documents/records', { params });
+    return data;
+}
+
+export async function fetchEmploymentDocumentRecords(params = {}) {
+    const { data } = await api.get('/api/employment-documents/records', { params });
+    return data;
+}
+
 export async function createCisDocumentRecord(payload = {}) {
     const { data } = await api.post('/api/cis-documents/records', payload);
     return data;
@@ -233,6 +258,21 @@ export async function updateCisDocumentRecord(recordId, payload = {}) {
 
 export async function deleteCisDocumentRecord(recordId) {
     const { data } = await api.delete(`/api/cis-documents/records/${recordId}`);
+    return data;
+}
+
+export async function createEmploymentDocumentRecord(payload = {}) {
+    const { data } = await api.post('/api/employment-documents/records', payload);
+    return data;
+}
+
+export async function updateEmploymentDocumentRecord(recordId, payload = {}) {
+    const { data } = await api.put(`/api/employment-documents/records/${recordId}`, payload);
+    return data;
+}
+
+export async function deleteEmploymentDocumentRecord(recordId) {
+    const { data } = await api.delete(`/api/employment-documents/records/${recordId}`);
     return data;
 }
 

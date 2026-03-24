@@ -16,6 +16,7 @@ from backend.bd.models import (
     PayrollAdvanceItem,
     PayrollAdvanceConsolidatedStatement,
     PayrollAdvanceStatement,
+    Position,
     User,
 )
 from backend.schemas import (
@@ -60,53 +61,8 @@ try:  # pragma: no cover - shared dependency
         has_permission,
         has_global_access,
     )
-except Exception:  # pragma: no cover
-    from fastapi.security import OAuth2PasswordBearer
-    from jose import jwt, JWTError
-    import os
-
-    oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/login")
-    SECRET_KEY = os.getenv("SECRET_KEY") or os.getenv("JWT_SECRET") or "CHANGE_ME"
-    ALGORITHM = "HS256"
-
-    def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)) -> User:
-        try:
-            payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-            sub = payload.get("sub")
-            if not sub:
-                raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
-            user = db.query(User).get(int(sub))
-            if not user:
-                raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
-            if user.fired:
-                raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Пользователь уволен")
-            return user
-        except JWTError:
-            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
-
-    def get_user_restaurant_ids(db: Session, user: User):
-        return None
-
-    class PermissionCode:
-        PAYROLL_ADVANCE_VIEW = "payroll.advance.view"
-        PAYROLL_ADVANCE_CREATE = "payroll.advance.create"
-        PAYROLL_ADVANCE_EDIT = "payroll.advance.edit"
-        PAYROLL_ADVANCE_STATUS_REVIEW = "payroll.advance.status.review"
-        PAYROLL_ADVANCE_STATUS_CONFIRM = "payroll.advance.status.confirm"
-        PAYROLL_ADVANCE_STATUS_READY = "payroll.advance.status.ready"
-        PAYROLL_ADVANCE_STATUS_ALL = "payroll.advance.status.all"
-        PAYROLL_ADVANCE_DOWNLOAD = "payroll.advance.download"
-        PAYROLL_ADVANCE_POST = "payroll.advance.post"
-        PAYROLL_ADVANCE_DELETE = "payroll.advance.delete"
-
-    def ensure_permissions(user: User, *codes: str) -> None:
-        return
-
-    def has_permission(user: User, code: str) -> bool:
-        return True
-
-    def has_global_access(user: User) -> bool:
-        return True
+except Exception as exc:  # pragma: no cover
+    raise RuntimeError("Failed to import shared auth dependencies in payroll advances router") from exc
 
 
 router = APIRouter(prefix="/payroll/advances", tags=["Payroll advances"])
@@ -236,12 +192,17 @@ def _item_to_public(item: PayrollAdvanceItem) -> PayrollAdvanceItemPublic:
     user = getattr(item, "user", None)
     fired = bool(getattr(user, "fired", False)) if user else False
     fire_date = getattr(user, "fire_date", None) if user else None
+    calc_snapshot = item.calc_snapshot if isinstance(item.calc_snapshot, dict) else {}
+    subdivision_name = calc_snapshot.get("subdivision_name")
+    if not subdivision_name:
+        subdivision_name = getattr(getattr(getattr(item, "position", None), "restaurant_subdivision", None), "name", None)
     return PayrollAdvanceItemPublic(
         id=item.id,
         user_id=item.user_id,
         staff_code=item.staff_code,
         full_name=item.full_name,
         position_name=item.position_name,
+        subdivision_name=subdivision_name,
         restaurant_id=item.restaurant_id,
         restaurant_name=restaurant_name,
         fact_hours=float(item.fact_hours or 0),
@@ -381,6 +342,9 @@ def _load_statement(db: Session, statement_id: int) -> PayrollAdvanceStatement:
             joinedload(PayrollAdvanceStatement.subdivision),
             joinedload(PayrollAdvanceStatement.items).joinedload(PayrollAdvanceItem.restaurant),
             joinedload(PayrollAdvanceStatement.items).joinedload(PayrollAdvanceItem.user),
+            joinedload(PayrollAdvanceStatement.items)
+            .joinedload(PayrollAdvanceItem.position)
+            .joinedload(Position.restaurant_subdivision),
         )
         .filter(PayrollAdvanceStatement.id == statement_id)
         .first()
@@ -936,6 +900,7 @@ def update_item_compact(
         .options(
             joinedload(PayrollAdvanceItem.restaurant),
             joinedload(PayrollAdvanceItem.user),
+            joinedload(PayrollAdvanceItem.position).joinedload(Position.restaurant_subdivision),
         )
         .filter(
             PayrollAdvanceItem.statement_id == statement_id,
@@ -961,6 +926,7 @@ def update_item_compact(
         .options(
             joinedload(PayrollAdvanceItem.restaurant),
             joinedload(PayrollAdvanceItem.user),
+            joinedload(PayrollAdvanceItem.position).joinedload(Position.restaurant_subdivision),
         )
         .filter(
             PayrollAdvanceItem.statement_id == statement_id,
@@ -1022,6 +988,7 @@ def update_items_bulk_compact(
         .options(
             joinedload(PayrollAdvanceItem.restaurant),
             joinedload(PayrollAdvanceItem.user),
+            joinedload(PayrollAdvanceItem.position).joinedload(Position.restaurant_subdivision),
         )
         .filter(
             PayrollAdvanceItem.statement_id == statement_id,
@@ -1051,6 +1018,7 @@ def update_items_bulk_compact(
         .options(
             joinedload(PayrollAdvanceItem.restaurant),
             joinedload(PayrollAdvanceItem.user),
+            joinedload(PayrollAdvanceItem.position).joinedload(Position.restaurant_subdivision),
         )
         .filter(
             PayrollAdvanceItem.statement_id == statement_id,

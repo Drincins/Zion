@@ -487,6 +487,7 @@ def payroll_row_to_item_payload(row: UserPayrollRow) -> dict:
             "fact_shifts": float(row.fact_shifts) if row.fact_shifts is not None else None,
             "payment_mode": getattr(payment_format, "calculation_mode", None),
             "payment_format_name": getattr(payment_format, "name", None),
+            "subdivision_name": getattr(getattr(row.position, "restaurant_subdivision", None), "name", None),
             "adjustments_by_type": adjustments_by_type,
         },
     }

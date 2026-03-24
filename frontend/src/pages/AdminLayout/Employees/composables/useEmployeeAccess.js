@@ -4,6 +4,7 @@ import {
     PAYROLL_EXPORT_PERMISSION,
     PAYROLL_MANAGE_PERMISSION,
     STAFF_AUTH_CREDENTIALS_VIEW_PERMISSIONS,
+    STAFF_CIS_DOCUMENTS_VIEW_PERMISSIONS,
     STAFF_CHANGES_VIEW_PERMISSIONS,
     STAFF_CIS_DOCUMENTS_MANAGE_PERMISSIONS,
     STAFF_CREATE_PERMISSIONS,
@@ -16,6 +17,7 @@ import {
     STAFF_LOAD_RESTAURANTS_PERMISSIONS,
     STAFF_LOAD_ROLES_PERMISSIONS,
     STAFF_MANAGE_PERMISSIONS,
+    STAFF_MEDICAL_CHECKS_VIEW_PERMISSIONS,
     STAFF_MEDICAL_CHECKS_MANAGE_PERMISSIONS,
     STAFF_RESTORE_PERMISSIONS,
     STAFF_USER_PERMISSIONS_MANAGE_PERMISSIONS,
@@ -140,6 +142,14 @@ export function useEmployeeAccess(userStore) {
         userStore.hasAnyPermission(...STAFF_DOCUMENTS_VIEW_PERMISSIONS)
     );
 
+    const canViewMedicalChecks = computed(() =>
+        userStore.hasAnyPermission(...STAFF_MEDICAL_CHECKS_VIEW_PERMISSIONS)
+    );
+
+    const canViewCisDocuments = computed(() =>
+        userStore.hasAnyPermission(...STAFF_CIS_DOCUMENTS_VIEW_PERMISSIONS)
+    );
+
     const canManageMedicalChecks = computed(() =>
         userStore.hasAnyPermission(...STAFF_MEDICAL_CHECKS_MANAGE_PERMISSIONS)
     );
@@ -182,6 +192,8 @@ export function useEmployeeAccess(userStore) {
         canExportTimesheet,
         canDownloadEmployeesList,
         canViewDocuments,
+        canViewMedicalChecks,
+        canViewCisDocuments,
         canManageMedicalChecks,
         canManageCisDocuments,
         canManageDocuments,

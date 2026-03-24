@@ -3,7 +3,6 @@ import json
 import hashlib
 import uuid
 import requests
-import urllib3
 import pandas as pd
 import xml.etree.ElementTree as ET
 from datetime import datetime
@@ -21,9 +20,8 @@ from backend.bd.models import User, Restaurant
 from backend.bd.iiko_catalog import IikoProduct, IikoProductNameHistory, IikoProductRestaurant
 from backend.bd.iiko_olap import IikoOlapRow, IikoOlapRawRow
 from backend.utils import get_current_user, now_local
+from backend.services.iiko_http import get_iiko_tls_verify
 from backend.services.permissions import ensure_permissions, PermissionCode, has_global_access, has_permission
-
-urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 router = APIRouter(prefix="/iiko-olap-product", tags=["iiko-olap-product"])
 
@@ -34,14 +32,14 @@ router = APIRouter(prefix="/iiko-olap-product", tags=["iiko-olap-product"])
 
 def get_token(server: str, login: str, password_sha1: str) -> str:
     url = f"{server}/resto/api/auth"
-    r = requests.get(url, params={"login": login, "pass": password_sha1}, verify=False, timeout=60)
+    r = requests.get(url, params={"login": login, "pass": password_sha1}, verify=get_iiko_tls_verify(), timeout=60)
     r.raise_for_status()
     return r.text.strip()
 
 
 def get_olap_columns(server: str, token: str, report_type: str = "SALES") -> dict:
     url = f"{server}/resto/api/v2/reports/olap/columns"
-    r = requests.get(url, params={"key": token, "reportType": report_type}, verify=False, timeout=60)
+    r = requests.get(url, params={"key": token, "reportType": report_type}, verify=get_iiko_tls_verify(), timeout=60)
     r.raise_for_status()
     return r.json()
 
@@ -114,14 +112,14 @@ def post_olap_sales(server: str, token: str, groups: List[str], date_field: str,
         "aggregateFields": aggregates,
         "filters": {date_field: filt}
     }
-    r = requests.post(url, params={"key": token}, json=payload, verify=False, timeout=180)
+    r = requests.post(url, params={"key": token}, json=payload, verify=get_iiko_tls_verify(), timeout=180)
     return r
 
 
 def fetch_products_xml(server: str, token: str, include_deleted: bool = False, revision_from: int = -1) -> ET.Element:
     url = f"{server}/resto/api/products"
     params = {"key": token, "includeDeleted": str(include_deleted).lower(), "revisionFrom": revision_from}
-    r = requests.get(url, params=params, verify=False, timeout=180)
+    r = requests.get(url, params=params, verify=get_iiko_tls_verify(), timeout=180)
     r.raise_for_status()
     return ET.fromstring(r.content)
 
@@ -164,7 +162,7 @@ def fetch_products_v2(
     response = requests.get(
         url,
         params={"key": token, **query},
-        verify=False,
+        verify=get_iiko_tls_verify(),
         timeout=180,
     )
     if response.status_code in (404, 405, 415):
@@ -172,7 +170,7 @@ def fetch_products_v2(
             url,
             params={"key": token},
             data=query,
-            verify=False,
+            verify=get_iiko_tls_verify(),
             timeout=180,
         )
     response.raise_for_status()
@@ -200,7 +198,7 @@ def fetch_assembly_charts_all(
     }
     if date_to:
         params["dateTo"] = date_to
-    response = requests.get(url, params=params, verify=False, timeout=180)
+    response = requests.get(url, params=params, verify=get_iiko_tls_verify(), timeout=180)
     response.raise_for_status()
     payload = response.json()
     return payload if isinstance(payload, dict) else {}
@@ -242,7 +240,7 @@ def fetch_prices_v2(
     if revision_from is not None:
         params["revisionFrom"] = int(revision_from)
 
-    response = requests.get(url, params=params, verify=False, timeout=180)
+    response = requests.get(url, params=params, verify=get_iiko_tls_verify(), timeout=180)
     response.raise_for_status()
     payload = response.json()
     if not isinstance(payload, dict):

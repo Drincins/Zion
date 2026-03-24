@@ -78,6 +78,11 @@
                                 label="Сотрудник СНГ"
                                 @update:model-value="handleOnlyCisChange"
                             />
+                            <Checkbox
+                                :model-value="onlyNotCis"
+                                label="Не СНГ"
+                                @update:model-value="handleOnlyNotCisChange"
+                            />
                         </div>
                         <Button color="ghost" size="sm" :loading="isLoading" @click="loadEmployees">
                             Найти
@@ -240,23 +245,33 @@
                 :training-requirements-loading="trainingRequirementsLoading"
                 :updating-training-requirement-id="updatingTrainingRequirementId"
                 :can-view-documents="canViewDocuments"
+                :can-view-medical-checks="canViewMedicalChecks"
+                :can-view-cis-documents="canViewCisDocuments"
                 :medical-check-records="medicalCheckRecords"
                 :cis-document-records="cisDocumentRecords"
+                :employment-document-records="employmentDocumentRows"
                 :medical-check-type-options="medicalCheckTypeOptions"
                 :cis-document-type-options="cisDocumentTypeOptions"
                 :documents-loading="documentsLoading"
                 :can-manage-medical-checks="canManageMedicalChecks"
                 :can-manage-cis-documents="canManageCisDocuments"
+                :can-manage-documents="canManageDocuments"
                 :medical-form="medicalForm"
                 :cis-document-form="cisDocumentForm"
+                :employment-document-form="employmentDocumentForm"
                 :is-medical-bulk-mode="isMedicalBulkMode"
                 :is-medical-form-open="isMedicalFormOpen"
                 :is-cis-form-open="isCisFormOpen"
+                :is-employment-form-open="isEmploymentFormOpen"
                 :saving-medical-record="savingMedicalRecord"
                 :saving-cis-document="savingCisDocument"
+                :saving-employment-document="savingEmploymentDocument"
                 :uploading-cis-attachment="uploadingCisAttachment"
+                :uploading-employment-attachment="uploadingEmploymentAttachment"
                 :deleting-medical-record-id="deletingMedicalRecordId"
                 :deleting-cis-document-id="deletingCisDocumentId"
+                :deleting-employment-document-id="deletingEmploymentDocumentId"
+                :employment-document-form-label="employmentDocumentFormLabel"
                 :payroll-adjustment-type-options="payrollAdjustmentTypeOptions"
                 :payroll-adjustments="payrollAdjustments"
                 :payroll-adjustments-loading="payrollAdjustmentsLoading"
@@ -301,6 +316,11 @@
                 @submit-cis-document-form="handleSaveCisDocument"
                 @delete-cis-document="handleDeleteCisDocument"
                 @upload-cis-attachment="handleUploadCisAttachment"
+                @start-edit-employment-document="startEditEmploymentDocument"
+                @cancel-employment-document-form="cancelEmploymentDocumentForm"
+                @submit-employment-document-form="handleSaveEmploymentDocument"
+                @delete-employment-document="handleDeleteEmploymentDocument"
+                @upload-employment-attachment="handleUploadEmploymentAttachment"
                 @upload-photo="handleUploadEmployeePhoto"
                 @toggle-user-permission="handleToggleUserPermission"
                 @update:active-tab="handleActiveTabChange"
@@ -1354,6 +1374,8 @@ const {
     canExportTimesheet,
     canDownloadEmployeesList,
     canViewDocuments,
+    canViewMedicalChecks,
+    canViewCisDocuments,
     canManageMedicalChecks,
     canManageCisDocuments,
     canManageDocuments,
@@ -1371,6 +1393,7 @@ const {
     onlyFormalized,
     onlyNotFormalized,
     onlyCis,
+    onlyNotCis,
     sortBy,
     sortDirection,
     isFiltersOpen,
@@ -1380,6 +1403,7 @@ const {
     handleOnlyFormalizedChange,
     handleOnlyNotFormalizedChange,
     handleOnlyCisChange,
+    handleOnlyNotCisChange,
     handleSortByChange,
     handleSortDirectionChange,
     handleEmployeeColumnChange,
@@ -1518,23 +1542,32 @@ const {
     documentsLoading,
     medicalForm,
     cisDocumentForm,
+    employmentDocumentForm,
     isMedicalFormOpen,
     isMedicalBulkMode,
     isCisFormOpen,
+    isEmploymentFormOpen,
     savingMedicalRecord,
     savingCisDocument,
+    savingEmploymentDocument,
     uploadingCisAttachment,
+    uploadingEmploymentAttachment,
     deletingMedicalRecordId,
     deletingCisDocumentId,
+    deletingEmploymentDocumentId,
     medicalCheckTypeOptions,
     cisDocumentTypeOptions,
+    employmentDocumentRows,
+    employmentDocumentFormLabel,
     startCreateMedicalRecord,
     startCreateMedicalRecordsBulk,
     startCreateCisDocument,
     startEditMedicalRecord,
     startEditCisDocument,
+    startEditEmploymentDocument,
     cancelMedicalForm,
     cancelCisDocumentForm,
+    cancelEmploymentDocumentForm,
     loadMedicalCheckTypes,
     loadCisDocumentTypes,
     refreshEmployeeDocuments,
@@ -1542,13 +1575,17 @@ const {
     handleDeleteMedicalRecord,
     handleSaveCisDocument,
     handleDeleteCisDocument,
+    handleSaveEmploymentDocument,
+    handleDeleteEmploymentDocument,
+    handleUploadEmploymentAttachment,
     handleUploadCisAttachment,
     syncEmployeeDocumentsFromCard,
     resetEmployeeDocumentsState,
 } = useEmployeeDocuments({
     activeEmployee,
-    employeeCard,
     canViewDocuments,
+    canViewMedicalChecks,
+    canViewCisDocuments,
 });
 const {
     userPermissionCatalog,
@@ -3064,8 +3101,12 @@ function filterEmployeesByFlags(list) {
     const wantsNotFormalized = onlyNotFormalized.value;
     const formalizedFilterActive = wantsFormalized || wantsNotFormalized;
     const hasContradiction = wantsFormalized && wantsNotFormalized;
+    const wantsCis = onlyCis.value;
+    const wantsNotCis = onlyNotCis.value;
+    const cisFilterActive = wantsCis || wantsNotCis;
+    const cisContradiction = wantsCis && wantsNotCis;
 
-    if (!onlyFired.value && !formalizedFilterActive && !onlyCis.value) {
+    if (!onlyFired.value && !formalizedFilterActive && !cisFilterActive) {
         return list || [];
     }
     return (list || []).filter((employee) => {
@@ -3080,8 +3121,13 @@ function filterEmployeesByFlags(list) {
                 return false;
             }
         }
-        if (onlyCis.value && !isEmployeeCis(employee)) {
-            return false;
+        if (!cisContradiction) {
+            if (wantsCis && !isEmployeeCis(employee)) {
+                return false;
+            }
+            if (wantsNotCis && isEmployeeCis(employee)) {
+                return false;
+            }
         }
         return true;
     });

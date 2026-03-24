@@ -8,6 +8,11 @@
     display: flex;
     flex-direction: column;
     gap: 12px;
+    padding: 16px;
+    border: 1px solid var(--color-border);
+    border-radius: 16px;
+    background: color-mix(in srgb, var(--color-surface) 88%, transparent);
+    box-shadow: 0 12px 24px rgba(0, 0, 0, 0.08);
 }
 
 .employees-page__documents-header {
@@ -15,6 +20,12 @@
     align-items: center;
     justify-content: space-between;
     gap: 12px;
+}
+
+.employees-page__documents-heading {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
 }
 
 .employees-page__documents-title {
@@ -47,6 +58,35 @@
     gap: 8px;
     flex-wrap: wrap;
     justify-content: flex-end;
+    align-items: center;
+}
+
+.employees-page__documents-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 14px;
+    border: 1px solid var(--color-border);
+    border-radius: 12px;
+    background: var(--color-surface-200, rgba(255, 255, 255, 0.03));
+    color: var(--color-text);
+    font: inherit;
+    cursor: pointer;
+    transition: border-color 0.2s ease, opacity 0.2s ease, transform 0.2s ease;
+}
+
+.employees-page__documents-toggle:hover {
+    opacity: 0.88;
+}
+
+.employees-page__documents-toggle-icon {
+    width: 14px;
+    height: 14px;
+    transition: transform 0.2s ease;
+}
+
+.employees-page__documents-toggle-icon.is-open {
+    transform: rotate(180deg);
 }
 
 .employees-page__documents-bulk-info {
@@ -140,29 +180,49 @@
 .employees-page__status-pill {
     display: inline-flex;
     align-items: center;
-    padding: 4px 10px;
+    justify-content: center;
+    min-height: 32px;
+    padding: 6px 12px;
     border-radius: 999px;
     font-size: 12px;
-    font-weight: 600;
-    text-transform: uppercase;
+    font-weight: 700;
+    line-height: 1;
+    letter-spacing: 0.01em;
+    border: 1px solid transparent;
+    white-space: nowrap;
 }
 
 .employees-page__status-pill--success {
-    background: var(--color-green-background);
-    color: var(--color-green-text);
+    background: rgba(25, 135, 84, 0.18);
+    border-color: rgba(46, 204, 113, 0.28);
+    color: #72f0af;
 }
 
 .employees-page__status-pill--warning {
-    background: var(--color-orange-background);
-    color: var(--color-orange-text);
+    background: rgba(201, 150, 76, 0.18);
+    border-color: rgba(232, 184, 103, 0.28);
+    color: #f2c980;
 }
 
 .employees-page__status-pill--danger {
-    background: var(--color-red-background);
-    color: var(--color-danger);
+    background: rgba(201, 86, 86, 0.18);
+    border-color: rgba(226, 112, 112, 0.3);
+    color: #ff9f9f;
 }
 
 .employees-page__status-pill--muted {
-    background: var(--color-text-soft);
-    color: var(--color-text);
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(255, 255, 255, 0.12);
+    color: rgba(255, 255, 255, 0.9);
+}
+
+@media (max-width: 900px) {
+    .employees-page__documents-header {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .employees-page__documents-header-actions {
+        justify-content: flex-start;
+    }
 }

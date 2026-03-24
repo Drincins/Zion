@@ -9,6 +9,7 @@ import { persistedState } from './plugins/persist';
 import { setupValidation } from './plugins/validation';
 import { api } from './api';
 import { useUserStore } from './stores/user';
+import { fetchCurrentSessionUser } from './api/auth';
 
 const app = createApp(App);
 
@@ -22,6 +23,8 @@ const userStore = useUserStore(pinia);
 api.interceptors.request.use((config) => {
     if (userStore.token) {
         config.headers.Authorization = `Bearer ${userStore.token}`;
+    } else if (config.headers?.Authorization) {
+        delete config.headers.Authorization;
     }
     return config;
 });
@@ -35,6 +38,35 @@ api.interceptors.response.use(
     },
 );
 
+async function bootstrapUserSession() {
+    if (userStore.isAuthenticated) {
+        return;
+    }
+
+    try {
+        const user = await fetchCurrentSessionUser();
+        if (!user?.id) {
+            return;
+        }
+        userStore.setUser({
+            id: user.id,
+            login: user.username ?? '',
+            firstName: user.first_name ?? '',
+            lastName: user.last_name ?? '',
+            fullName: `${user.first_name ?? ''} ${user.last_name ?? ''}`.trim(),
+            isFired: false,
+        });
+        await userStore.fetchUserFromApi();
+    } catch (error) {
+        if (error?.response?.status && error.response.status !== 401) {
+            console.error('Ошибка восстановления сессии:', error);
+        }
+        userStore.clearUser();
+        localStorage.removeItem('pinia-user');
+        sessionStorage.removeItem('pinia-user');
+    }
+}
+
 app.use(router);
 app.use(Toast, {
     position: POSITION.TOP_RIGHT,
@@ -46,5 +78,7 @@ if ('serviceWorker' in navigator && import.meta.env.PROD) {
         navigator.serviceWorker.register('/sw.js').catch(() => {});
     });
 }
+
+await bootstrapUserSession();
 
 app.mount('#app');

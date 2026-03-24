@@ -1,19 +1,10 @@
 import axios from 'axios';
 import { serverUrl } from './client';
 
-const checklistPortalApi = axios.create({ baseURL: serverUrl });
-
-export function setChecklistPortalToken(token) {
-    if (token) {
-        checklistPortalApi.defaults.headers.common.Authorization = `Bearer ${token}`;
-        return;
-    }
-    delete checklistPortalApi.defaults.headers.common.Authorization;
-}
-
-export function clearChecklistPortalToken() {
-    delete checklistPortalApi.defaults.headers.common.Authorization;
-}
+const checklistPortalApi = axios.create({
+    baseURL: serverUrl,
+    withCredentials: true,
+});
 
 export async function startChecklistPortalLogin(staffCode) {
     const { data } = await checklistPortalApi.post('/api/checklists/portal/login/start', {
@@ -25,6 +16,10 @@ export async function startChecklistPortalLogin(staffCode) {
 export async function finishChecklistPortalLogin(payload) {
     const { data } = await checklistPortalApi.post('/api/checklists/portal/login/finish', payload);
     return data;
+}
+
+export async function logoutChecklistPortal() {
+    await checklistPortalApi.post('/api/checklists/portal/logout');
 }
 
 export async function fetchChecklistPortalChecklists() {
