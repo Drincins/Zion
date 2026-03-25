@@ -14,17 +14,21 @@ from backend.bd.database import SessionLocal
 from backend.bd.iiko_sales import IikoSalesSyncSetting
 from backend.bd.models import Restaurant
 from backend.routers.iiko_sales import (
-    _build_sync_source_conflict_map,
-    _build_sync_source_groups,
-    _restaurant_iiko_source_key,
     _sync_sales_orders_and_items_resilient,
 )
+from backend.services.iiko_sales_sync_runtime import (
+    build_sync_source_conflict_map as _build_sync_source_conflict_map,
+    build_sync_source_groups as _build_sync_source_groups,
+    restaurant_iiko_source_key as _restaurant_iiko_source_key,
+)
+from backend.tasks.task_locks import try_task_lock
 from backend.utils import now_local
 
 logger = logging.getLogger(__name__)
 
 SYNC_ENABLED = os.getenv("IIKO_SALES_AUTO_SYNC_ENABLED", "true").lower() in ("1", "true", "yes", "on")
 POLL_SECONDS = max(15, int(os.getenv("IIKO_SALES_AUTO_SYNC_POLL_SECONDS", "60")))
+IIKO_SALES_AUTO_SYNC_LOCK_KEY = 810003
 
 
 def _parse_time_to_minutes(value: Optional[str], fallback: str) -> int:
@@ -201,7 +205,11 @@ async def iiko_sales_auto_sync_loop() -> None:
 
         try:
             with SessionLocal() as db:
-                _run_due_sales_syncs(db)
+                with try_task_lock(db, IIKO_SALES_AUTO_SYNC_LOCK_KEY) as acquired:
+                    if not acquired:
+                        logger.debug("Skipping sales auto sync loop: task lock is already held")
+                    else:
+                        _run_due_sales_syncs(db)
         except Exception:
             logger.exception("Sales auto sync loop failed")
         await asyncio.sleep(POLL_SECONDS)

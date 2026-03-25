@@ -18,7 +18,7 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
 
 from backend.bd.database import get_db
-from backend.bd.models import Position, Restaurant, User
+from backend.bd.models import Restaurant, User
 from backend.bd.iiko_catalog import (
     IikoNonCashEmployeeLimit,
     IikoNonCashPaymentType,
@@ -37,9 +37,77 @@ from backend.bd.iiko_sales import (
     IikoSalesLocationMapping,
 )
 from backend.services.iiko_api import get_olap_columns, get_token, post_olap_report, to_iso_date
-from backend.services.permissions import PermissionCode, ensure_permissions, has_global_access, has_permission
+from backend.services.iiko_sales_scope import (
+    ensure_user_access_to_restaurant as _ensure_user_access_to_restaurant,
+    get_user_company_scope_ids as _get_user_company_scope_ids,
+    list_accessible_restaurants as _list_accessible_restaurants,
+    resolve_scoped_company_id as _resolve_scoped_company_id,
+    restrict_company_scoped_query as _restrict_company_scoped_query,
+)
+from backend.services.iiko_sales_layouts import (
+    apply_hall_filter_to_base_query as _apply_hall_filter_to_base_query,
+    build_sales_hall_table_resolver as _build_sales_hall_table_resolver,
+    collect_halls_from_order_rows as _collect_halls_from_order_rows,
+    normalize_location_token as _normalize_location_token,
+    sales_hall_tables_query as _sales_hall_tables_query,
+    sales_hall_zones_query as _sales_hall_zones_query,
+    sales_halls_query as _sales_halls_query,
+    sales_location_mappings_query as _sales_location_mappings_query,
+    serialize_sales_hall as _serialize_sales_hall,
+    serialize_sales_hall_table as _serialize_sales_hall_table,
+    serialize_sales_hall_zone as _serialize_sales_hall_zone,
+    serialize_sales_location_mapping as _serialize_sales_location_mapping,
+)
+from backend.services.iiko_sales_report_filters import (
+    apply_deleted_mode_filter as _apply_deleted_mode_filter,
+    apply_waiter_filter_to_items_query as _apply_waiter_filter_to_items_query,
+    clean_optional_text as _clean_optional_text,
+    lower_values as _lower_values,
+    resolve_waiter_identity as _resolve_waiter_identity,
+    serialize_deleted_payload as _serialize_deleted_payload,
+    split_filter_values as _split_filter_values,
+    waiter_dimension_exprs as _waiter_dimension_exprs,
+)
+from backend.services.iiko_sales_waiter_turnover import (
+    DELETED_MODE_ALL,
+    DELETED_MODE_ONLY,
+    DELETED_MODE_WITHOUT,
+    TURNOVER_AMOUNT_MODE_DISCOUNT_ONLY,
+    TURNOVER_AMOUNT_MODE_SUM_WITHOUT_DISCOUNT,
+    TURNOVER_AMOUNT_MODE_SUM_WITH_DISCOUNT,
+    WAITER_MODE_ITEM_PUNCH,
+    WAITER_MODE_ORDER_CLOSE,
+    apply_waiter_turnover_settings_payload as _apply_waiter_turnover_settings_payload,
+    default_waiter_turnover_rule_name as _default_waiter_turnover_rule_name,
+    deactivate_other_waiter_turnover_rules as _deactivate_other_waiter_turnover_rules,
+    find_waiter_turnover_rule as _find_waiter_turnover_rule,
+    normalize_deleted_mode as _normalize_deleted_mode,
+    normalize_rule_name as _normalize_rule_name,
+    normalize_turnover_amount_mode as _normalize_turnover_amount_mode,
+    normalize_waiter_mode as _normalize_waiter_mode,
+    position_options_for_settings as _position_options_for_settings,
+    resolve_settings_company_id as _resolve_settings_company_id,
+    serialize_waiter_turnover_settings as _serialize_waiter_turnover_settings,
+    waiter_turnover_rules_list_payload as _waiter_turnover_rules_list_payload,
+    waiter_turnover_settings_company_query as _waiter_turnover_settings_company_query,
+)
+from backend.services.iiko_sales_sync_runtime import (
+    acquire_sales_sync_lock as _acquire_sales_sync_lock,
+    build_sales_sync_application_name as _build_sales_sync_application_name,
+    build_sync_source_conflict_map as _build_sync_source_conflict_map,
+    build_sync_source_groups as _build_sync_source_groups,
+    normalize_iiko_source_token as _normalize_iiko_source_token,
+    normalize_sync_actor as _normalize_sync_actor,
+    parse_sales_sync_application_name as _parse_sales_sync_application_name,
+    release_sales_sync_lock as _release_sales_sync_lock,
+    reset_sales_sync_application_name as _reset_sales_sync_application_name,
+    restaurant_iiko_source_key as _restaurant_iiko_source_key,
+    sales_sync_lock_key as _sales_sync_lock_key,
+    set_sales_sync_application_name as _set_sales_sync_application_name,
+)
+from backend.services.permissions import PermissionCode, ensure_permissions, has_permission
 from backend.services.reference_cache import cached_reference_data
-from backend.utils import get_current_user, get_user_company_ids, now_local
+from backend.utils import get_current_user, now_local
 
 router = APIRouter(prefix="/iiko-sales", tags=["iiko-sales"])
 
@@ -70,58 +138,8 @@ DEFAULT_SALES_SYNC_RETRY_COUNT = 4
 DEFAULT_SALES_SYNC_RETRY_BASE_SECONDS = 2.0
 DEFAULT_SALES_SYNC_RETRY_MAX_SECONDS = 20.0
 DEFAULT_SALES_SYNC_LOCK_WAIT_SECONDS = 300.0
-SYNC_APPLICATION_NAME_PREFIX = "zion_sync"
 WAITER_SALES_OPTIONS_CACHE_SCOPE = "iiko-sales:waiter-sales-options"
 WAITER_SALES_OPTIONS_CACHE_TTL_SECONDS = 45
-
-
-def _get_user_company_scope_ids(db: Session, current_user: User) -> Optional[List[int]]:
-    company_ids = get_user_company_ids(db, current_user)
-    if company_ids is None:
-        return None
-    return sorted(int(company_id) for company_id in company_ids if company_id is not None)
-
-
-def _restrict_company_scoped_query(query, company_column, db: Session, current_user: User):
-    company_ids = _get_user_company_scope_ids(db, current_user)
-    if company_ids is None:
-        return query
-    if not company_ids:
-        return query.filter(sa.literal(False))
-    if len(company_ids) == 1:
-        return query.filter(company_column == int(company_ids[0]))
-    return query.filter(company_column.in_(company_ids))
-
-
-def _resolve_scoped_company_id(
-    db: Session,
-    current_user: User,
-    requested_company_id: Optional[int] = None,
-) -> int:
-    if requested_company_id is not None:
-        requested = int(requested_company_id)
-        if not has_global_access(current_user):
-            company_ids = _get_user_company_scope_ids(db, current_user) or []
-            if requested not in company_ids:
-                raise HTTPException(status_code=403, detail="Company is outside of your scope")
-        return requested
-
-    direct_company_id = getattr(current_user, "company_id", None)
-    if direct_company_id is not None:
-        return int(direct_company_id)
-
-    if has_global_access(current_user):
-        raise HTTPException(status_code=400, detail="company_id is required")
-
-    company_ids = _get_user_company_scope_ids(db, current_user) or []
-    if not company_ids:
-        raise HTTPException(status_code=403, detail="Company scope is unavailable for the current user")
-    if len(company_ids) == 1:
-        return int(company_ids[0])
-    raise HTTPException(
-        status_code=400,
-        detail="Multiple companies available; pass company_id explicitly.",
-    )
 
 
 def _can_view_sales_money(current_user: User) -> bool:
@@ -292,174 +310,6 @@ class UpdateIikoWaiterTurnoverSettingsRequest(BaseModel):
     comment: Optional[str] = None
 
 
-def _ensure_user_access_to_restaurant(
-    db: Session,
-    current_user: User,
-    restaurant_id: int,
-    *,
-    require_credentials: bool = True,
-) -> Restaurant:
-    query = db.query(Restaurant).filter(Restaurant.id == restaurant_id)
-    if not has_global_access(current_user):
-        company_ids = _get_user_company_scope_ids(db, current_user) or []
-        if company_ids:
-            query = query.filter(Restaurant.company_id.in_(company_ids))
-            if not has_permission(current_user, PermissionCode.IIKO_MANAGE):
-                query = query.filter(Restaurant.users.contains(current_user))
-        else:
-            query = query.filter(Restaurant.users.contains(current_user))
-    restaurant = query.first()
-    if not restaurant:
-        raise HTTPException(status_code=404, detail="Restaurant not found or unavailable")
-    if require_credentials and (not restaurant.server or not restaurant.iiko_login or not restaurant.iiko_password_sha1):
-        raise HTTPException(status_code=400, detail="Restaurant has no iiko credentials configured")
-    return restaurant
-
-
-def _list_accessible_restaurants(db: Session, current_user: User) -> List[Restaurant]:
-    q = db.query(Restaurant)
-    if not has_global_access(current_user):
-        company_ids = _get_user_company_scope_ids(db, current_user) or []
-        if company_ids:
-            q = q.filter(Restaurant.company_id.in_(company_ids))
-            if not has_permission(current_user, PermissionCode.IIKO_MANAGE):
-                q = q.filter(Restaurant.users.contains(current_user))
-        else:
-            q = q.filter(Restaurant.users.contains(current_user))
-    q = q.filter(Restaurant.participates_in_sales.is_(True))
-    return q.order_by(Restaurant.id.asc()).all()
-
-
-def _normalize_iiko_source_token(value: Any) -> str:
-    if value is None:
-        return ""
-    return str(value).strip().rstrip("/").casefold()
-
-
-def _restaurant_iiko_source_key(restaurant: Restaurant) -> Optional[str]:
-    server = _normalize_iiko_source_token(getattr(restaurant, "server", None))
-    login = _normalize_iiko_source_token(getattr(restaurant, "iiko_login", None))
-    password_sha1 = _normalize_iiko_source_token(getattr(restaurant, "iiko_password_sha1", None))
-    if not server or not login or not password_sha1:
-        return None
-    return f"{server}|{login}|{password_sha1}"
-
-
-def _sales_sync_lock_key(restaurant: Restaurant) -> tuple[int, str]:
-    source_key = _restaurant_iiko_source_key(restaurant) or f"restaurant:{int(restaurant.id)}"
-    digest = hashlib.sha1(source_key.encode("utf-8")).digest()
-    # Use signed 64-bit key for pg advisory lock.
-    lock_key = int.from_bytes(digest[:8], byteorder="big", signed=True)
-    return lock_key, source_key
-
-
-def _normalize_sync_actor(value: Optional[str]) -> str:
-    raw = str(value or "system").strip()
-    if not raw:
-        return "system"
-    cleaned = "".join(ch for ch in raw if ch.isalnum() or ch in (":", "-", "_"))
-    if not cleaned:
-        return "system"
-    return cleaned[:20]
-
-
-def _build_sales_sync_application_name(restaurant: Restaurant, *, sync_actor: Optional[str] = None) -> str:
-    source_key = _restaurant_iiko_source_key(restaurant) or f"restaurant:{int(restaurant.id)}"
-    source_hash = hashlib.sha1(source_key.encode("utf-8")).hexdigest()[:10]
-    actor = _normalize_sync_actor(sync_actor)
-    value = f"{SYNC_APPLICATION_NAME_PREFIX} r={int(restaurant.id)} a={actor} s={source_hash}"
-    return value[:63]
-
-
-def _parse_sales_sync_application_name(value: Any) -> Optional[Dict[str, Any]]:
-    text = str(value or "").strip()
-    prefix = f"{SYNC_APPLICATION_NAME_PREFIX} "
-    if not text.startswith(prefix):
-        return None
-    payload = text[len(prefix):]
-    parts = [chunk for chunk in payload.split(" ") if chunk]
-    parsed: Dict[str, str] = {}
-    for part in parts:
-        if "=" not in part:
-            continue
-        key, val = part.split("=", 1)
-        parsed[key.strip()] = val.strip()
-    restaurant_id_raw = parsed.get("r")
-    try:
-        restaurant_id = int(restaurant_id_raw) if restaurant_id_raw is not None else None
-    except Exception:
-        restaurant_id = None
-    return {
-        "restaurant_id": restaurant_id,
-        "actor": parsed.get("a"),
-        "source_hash": parsed.get("s"),
-        "raw": text,
-    }
-
-
-def _set_sales_sync_application_name(
-    db: Session,
-    restaurant: Restaurant,
-    *,
-    sync_actor: Optional[str] = None,
-) -> str:
-    app_name = _build_sales_sync_application_name(restaurant, sync_actor=sync_actor)
-    db.execute(sa.text("SET application_name = :app_name"), {"app_name": app_name})
-    return app_name
-
-
-def _reset_sales_sync_application_name(db: Session) -> None:
-    try:
-        db.execute(sa.text("SET application_name = DEFAULT"))
-        db.commit()
-    except Exception:
-        db.rollback()
-
-
-def _acquire_sales_sync_lock(
-    db: Session,
-    restaurant: Restaurant,
-    *,
-    wait_seconds: float = 0.0,
-) -> tuple[bool, int, str, float]:
-    lock_key, source_key = _sales_sync_lock_key(restaurant)
-    wait_limit = max(0.0, float(wait_seconds or 0.0))
-    started_at = time.monotonic()
-    if wait_limit <= 0:
-        acquired = db.execute(
-            sa.text("SELECT pg_try_advisory_lock(:lock_key)"),
-            {"lock_key": int(lock_key)},
-        ).scalar()
-        return bool(acquired), int(lock_key), source_key, max(0.0, time.monotonic() - started_at)
-
-    timeout_ms = max(100, int(wait_limit * 1000))
-    try:
-        # Queue on advisory lock up to lock_timeout to avoid immediate 409 under parallel runs.
-        db.execute(sa.text("SET LOCAL lock_timeout = :timeout"), {"timeout": f"{timeout_ms}ms"})
-        db.execute(
-            sa.text("SELECT pg_advisory_lock(:lock_key)"),
-            {"lock_key": int(lock_key)},
-        )
-        return True, int(lock_key), source_key, max(0.0, time.monotonic() - started_at)
-    except DBAPIError as exc:
-        db.rollback()
-        text = str(getattr(exc, "orig", exc) or exc).casefold()
-        if "lock timeout" in text:
-            return False, int(lock_key), source_key, max(0.0, time.monotonic() - started_at)
-        raise
-
-
-def _release_sales_sync_lock(db: Session, lock_key: int) -> None:
-    try:
-        db.execute(
-            sa.text("SELECT pg_advisory_unlock(:lock_key)"),
-            {"lock_key": int(lock_key)},
-        )
-        db.commit()
-    except Exception:
-        db.rollback()
-
-
 def _payment_methods_query(db: Session, current_user: User):
     return _restrict_company_scoped_query(db.query(IikoPaymentMethod), IikoPaymentMethod.company_id, db, current_user)
 
@@ -627,15 +477,6 @@ ORDER_ID_FIELD_CANDIDATES: List[str] = [
     "OrderGUID",
     "OrderGuid",
 ]
-
-
-def _clean_optional_text(value: Any) -> Optional[str]:
-    if value is None:
-        return None
-    clean = str(value).strip()
-    return clean or None
-
-
 def _build_synthetic_payment_guid(name: str) -> str:
     digest = hashlib.sha1(name.casefold().encode("utf-8")).hexdigest()
     return f"name::{digest}"
@@ -1305,540 +1146,6 @@ def _normalize_period_type(value: Optional[str]) -> str:
     return clean if clean in allowed else "month"
 
 
-def _split_filter_values(values: Optional[List[str]]) -> List[str]:
-    parts: List[str] = []
-    for value in values or []:
-        if value is None:
-            continue
-        text = str(value).replace("\n", ",").replace(";", ",")
-        for chunk in text.split(","):
-            clean = chunk.strip()
-            if clean:
-                parts.append(clean)
-    # Stable unique order
-    unique: List[str] = []
-    seen = set()
-    for value in parts:
-        key = value.casefold()
-        if key in seen:
-            continue
-        seen.add(key)
-        unique.append(value)
-    return unique
-
-
-def _lower_values(values: List[str]) -> List[str]:
-    return [value.casefold() for value in values if value]
-
-
-TURNOVER_AMOUNT_MODE_SUM_WITHOUT_DISCOUNT = "sum_without_discount"
-TURNOVER_AMOUNT_MODE_SUM_WITH_DISCOUNT = "sum_with_discount"
-TURNOVER_AMOUNT_MODE_DISCOUNT_ONLY = "discount_only"
-
-TURNOVER_AMOUNT_MODES = {
-    TURNOVER_AMOUNT_MODE_SUM_WITHOUT_DISCOUNT,
-    TURNOVER_AMOUNT_MODE_SUM_WITH_DISCOUNT,
-    TURNOVER_AMOUNT_MODE_DISCOUNT_ONLY,
-}
-
-WAITER_MODE_ORDER_CLOSE = "order_close"
-WAITER_MODE_ITEM_PUNCH = "item_punch"
-
-
-def _normalize_turnover_amount_mode(value: Optional[str]) -> str:
-    clean = (value or "").strip().lower()
-    aliases = {
-        "": TURNOVER_AMOUNT_MODE_SUM_WITHOUT_DISCOUNT,
-        "sum": TURNOVER_AMOUNT_MODE_SUM_WITHOUT_DISCOUNT,
-        "gross": TURNOVER_AMOUNT_MODE_SUM_WITHOUT_DISCOUNT,
-        "sum_without_discount": TURNOVER_AMOUNT_MODE_SUM_WITHOUT_DISCOUNT,
-        "sum_with_discount": TURNOVER_AMOUNT_MODE_SUM_WITH_DISCOUNT,
-        "net": TURNOVER_AMOUNT_MODE_SUM_WITH_DISCOUNT,
-        "discount": TURNOVER_AMOUNT_MODE_DISCOUNT_ONLY,
-        "discount_only": TURNOVER_AMOUNT_MODE_DISCOUNT_ONLY,
-    }
-    return aliases.get(clean, TURNOVER_AMOUNT_MODE_SUM_WITHOUT_DISCOUNT)
-
-
-def _normalize_waiter_mode(value: Optional[str]) -> str:
-    clean = (value or "").strip().lower()
-    aliases = {
-        "": WAITER_MODE_ORDER_CLOSE,
-        "order_close": WAITER_MODE_ORDER_CLOSE,
-        "order_closed": WAITER_MODE_ORDER_CLOSE,
-        "close_order": WAITER_MODE_ORDER_CLOSE,
-        "order_waiter": WAITER_MODE_ORDER_CLOSE,
-        "close": WAITER_MODE_ORDER_CLOSE,
-        "closed": WAITER_MODE_ORDER_CLOSE,
-        "item_punch": WAITER_MODE_ITEM_PUNCH,
-        "punch": WAITER_MODE_ITEM_PUNCH,
-        "item_waiter": WAITER_MODE_ITEM_PUNCH,
-        "dish_waiter": WAITER_MODE_ITEM_PUNCH,
-        "dish_seller": WAITER_MODE_ITEM_PUNCH,
-    }
-    return aliases.get(clean, WAITER_MODE_ORDER_CLOSE)
-
-
-def _waiter_dimension_exprs(waiter_mode: Optional[str]) -> Dict[str, Any]:
-    resolved_waiter_mode = _normalize_waiter_mode(waiter_mode)
-    if resolved_waiter_mode == WAITER_MODE_ITEM_PUNCH:
-        waiter_iiko_id_expr = sa.func.coalesce(
-            IikoSaleItem.raw_payload["DishWaiter.Id"].astext,
-            IikoSaleItem.raw_payload["DishSeller.Id"].astext,
-            IikoSaleItem.raw_payload["DishEmployee.Id"].astext,
-            IikoSaleItem.raw_payload["Waiter.Id"].astext,
-            IikoSaleItem.raw_payload["AuthUser.Id"].astext,
-            IikoSaleItem.auth_user_iiko_id,
-        )
-        waiter_iiko_code_expr = sa.func.coalesce(
-            IikoSaleItem.raw_payload["DishWaiter.Code"].astext,
-            IikoSaleItem.raw_payload["DishSeller.Code"].astext,
-            IikoSaleItem.raw_payload["DishEmployee.Code"].astext,
-            IikoSaleItem.raw_payload["Waiter.Code"].astext,
-            IikoSaleItem.raw_payload["AuthUser.Code"].astext,
-        )
-        waiter_name_iiko_expr = sa.func.coalesce(
-            IikoSaleItem.raw_payload["DishWaiter.Name"].astext,
-            IikoSaleItem.raw_payload["DishWaiter"].astext,
-            IikoSaleItem.raw_payload["DishSeller.Name"].astext,
-            IikoSaleItem.raw_payload["DishSeller"].astext,
-            IikoSaleItem.raw_payload["DishEmployee.Name"].astext,
-            IikoSaleItem.raw_payload["DishEmployee"].astext,
-            IikoSaleItem.raw_payload["Waiter.Name"].astext,
-            IikoSaleItem.raw_payload["Waiter"].astext,
-            IikoSaleItem.raw_payload["WaiterName"].astext,
-            IikoSaleItem.raw_payload["AuthUser.Name"].astext,
-            IikoSaleOrder.order_waiter_name,
-        )
-        return {
-            "waiter_user_id": IikoSaleItem.auth_user_id,
-            "waiter_iiko_id": waiter_iiko_id_expr,
-            "waiter_iiko_code": waiter_iiko_code_expr,
-            "waiter_name_iiko": waiter_name_iiko_expr,
-        }
-
-    return {
-        "waiter_user_id": IikoSaleOrder.order_waiter_user_id,
-        "waiter_iiko_id": IikoSaleOrder.order_waiter_iiko_id,
-        "waiter_iiko_code": sa.cast(sa.literal(None), sa.String),
-        "waiter_name_iiko": IikoSaleOrder.order_waiter_name,
-    }
-
-
-def _resolve_waiter_identity(
-    *,
-    waiter_user_id: Optional[int],
-    waiter_iiko_id: Optional[str],
-    waiter_iiko_code: Optional[str],
-    waiter_name_iiko: Optional[str],
-    user_name_by_id: Dict[int, str],
-    user_meta_by_iiko_id: Dict[str, Dict[str, Any]],
-    user_meta_by_iiko_code: Dict[str, Dict[str, Any]],
-) -> tuple[Optional[int], str]:
-    clean_waiter_iiko_id = _clean_optional_text(waiter_iiko_id)
-    clean_waiter_iiko_code = _clean_optional_text(waiter_iiko_code)
-    clean_waiter_name_iiko = _clean_optional_text(waiter_name_iiko)
-
-    resolved_user_id = int(waiter_user_id) if waiter_user_id is not None else None
-    if resolved_user_id is None and clean_waiter_iiko_id:
-        maybe_user_id = user_meta_by_iiko_id.get(clean_waiter_iiko_id, {}).get("id")
-        if maybe_user_id is not None:
-            resolved_user_id = int(maybe_user_id)
-    if resolved_user_id is None and clean_waiter_iiko_code:
-        maybe_user_id = user_meta_by_iiko_code.get(clean_waiter_iiko_code, {}).get("id")
-        if maybe_user_id is not None:
-            resolved_user_id = int(maybe_user_id)
-
-    resolved_name = (
-        user_name_by_id.get(resolved_user_id)
-        if resolved_user_id is not None
-        else user_meta_by_iiko_id.get(clean_waiter_iiko_id or "", {}).get("name")
-        if clean_waiter_iiko_id
-        else user_meta_by_iiko_code.get(clean_waiter_iiko_code or "", {}).get("name")
-        if clean_waiter_iiko_code
-        else None
-    ) or clean_waiter_name_iiko or clean_waiter_iiko_code or clean_waiter_iiko_id or "Без привязки"
-
-    return resolved_user_id, resolved_name
-
-
-def _apply_waiter_filter_to_items_query(
-    db: Session,
-    query,
-    *,
-    waiter_mode: Optional[str],
-    waiter_user_id: Optional[int],
-    waiter_iiko_id: Optional[str],
-    waiter_iiko_code: Optional[str],
-):
-    resolved_waiter_mode = _normalize_waiter_mode(waiter_mode)
-    clean_waiter_iiko_id = _clean_optional_text(waiter_iiko_id)
-    clean_waiter_iiko_code = _clean_optional_text(waiter_iiko_code)
-
-    if resolved_waiter_mode == WAITER_MODE_ORDER_CLOSE:
-        if waiter_user_id is not None:
-            query = query.filter(IikoSaleOrder.order_waiter_user_id == int(waiter_user_id))
-        if clean_waiter_iiko_id:
-            query = query.filter(IikoSaleOrder.order_waiter_iiko_id == clean_waiter_iiko_id)
-        return query
-
-    waiter_exprs = _waiter_dimension_exprs(resolved_waiter_mode)
-    waiter_iiko_id_norm_expr = sa.func.trim(sa.func.coalesce(waiter_exprs["waiter_iiko_id"], ""))
-    waiter_iiko_code_norm_expr = sa.func.trim(sa.func.coalesce(waiter_exprs["waiter_iiko_code"], ""))
-
-    if waiter_user_id is not None:
-        conditions = [IikoSaleItem.auth_user_id == int(waiter_user_id)]
-        user_row = (
-            db.query(User.iiko_id, User.iiko_code)
-            .filter(User.id == int(waiter_user_id))
-            .first()
-        )
-        if user_row:
-            user_iiko_id = _clean_optional_text(getattr(user_row, "iiko_id", None))
-            user_iiko_code = _clean_optional_text(getattr(user_row, "iiko_code", None))
-            if user_iiko_id:
-                conditions.append(waiter_iiko_id_norm_expr == user_iiko_id)
-            if user_iiko_code:
-                conditions.append(waiter_iiko_code_norm_expr == user_iiko_code)
-        query = query.filter(sa.or_(*conditions))
-
-    if clean_waiter_iiko_id:
-        query = query.filter(waiter_iiko_id_norm_expr == clean_waiter_iiko_id)
-    if clean_waiter_iiko_code:
-        query = query.filter(waiter_iiko_code_norm_expr == clean_waiter_iiko_code)
-
-    return query
-
-
-def _normalize_text_list(values: Optional[List[str]]) -> List[str]:
-    return _split_filter_values(values)
-
-
-def _normalize_int_list(values: Optional[List[int]]) -> List[int]:
-    unique: List[int] = []
-    seen = set()
-    for value in values or []:
-        try:
-            parsed = int(value)
-        except Exception:
-            continue
-        if parsed <= 0 or parsed in seen:
-            continue
-        seen.add(parsed)
-        unique.append(parsed)
-    return unique
-
-
-def _waiter_turnover_settings_query(db: Session, current_user: User):
-    return _restrict_company_scoped_query(
-        db.query(IikoWaiterTurnoverSetting),
-        IikoWaiterTurnoverSetting.company_id,
-        db,
-        current_user,
-    )
-
-
-def _resolve_settings_company_id(
-    db: Session,
-    current_user: User,
-    requested_company_id: Optional[int] = None,
-) -> Optional[int]:
-    return _resolve_scoped_company_id(db, current_user, requested_company_id)
-
-
-def _waiter_turnover_settings_company_query(
-    db: Session,
-    current_user: User,
-    company_id: Optional[int],
-):
-    q = _waiter_turnover_settings_query(db, current_user)
-    if company_id is None:
-        return q.filter(sa.literal(False))
-    return q.filter(IikoWaiterTurnoverSetting.company_id == company_id)
-
-
-def _normalize_rule_name(value: Optional[str], fallback: str = "Правило") -> str:
-    clean = _clean_optional_text(value)
-    return clean or fallback
-
-
-def _default_waiter_turnover_rule_name(existing_count: int) -> str:
-    if existing_count <= 0:
-        return "Основное правило"
-    return f"Правило {existing_count + 1}"
-
-
-def _waiter_turnover_rules_list_payload(rows: List[IikoWaiterTurnoverSetting]) -> List[Dict[str, Any]]:
-    items: List[Dict[str, Any]] = []
-    for row in rows:
-        items.append(
-            {
-                "id": str(row.id) if row.id is not None else None,
-                "rule_name": _normalize_rule_name(row.rule_name, "Без названия"),
-                "is_active": bool(row.is_active),
-                "real_money_only": bool(row.real_money_only),
-                "amount_mode": _normalize_turnover_amount_mode(row.amount_mode),
-                "deleted_mode": _normalize_deleted_mode(row.deleted_mode),
-                "waiter_mode": _normalize_waiter_mode(row.waiter_mode),
-                "created_at": row.created_at.isoformat() if row.created_at else None,
-                "updated_at": row.updated_at.isoformat() if row.updated_at else None,
-            }
-        )
-    return items
-
-
-def _find_waiter_turnover_rule(
-    db: Session,
-    current_user: User,
-    company_id: Optional[int],
-    rule_id: UUID,
-) -> Optional[IikoWaiterTurnoverSetting]:
-    return (
-        _waiter_turnover_settings_company_query(db, current_user, company_id)
-        .filter(IikoWaiterTurnoverSetting.id == rule_id)
-        .first()
-    )
-
-
-def _apply_waiter_turnover_settings_payload(
-    db: Session,
-    row: IikoWaiterTurnoverSetting,
-    payload: UpdateIikoWaiterTurnoverSettingsRequest,
-    company_id: Optional[int],
-) -> None:
-    if payload.rule_name is not None:
-        row.rule_name = _normalize_rule_name(payload.rule_name, row.rule_name or "Правило")
-    if payload.is_active is not None:
-        row.is_active = bool(payload.is_active)
-    if payload.real_money_only is not None:
-        row.real_money_only = bool(payload.real_money_only)
-    if payload.amount_mode is not None:
-        row.amount_mode = _normalize_turnover_amount_mode(payload.amount_mode)
-    if payload.deleted_mode is not None:
-        row.deleted_mode = _normalize_deleted_mode(payload.deleted_mode)
-    if payload.waiter_mode is not None:
-        row.waiter_mode = _normalize_waiter_mode(payload.waiter_mode)
-    if payload.comment is not None:
-        row.comment = _clean_optional_text(payload.comment)
-
-    if payload.position_ids is not None:
-        candidate_ids = _normalize_int_list(payload.position_ids)
-        if candidate_ids:
-            if company_id is None:
-                raise HTTPException(status_code=400, detail="Company scope is required for position filters")
-            existing_ids = {
-                int(pos_id)
-                for (pos_id,) in (
-                    db.query(Position.id)
-                    .join(User, User.position_id == Position.id)
-                    .filter(User.company_id == company_id)
-                    .filter(Position.id.in_(candidate_ids))
-                    .distinct()
-                    .all()
-                )
-                if pos_id is not None
-            }
-            invalid_ids = [pos_id for pos_id in candidate_ids if pos_id not in existing_ids]
-            if invalid_ids:
-                raise HTTPException(
-                    status_code=400,
-                    detail="One or more positions are outside of your company scope",
-                )
-            row.position_ids = [pos_id for pos_id in candidate_ids if pos_id in existing_ids]
-        else:
-            row.position_ids = []
-
-    if payload.include_groups is not None:
-        row.include_groups = _normalize_text_list(payload.include_groups)
-    if payload.exclude_groups is not None:
-        row.exclude_groups = _normalize_text_list(payload.exclude_groups)
-    if payload.include_categories is not None:
-        row.include_categories = _normalize_text_list(payload.include_categories)
-    if payload.exclude_categories is not None:
-        row.exclude_categories = _normalize_text_list(payload.exclude_categories)
-    if payload.include_positions is not None:
-        row.include_positions = _normalize_text_list(payload.include_positions)
-    if payload.exclude_positions is not None:
-        row.exclude_positions = _normalize_text_list(payload.exclude_positions)
-    if payload.include_payment_method_guids is not None:
-        row.include_payment_method_guids = _normalize_text_list(payload.include_payment_method_guids)
-
-
-def _deactivate_other_waiter_turnover_rules(
-    db: Session,
-    company_id: Optional[int],
-    keep_rule_id: UUID,
-) -> None:
-    q = db.query(IikoWaiterTurnoverSetting).filter(IikoWaiterTurnoverSetting.id != keep_rule_id)
-    if company_id is None:
-        q = q.filter(IikoWaiterTurnoverSetting.company_id.is_(None))
-    else:
-        q = q.filter(IikoWaiterTurnoverSetting.company_id == company_id)
-    q.update({IikoWaiterTurnoverSetting.is_active: False}, synchronize_session=False)
-
-
-def _position_options_for_settings(db: Session, company_id: Optional[int]) -> List[Dict[str, Any]]:
-    if company_id is None:
-        return []
-    rows = (
-        db.query(Position.id, Position.name)
-        .join(User, User.position_id == Position.id)
-        .filter(User.company_id == company_id)
-        .distinct()
-        .order_by(Position.name.asc(), Position.id.asc())
-        .all()
-    )
-    result: List[Dict[str, Any]] = []
-    for pos_id, pos_name in rows:
-        if pos_id is None:
-            continue
-        result.append(
-            {
-                "id": int(pos_id),
-                "name": str(pos_name or f"Position #{pos_id}"),
-            }
-        )
-    return result
-
-
-def _default_waiter_turnover_settings(company_id: Optional[int]) -> Dict[str, Any]:
-    return {
-        "id": None,
-        "company_id": company_id,
-        "rule_name": "Основное правило",
-        "is_active": False,
-        "real_money_only": True,
-        "amount_mode": TURNOVER_AMOUNT_MODE_SUM_WITHOUT_DISCOUNT,
-        "deleted_mode": DELETED_MODE_WITHOUT,
-        "waiter_mode": WAITER_MODE_ORDER_CLOSE,
-        "position_ids": [],
-        "include_groups": [],
-        "exclude_groups": [],
-        "include_categories": [],
-        "exclude_categories": [],
-        "include_positions": [],
-        "exclude_positions": [],
-        "include_payment_method_guids": [],
-        "comment": None,
-        "created_at": None,
-        "updated_at": None,
-    }
-
-
-def _serialize_waiter_turnover_settings(row: Optional[IikoWaiterTurnoverSetting], company_id: Optional[int]) -> Dict[str, Any]:
-    if not row:
-        return _default_waiter_turnover_settings(company_id)
-    return {
-        "id": str(row.id) if row.id is not None else None,
-        "company_id": row.company_id,
-        "rule_name": _normalize_rule_name(row.rule_name, "Основное правило"),
-        "is_active": bool(row.is_active),
-        "real_money_only": bool(row.real_money_only),
-        "amount_mode": _normalize_turnover_amount_mode(row.amount_mode),
-        "deleted_mode": _normalize_deleted_mode(row.deleted_mode),
-        "waiter_mode": _normalize_waiter_mode(row.waiter_mode),
-        "position_ids": _normalize_int_list(row.position_ids if isinstance(row.position_ids, list) else []),
-        "include_groups": _normalize_text_list(row.include_groups if isinstance(row.include_groups, list) else []),
-        "exclude_groups": _normalize_text_list(row.exclude_groups if isinstance(row.exclude_groups, list) else []),
-        "include_categories": _normalize_text_list(
-            row.include_categories if isinstance(row.include_categories, list) else []
-        ),
-        "exclude_categories": _normalize_text_list(
-            row.exclude_categories if isinstance(row.exclude_categories, list) else []
-        ),
-        "include_positions": _normalize_text_list(
-            row.include_positions if isinstance(row.include_positions, list) else []
-        ),
-        "exclude_positions": _normalize_text_list(
-            row.exclude_positions if isinstance(row.exclude_positions, list) else []
-        ),
-        "include_payment_method_guids": _normalize_text_list(
-            row.include_payment_method_guids if isinstance(row.include_payment_method_guids, list) else []
-        ),
-        "comment": _clean_optional_text(row.comment),
-        "created_at": row.created_at.isoformat() if row.created_at else None,
-        "updated_at": row.updated_at.isoformat() if row.updated_at else None,
-    }
-
-DELETED_MODE_ALL = "all"
-DELETED_MODE_ONLY = "only_deleted"
-DELETED_MODE_WITHOUT = "without_deleted"
-
-
-def _normalize_deleted_mode(value: Optional[str]) -> str:
-    clean = (value or "").strip().lower()
-    aliases = {
-        "": DELETED_MODE_ALL,
-        "all": DELETED_MODE_ALL,
-        "only_deleted": DELETED_MODE_ONLY,
-        "deleted_only": DELETED_MODE_ONLY,
-        "only": DELETED_MODE_ONLY,
-        "deleted": DELETED_MODE_ONLY,
-        "without_deleted": DELETED_MODE_WITHOUT,
-        "exclude_deleted": DELETED_MODE_WITHOUT,
-        "without": DELETED_MODE_WITHOUT,
-        "active_only": DELETED_MODE_WITHOUT,
-    }
-    return aliases.get(clean, DELETED_MODE_ALL)
-
-
-def _is_not_deleted_state(value: Optional[str]) -> bool:
-    clean = (value or "").strip()
-    if not clean:
-        return True
-    return clean.upper() == "NOT_DELETED"
-
-
-def _states_indicate_deleted(
-    order_deleted_state: Optional[str],
-    deleted_with_writeoff_state: Optional[str],
-) -> bool:
-    return not (
-        _is_not_deleted_state(order_deleted_state)
-        and _is_not_deleted_state(deleted_with_writeoff_state)
-    )
-
-
-def _payload_deleted_states(payload: Any) -> tuple[Optional[str], Optional[str]]:
-    return (
-        _extract_payload_text(payload, "OrderDeleted"),
-        _extract_payload_text(payload, "DeletedWithWriteoff"),
-    )
-
-
-def _serialize_deleted_payload(payload: Any) -> Dict[str, Any]:
-    order_deleted_state, deleted_with_writeoff_state = _payload_deleted_states(payload)
-    return {
-        "order_deleted_state": order_deleted_state,
-        "deleted_with_writeoff_state": deleted_with_writeoff_state,
-        "is_deleted": _states_indicate_deleted(order_deleted_state, deleted_with_writeoff_state),
-    }
-
-
-def _is_not_deleted_expr(field_expr: Any):
-    normalized = sa.func.upper(sa.func.trim(sa.func.coalesce(field_expr, "")))
-    return sa.or_(normalized == "", normalized == "NOT_DELETED")
-
-
-def _apply_deleted_mode_filter(
-    query,
-    *,
-    deleted_mode: str,
-    order_deleted_expr: Any,
-    deleted_with_writeoff_expr: Any,
-):
-    mode = _normalize_deleted_mode(deleted_mode)
-    is_not_deleted = sa.and_(
-        _is_not_deleted_expr(order_deleted_expr),
-        _is_not_deleted_expr(deleted_with_writeoff_expr),
-    )
-    if mode == DELETED_MODE_ONLY:
-        return query.filter(sa.not_(is_not_deleted))
-    if mode == DELETED_MODE_WITHOUT:
-        return query.filter(is_not_deleted)
-    return query
-
-
 def _resolve_date_field(cols: Dict[str, Any]) -> str:
     return "OpenDate.Typed" if "OpenDate.Typed" in cols else "OpenDate"
 
@@ -1902,12 +1209,6 @@ def _load_product_num_map(db: Session, nums: set[str]) -> dict[str, str]:
         if num and product_id:
             mapping[str(num)] = str(product_id)
     return mapping
-
-
-def _normalize_location_token(value: Any) -> str:
-    if value is None:
-        return ""
-    return str(value).strip().casefold()
 
 
 def _build_department_code_restaurant_map(
@@ -2120,302 +1421,6 @@ def _build_sales_target_restaurant_resolver(
         return source_restaurant_id
 
     return resolve_target_restaurant_id
-
-
-def _sales_location_mappings_query(db: Session, current_user: User):
-    return _restrict_company_scoped_query(
-        db.query(IikoSalesLocationMapping),
-        IikoSalesLocationMapping.company_id,
-        db,
-        current_user,
-    )
-
-
-def _serialize_sales_location_mapping(
-    row: IikoSalesLocationMapping,
-    *,
-    source_restaurant_name: Optional[str] = None,
-    target_restaurant_name: Optional[str] = None,
-) -> Dict[str, Any]:
-    return {
-        "id": str(row.id),
-        "company_id": row.company_id,
-        "source_restaurant_id": row.source_restaurant_id,
-        "source_restaurant_name": source_restaurant_name,
-        "target_restaurant_id": row.target_restaurant_id,
-        "target_restaurant_name": target_restaurant_name,
-        "department": row.department,
-        "table_num": row.table_num,
-        "department_norm": row.department_norm,
-        "table_num_norm": row.table_num_norm,
-        "comment": row.comment,
-        "is_active": bool(row.is_active),
-        "created_at": row.created_at.isoformat() if row.created_at else None,
-        "updated_at": row.updated_at.isoformat() if row.updated_at else None,
-    }
-
-
-def _sales_halls_query(db: Session, current_user: User):
-    return _restrict_company_scoped_query(
-        db.query(IikoSalesHall),
-        IikoSalesHall.company_id,
-        db,
-        current_user,
-    )
-
-
-def _sales_hall_zones_query(db: Session, current_user: User):
-    return _restrict_company_scoped_query(
-        db.query(IikoSalesHallZone),
-        IikoSalesHallZone.company_id,
-        db,
-        current_user,
-    )
-
-
-def _serialize_sales_hall(row: IikoSalesHall) -> Dict[str, Any]:
-    return {
-        "id": str(row.id),
-        "company_id": row.company_id,
-        "name": row.name,
-        "name_norm": row.name_norm,
-        "comment": row.comment,
-        "is_active": bool(row.is_active),
-        "created_at": row.created_at.isoformat() if row.created_at else None,
-        "updated_at": row.updated_at.isoformat() if row.updated_at else None,
-    }
-
-
-def _serialize_sales_hall_zone(
-    row: IikoSalesHallZone,
-    *,
-    hall_name: Optional[str] = None,
-    restaurant_name: Optional[str] = None,
-) -> Dict[str, Any]:
-    return {
-        "id": str(row.id),
-        "company_id": row.company_id,
-        "hall_id": str(row.hall_id) if row.hall_id is not None else None,
-        "hall_name": hall_name,
-        "restaurant_id": row.restaurant_id,
-        "restaurant_name": restaurant_name,
-        "name": row.name,
-        "name_norm": row.name_norm,
-        "comment": row.comment,
-        "is_active": bool(row.is_active),
-        "created_at": row.created_at.isoformat() if row.created_at else None,
-        "updated_at": row.updated_at.isoformat() if row.updated_at else None,
-    }
-
-
-def _sales_hall_tables_query(db: Session, current_user: User):
-    return _restrict_company_scoped_query(
-        db.query(IikoSalesHallTable),
-        IikoSalesHallTable.company_id,
-        db,
-        current_user,
-    )
-
-
-def _serialize_sales_hall_table(
-    row: IikoSalesHallTable,
-    *,
-    restaurant_name: Optional[str] = None,
-    source_restaurant_name: Optional[str] = None,
-) -> Dict[str, Any]:
-    return {
-        "id": str(row.id),
-        "company_id": row.company_id,
-        "restaurant_id": row.restaurant_id,
-        "restaurant_name": restaurant_name,
-        "hall_id": str(row.hall_id) if getattr(row, "hall_id", None) is not None else None,
-        "zone_id": str(row.zone_id) if getattr(row, "zone_id", None) is not None else None,
-        "source_restaurant_id": row.source_restaurant_id,
-        "source_restaurant_name": source_restaurant_name,
-        "department": row.department,
-        "table_num": row.table_num,
-        "department_norm": row.department_norm,
-        "table_num_norm": row.table_num_norm,
-        "hall_name": row.hall_name,
-        "hall_name_norm": row.hall_name_norm,
-        "zone_name": getattr(row, "zone_name", None),
-        "zone_name_norm": getattr(row, "zone_name_norm", None),
-        "table_name": row.table_name,
-        "capacity": row.capacity,
-        "comment": row.comment,
-        "is_active": bool(row.is_active),
-        "created_at": row.created_at.isoformat() if row.created_at else None,
-        "updated_at": row.updated_at.isoformat() if row.updated_at else None,
-    }
-
-
-def _build_sales_hall_table_resolver(rows: List[IikoSalesHallTable]):
-    sorted_rows = sorted(
-        rows or [],
-        key=lambda row: (
-            row.company_id is None,  # prefer company-specific rows
-            row.source_restaurant_id is None,  # prefer source-specific rows
-        ),
-    )
-
-    by_exact: Dict[tuple[int, Optional[int], str, str], IikoSalesHallTable] = {}
-    by_department: Dict[tuple[int, Optional[int], str], IikoSalesHallTable] = {}
-
-    for row in sorted_rows:
-        rest_id = int(row.restaurant_id) if row.restaurant_id is not None else None
-        if rest_id is None:
-            continue
-        dep_norm = (row.department_norm or _normalize_location_token(row.department)).strip()
-        table_norm = (row.table_num_norm or _normalize_location_token(row.table_num)).strip()
-        if not dep_norm:
-            continue
-        source_key = int(row.source_restaurant_id) if row.source_restaurant_id is not None else None
-        if table_norm:
-            by_exact.setdefault((rest_id, source_key, dep_norm, table_norm), row)
-        else:
-            by_department.setdefault((rest_id, source_key, dep_norm), row)
-
-    def _resolve(
-        *,
-        restaurant_id: Optional[int],
-        source_restaurant_id: Optional[int],
-        department: Any,
-        table_num: Any,
-    ) -> Dict[str, Any]:
-        rest_id = int(restaurant_id) if restaurant_id is not None else None
-        dep_norm = _normalize_location_token(department)
-        table_norm = _normalize_location_token(table_num)
-        source_key = (
-            int(source_restaurant_id)
-            if source_restaurant_id is not None
-            else (rest_id if rest_id is not None else None)
-        )
-
-        if rest_id is not None and dep_norm:
-            if table_norm:
-                for maybe_source in (source_key, None):
-                    row = by_exact.get((rest_id, maybe_source, dep_norm, table_norm))
-                    if row is not None:
-                        hall_name = (row.hall_name or "").strip() or (department or "Без зала")
-                        return {
-                            "hall_name": hall_name,
-                            "hall_name_norm": _normalize_location_token(hall_name),
-                            "zone_name": (row.zone_name or "").strip() or None,
-                            "zone_name_norm": _normalize_location_token(row.zone_name),
-                            "table_name": (row.table_name or "").strip() or (table_num or None),
-                            "capacity": int(row.capacity) if row.capacity is not None else None,
-                        }
-            for maybe_source in (source_key, None):
-                row = by_department.get((rest_id, maybe_source, dep_norm))
-                if row is not None:
-                    hall_name = (row.hall_name or "").strip() or (department or "Без зала")
-                    return {
-                        "hall_name": hall_name,
-                        "hall_name_norm": _normalize_location_token(hall_name),
-                        "zone_name": (row.zone_name or "").strip() or None,
-                        "zone_name_norm": _normalize_location_token(row.zone_name),
-                        "table_name": (row.table_name or "").strip() or (table_num or None),
-                        "capacity": int(row.capacity) if row.capacity is not None else None,
-                    }
-
-        fallback_hall = str(department).strip() if department is not None and str(department).strip() else "Без зала"
-        fallback_table = str(table_num).strip() if table_num is not None and str(table_num).strip() else None
-        return {
-            "hall_name": fallback_hall,
-            "hall_name_norm": _normalize_location_token(fallback_hall),
-            "zone_name": None,
-            "zone_name_norm": "",
-            "table_name": fallback_table,
-            "capacity": None,
-        }
-
-    return _resolve
-
-
-def _collect_halls_from_order_rows(
-    db: Session,
-    current_user: User,
-    order_rows: List[Any],
-) -> List[str]:
-    if not order_rows:
-        return []
-
-    restaurant_ids = {
-        int(row.restaurant_id)
-        for row in order_rows
-        if getattr(row, "restaurant_id", None) is not None
-    }
-    hall_rows_q = _sales_hall_tables_query(db, current_user).filter(IikoSalesHallTable.is_active.is_(True))
-    if restaurant_ids:
-        hall_rows_q = hall_rows_q.filter(IikoSalesHallTable.restaurant_id.in_(sorted(restaurant_ids)))
-    resolve_hall = _build_sales_hall_table_resolver(hall_rows_q.all())
-
-    by_norm: Dict[str, str] = {}
-    for row in order_rows:
-        resolved = resolve_hall(
-            restaurant_id=getattr(row, "restaurant_id", None),
-            source_restaurant_id=getattr(row, "source_restaurant_id", None),
-            department=getattr(row, "department", None),
-            table_num=getattr(row, "table_num", None),
-        )
-        hall_name = str(resolved.get("hall_name") or "").strip()
-        hall_norm = str(resolved.get("hall_name_norm") or "").strip()
-        if not hall_name or not hall_norm or hall_norm in by_norm:
-            continue
-        by_norm[hall_norm] = hall_name
-
-    return sorted(by_norm.values(), key=lambda value: str(value).casefold())
-
-
-def _apply_hall_filter_to_base_query(
-    db: Session,
-    current_user: User,
-    base_q,
-    include_halls_lower: List[str],
-):
-    include_set = {str(value or "").strip().casefold() for value in include_halls_lower if str(value or "").strip()}
-    if not include_set:
-        return base_q
-
-    order_rows = (
-        base_q.with_entities(
-            IikoSaleOrder.id.label("order_id"),
-            IikoSaleOrder.restaurant_id.label("restaurant_id"),
-            IikoSaleOrder.source_restaurant_id.label("source_restaurant_id"),
-            IikoSaleOrder.department.label("department"),
-            IikoSaleOrder.table_num.label("table_num"),
-        )
-        .distinct()
-        .all()
-    )
-    if not order_rows:
-        return base_q.filter(sa.literal(False))
-
-    restaurant_ids = {
-        int(row.restaurant_id)
-        for row in order_rows
-        if row.restaurant_id is not None
-    }
-    hall_rows_q = _sales_hall_tables_query(db, current_user).filter(IikoSalesHallTable.is_active.is_(True))
-    if restaurant_ids:
-        hall_rows_q = hall_rows_q.filter(IikoSalesHallTable.restaurant_id.in_(sorted(restaurant_ids)))
-    resolve_hall = _build_sales_hall_table_resolver(hall_rows_q.all())
-
-    selected_order_ids = []
-    for row in order_rows:
-        resolved = resolve_hall(
-            restaurant_id=row.restaurant_id,
-            source_restaurant_id=row.source_restaurant_id,
-            department=row.department,
-            table_num=row.table_num,
-        )
-        if str(resolved.get("hall_name_norm") or "").strip().casefold() in include_set:
-            selected_order_ids.append(row.order_id)
-
-    if not selected_order_ids:
-        return base_q.filter(sa.literal(False))
-
-    return base_q.filter(IikoSaleOrder.id.in_(selected_order_ids))
 
 
 def _sync_payment_methods(
@@ -3202,39 +2207,6 @@ def _sync_sales_orders_and_items_resilient(
         if lock_key is not None:
             _release_sales_sync_lock(db, lock_key)
         _reset_sales_sync_application_name(db)
-
-
-def _build_sync_source_groups(restaurants: List[Restaurant]) -> Dict[str, List[Restaurant]]:
-    grouped: Dict[str, List[Restaurant]] = {}
-    for restaurant in restaurants:
-        key = _restaurant_iiko_source_key(restaurant)
-        if not key:
-            continue
-        grouped.setdefault(key, []).append(restaurant)
-    for key, rows in grouped.items():
-        grouped[key] = sorted(rows, key=lambda row: int(row.id))
-    return grouped
-
-
-def _build_sync_source_conflict_map(restaurants: List[Restaurant]) -> Dict[int, Dict[str, Any]]:
-    grouped = _build_sync_source_groups(restaurants)
-
-    conflicts: Dict[int, Dict[str, Any]] = {}
-    for group in grouped.values():
-        if len(group) <= 1:
-            continue
-        primary = group[0]
-        related = [
-            f"#{int(row.id)} {row.name}"
-            for row in group
-        ]
-        for row in group[1:]:
-            conflicts[int(row.id)] = {
-                "primary_id": int(primary.id),
-                "primary_name": primary.name,
-                "related": related,
-            }
-    return conflicts
 
 
 @router.post("/sync")

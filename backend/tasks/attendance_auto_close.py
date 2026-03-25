@@ -14,10 +14,12 @@ from backend.services.attendance_calculations import (
     calc_night_minutes,
     calc_attendance_pay,
 )
+from backend.tasks.task_locks import try_task_lock
 from backend.utils import now_local
 
 logger = logging.getLogger(__name__)
 AUTO_CLOSE_THRESHOLD = timedelta(hours=24)
+ATTENDANCE_AUTO_CLOSE_LOCK_KEY = 810001
 
 
 def close_stale_attendances(db: Session, now: datetime) -> int:
@@ -71,10 +73,14 @@ async def attendance_auto_close_loop(interval_seconds: int = 300) -> None:
     while True:
         try:
             with SessionLocal() as db:
-                now = now_local().replace(tzinfo=None)
-                closed = close_stale_attendances(db, now)
-                if closed:
-                    logger.info("Auto-closed %s stale attendances", closed)
+                with try_task_lock(db, ATTENDANCE_AUTO_CLOSE_LOCK_KEY) as acquired:
+                    if not acquired:
+                        logger.debug("Skipping attendance auto-close loop: task lock is already held")
+                    else:
+                        now = now_local().replace(tzinfo=None)
+                        closed = close_stale_attendances(db, now)
+                        if closed:
+                            logger.info("Auto-closed %s stale attendances", closed)
         except Exception:
             logger.exception("Failed to auto-close attendances")
         await asyncio.sleep(interval_seconds)
