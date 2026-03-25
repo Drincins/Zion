@@ -360,3 +360,201 @@ def serialize_waiter_turnover_settings(
         "created_at": row.created_at.isoformat() if row.created_at else None,
         "updated_at": row.updated_at.isoformat() if row.updated_at else None,
     }
+
+
+def list_waiter_turnover_rules_response(
+    db: Session,
+    current_user: User,
+    *,
+    requested_company_id: Optional[int] = None,
+) -> Dict[str, Any]:
+    resolved_company_id = resolve_settings_company_id(db, current_user, requested_company_id)
+    rows = (
+        waiter_turnover_settings_company_query(db, current_user, resolved_company_id)
+        .order_by(
+            IikoWaiterTurnoverSetting.is_active.desc(),
+            IikoWaiterTurnoverSetting.updated_at.desc().nullslast(),
+            IikoWaiterTurnoverSetting.created_at.desc().nullslast(),
+        )
+        .all()
+    )
+    return {
+        "company_id": resolved_company_id,
+        "items": waiter_turnover_rules_list_payload(rows),
+        "position_options": position_options_for_settings(db, resolved_company_id),
+    }
+
+
+def get_waiter_turnover_rule_payload(
+    db: Session,
+    current_user: User,
+    *,
+    rule_id: UUID,
+    requested_company_id: Optional[int] = None,
+) -> Dict[str, Any]:
+    resolved_company_id = resolve_settings_company_id(db, current_user, requested_company_id)
+    row = find_waiter_turnover_rule(db, current_user, resolved_company_id, rule_id)
+    if not row:
+        raise HTTPException(status_code=404, detail="Rule not found")
+    payload = serialize_waiter_turnover_settings(row, resolved_company_id)
+    payload["position_options"] = position_options_for_settings(db, resolved_company_id)
+    return payload
+
+
+def create_waiter_turnover_rule(
+    db: Session,
+    current_user: User,
+    payload: Any,
+    *,
+    requested_company_id: Optional[int] = None,
+) -> Dict[str, Any]:
+    resolved_company_id = resolve_settings_company_id(db, current_user, requested_company_id)
+    company_q = waiter_turnover_settings_company_query(db, current_user, resolved_company_id)
+    existing_count = company_q.count()
+
+    row = IikoWaiterTurnoverSetting(company_id=resolved_company_id)
+    row.rule_name = normalize_rule_name(
+        payload.rule_name,
+        default_waiter_turnover_rule_name(existing_count),
+    )
+    row.is_active = bool(payload.is_active) if payload.is_active is not None else existing_count == 0
+    db.add(row)
+    apply_waiter_turnover_settings_payload(db, row, payload, resolved_company_id)
+    db.flush()
+    if row.is_active:
+        deactivate_other_waiter_turnover_rules(db, resolved_company_id, row.id)
+    db.commit()
+    db.refresh(row)
+
+    result = serialize_waiter_turnover_settings(row, resolved_company_id)
+    result["position_options"] = position_options_for_settings(db, resolved_company_id)
+    return result
+
+
+def update_waiter_turnover_rule(
+    db: Session,
+    current_user: User,
+    *,
+    rule_id: UUID,
+    payload: Any,
+    requested_company_id: Optional[int] = None,
+) -> Dict[str, Any]:
+    resolved_company_id = resolve_settings_company_id(db, current_user, requested_company_id)
+    row = find_waiter_turnover_rule(db, current_user, resolved_company_id, rule_id)
+    if not row:
+        raise HTTPException(status_code=404, detail="Rule not found")
+
+    apply_waiter_turnover_settings_payload(db, row, payload, resolved_company_id)
+    db.add(row)
+    db.flush()
+    if row.is_active:
+        deactivate_other_waiter_turnover_rules(db, resolved_company_id, row.id)
+    db.commit()
+    db.refresh(row)
+
+    result = serialize_waiter_turnover_settings(row, resolved_company_id)
+    result["position_options"] = position_options_for_settings(db, resolved_company_id)
+    return result
+
+
+def delete_waiter_turnover_rule(
+    db: Session,
+    current_user: User,
+    *,
+    rule_id: UUID,
+    requested_company_id: Optional[int] = None,
+) -> None:
+    resolved_company_id = resolve_settings_company_id(db, current_user, requested_company_id)
+    row = find_waiter_turnover_rule(db, current_user, resolved_company_id, rule_id)
+    if not row:
+        raise HTTPException(status_code=404, detail="Rule not found")
+
+    was_active = bool(row.is_active)
+    db.delete(row)
+    db.flush()
+    if was_active:
+        fallback = (
+            waiter_turnover_settings_company_query(db, current_user, resolved_company_id)
+            .order_by(IikoWaiterTurnoverSetting.updated_at.desc().nullslast())
+            .first()
+        )
+        if fallback:
+            fallback.is_active = True
+            db.add(fallback)
+    db.commit()
+
+
+def get_waiter_turnover_settings_payload(
+    db: Session,
+    current_user: User,
+    *,
+    requested_company_id: Optional[int] = None,
+    rule_id: Optional[UUID] = None,
+) -> Dict[str, Any]:
+    resolved_company_id = resolve_settings_company_id(db, current_user, requested_company_id)
+    q = waiter_turnover_settings_company_query(db, current_user, resolved_company_id)
+    if rule_id is not None:
+        row = q.filter(IikoWaiterTurnoverSetting.id == rule_id).first()
+        if not row:
+            raise HTTPException(status_code=404, detail="Rule not found")
+    else:
+        row = q.order_by(
+            IikoWaiterTurnoverSetting.is_active.desc(),
+            IikoWaiterTurnoverSetting.updated_at.desc().nullslast(),
+        ).first()
+    payload = serialize_waiter_turnover_settings(row, resolved_company_id)
+    payload["position_options"] = position_options_for_settings(db, resolved_company_id)
+    payload["rules"] = waiter_turnover_rules_list_payload(
+        q.order_by(
+            IikoWaiterTurnoverSetting.is_active.desc(),
+            IikoWaiterTurnoverSetting.updated_at.desc().nullslast(),
+        ).all()
+    )
+    return payload
+
+
+def upsert_waiter_turnover_settings(
+    db: Session,
+    current_user: User,
+    payload: Any,
+    *,
+    requested_company_id: Optional[int] = None,
+    rule_id: Optional[UUID] = None,
+) -> Dict[str, Any]:
+    resolved_company_id = resolve_settings_company_id(db, current_user, requested_company_id)
+    q = waiter_turnover_settings_company_query(db, current_user, resolved_company_id)
+    row = None
+    if rule_id is not None:
+        row = q.filter(IikoWaiterTurnoverSetting.id == rule_id).first()
+        if row is None:
+            raise HTTPException(status_code=404, detail="Rule not found")
+    else:
+        row = q.order_by(
+            IikoWaiterTurnoverSetting.is_active.desc(),
+            IikoWaiterTurnoverSetting.updated_at.desc().nullslast(),
+        ).first()
+
+    if row is None:
+        row = IikoWaiterTurnoverSetting(
+            company_id=resolved_company_id,
+            rule_name=normalize_rule_name(payload.rule_name, "Основное правило"),
+        )
+        db.add(row)
+
+    apply_waiter_turnover_settings_payload(db, row, payload, resolved_company_id)
+    db.add(row)
+    db.flush()
+    if row.is_active:
+        deactivate_other_waiter_turnover_rules(db, resolved_company_id, row.id)
+    db.commit()
+    db.refresh(row)
+
+    result = serialize_waiter_turnover_settings(row, resolved_company_id)
+    result["position_options"] = position_options_for_settings(db, resolved_company_id)
+    result["rules"] = waiter_turnover_rules_list_payload(
+        q.order_by(
+            IikoWaiterTurnoverSetting.is_active.desc(),
+            IikoWaiterTurnoverSetting.updated_at.desc().nullslast(),
+        ).all()
+    )
+    return result
