@@ -74,6 +74,18 @@ from backend.schemas import (
     InventoryStoragePlaceUpdate,
 )
 from backend.utils import get_current_user, get_user_restaurant_ids
+from backend.services.inventory_movements import (
+    allocate_item as run_inventory_allocate_item,
+    transfer_item as run_inventory_transfer_item,
+    update_item_quantity as run_inventory_update_item_quantity,
+)
+from backend.services.inventory_queries import (
+    get_restaurant_balance as load_inventory_restaurant_balance,
+    get_restaurant_item_card as load_inventory_restaurant_item_card,
+    list_inventory_balances as load_inventory_balances,
+    list_movement_events as load_inventory_movement_events,
+    list_restaurant_item_instance_events as load_inventory_restaurant_item_instance_events,
+)
 from backend.services.permissions import PermissionCode, PermissionKey, ensure_permissions
 from backend.services.s3 import generate_presigned_url, upload_bytes
 
@@ -2018,163 +2030,11 @@ def transfer_item_to_department(
     current_user: User = Depends(get_current_user),
 ) -> InvItemTransferRead:
     _ensure_inventory_movements_create(current_user)
-    if payload.quantity <= 0:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Quantity must be greater than zero")
-
-    item = db.query(InvItem).filter(InvItem.id == item_id).first()
-    if not item:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Item not found")
-
-    source_kind = payload.source_kind or "warehouse"
-    source_restaurant_id: int | None = None
-    source_storage_place_id: int | None = None
-    source_subdivision_id: int | None = None
-    if source_kind == "restaurant":
-        if payload.source_restaurant_id is None:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="source_restaurant_id is required for source_kind=restaurant")
-        allowed_restaurants = get_user_restaurant_ids(db, current_user)
-        _ensure_restaurant_allowed(allowed_restaurants, int(payload.source_restaurant_id))
-        source_restaurant_id = int(payload.source_restaurant_id)
-        source_storage_place_id = _resolve_storage_place(
-            db=db,
-            current_user=current_user,
-            restaurant_id=source_restaurant_id,
-            storage_place_id=payload.source_storage_place_id,
-            field_label="source_storage_place_id",
-        )
-    elif source_kind == "subdivision":
-        if payload.source_subdivision_id is None:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="source_subdivision_id is required for source_kind=subdivision")
-        subdivision_exists = (
-            db.query(RestaurantSubdivision.id)
-            .filter(RestaurantSubdivision.id == int(payload.source_subdivision_id))
-            .first()
-        )
-        if not subdivision_exists:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Source subdivision not found")
-        source_subdivision_id = int(payload.source_subdivision_id)
-    elif source_kind != "warehouse":
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Unsupported source_kind")
-
-    target_restaurant_id: int | None = None
-    target_storage_place_id: int | None = None
-    target_subdivision_id: int | None = None
-    if payload.target_kind == "restaurant":
-        if payload.restaurant_id is None:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="restaurant_id is required for restaurant transfer")
-        allowed_restaurants = get_user_restaurant_ids(db, current_user)
-        _ensure_restaurant_allowed(allowed_restaurants, int(payload.restaurant_id))
-        target_restaurant_id = int(payload.restaurant_id)
-        target_storage_place_id = _resolve_storage_place(
-            db=db,
-            current_user=current_user,
-            restaurant_id=target_restaurant_id,
-            storage_place_id=payload.storage_place_id,
-            field_label="storage_place_id",
-        )
-    elif payload.target_kind == "subdivision":
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Transfer to subdivision is not supported. Use restaurant or warehouse.",
-        )
-    elif payload.target_kind != "warehouse":
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Unsupported target_kind")
-
-    if (
-        source_kind == payload.target_kind
-        and source_restaurant_id == target_restaurant_id
-        and source_storage_place_id == target_storage_place_id
-        and source_subdivision_id == target_subdivision_id
-    ):
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Source and target locations are the same")
-
-    source_filters = [
-        InvItemInstance.item_id == item_id,
-        InvItemInstance.location_kind == source_kind,
-    ]
-    if source_kind == "restaurant":
-        source_filters.append(InvItemInstance.restaurant_id == source_restaurant_id)
-        if source_storage_place_id is None:
-            source_filters.append(InvItemInstance.storage_place_id.is_(None))
-        else:
-            source_filters.append(InvItemInstance.storage_place_id == source_storage_place_id)
-    elif source_kind == "subdivision":
-        source_filters.append(InvItemInstance.subdivision_id == source_subdivision_id)
-
-    instances = (
-        db.query(InvItemInstance)
-        .filter(*source_filters)
-        .order_by(InvItemInstance.sequence_no.asc())
-        .with_for_update()
-        .limit(payload.quantity)
-        .all()
-    )
-    if len(instances) < payload.quantity:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Not enough quantity in source location",
-        )
-
-    transfer_arrival_at = datetime.utcnow()
-    for instance in instances:
-        instance.location_kind = payload.target_kind
-        instance.restaurant_id = target_restaurant_id if payload.target_kind == "restaurant" else None
-        instance.storage_place_id = target_storage_place_id if payload.target_kind == "restaurant" else None
-        instance.subdivision_id = target_subdivision_id if payload.target_kind == "subdivision" else None
-        instance.arrived_at = transfer_arrival_at
-        instance.instance_code = _resolve_instance_code_for_location(
-            item=item,
-            sequence_no=instance.sequence_no,
-            location_kind=instance.location_kind,
-            restaurant_id=instance.restaurant_id,
-        )
-
-    _log_movement_event(
-        db,
-        action_type="transfer",
-        actor_id=current_user.id,
-        item=item,
-        quantity=len(instances),
-        from_location_kind=source_kind,
-        from_restaurant_id=source_restaurant_id,
-        from_storage_place_id=source_storage_place_id,
-        from_subdivision_id=source_subdivision_id,
-        to_location_kind=payload.target_kind,
-        to_restaurant_id=target_restaurant_id,
-        to_storage_place_id=target_storage_place_id,
-        to_subdivision_id=target_subdivision_id,
-        comment=payload.comment or "Перевод товара между подразделениями",
-    )
-    _log_item_instance_events(
-        db,
-        instances=instances,
-        action_type="transfer",
-        actor_id=current_user.id,
-        item=item,
-        from_location_kind=source_kind,
-        from_restaurant_id=source_restaurant_id,
-        from_storage_place_id=source_storage_place_id,
-        from_subdivision_id=source_subdivision_id,
-        to_location_kind=payload.target_kind,
-        to_restaurant_id=target_restaurant_id,
-        to_storage_place_id=target_storage_place_id,
-        to_subdivision_id=target_subdivision_id,
-        comment=payload.comment or "Перевод товара между подразделениями",
-    )
-
-    db.commit()
-    return InvItemTransferRead(
+    return run_inventory_transfer_item(
+        db=db,
+        current_user=current_user,
         item_id=item_id,
-        moved=len(instances),
-        source_kind=source_kind,
-        source_restaurant_id=source_restaurant_id,
-        source_storage_place_id=source_storage_place_id,
-        source_subdivision_id=source_subdivision_id,
-        target_kind=payload.target_kind,
-        restaurant_id=target_restaurant_id,
-        storage_place_id=target_storage_place_id,
-        subdivision_id=target_subdivision_id,
-        instance_codes=_build_instance_codes_response(item, instances),
+        payload=payload,
     )
 
 
@@ -2186,101 +2046,11 @@ def allocate_item_to_location(
     current_user: User = Depends(get_current_user),
 ) -> InvItemAllocateRead:
     _ensure_inventory_movements_create(current_user)
-
-    item = db.query(InvItem).filter(InvItem.id == item_id).first()
-    if not item:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Item not found")
-
-    restaurant_id, subdivision_id = _resolve_location(
+    return run_inventory_allocate_item(
         db=db,
         current_user=current_user,
-        location_kind=payload.location_kind,
-        restaurant_id=payload.restaurant_id,
-        subdivision_id=payload.subdivision_id,
-        restaurant_required=True,
-        subdivision_required=True,
-    )
-    storage_place_id = _resolve_storage_place(
-        db=db,
-        current_user=current_user,
-        restaurant_id=restaurant_id if payload.location_kind == "restaurant" else None,
-        storage_place_id=payload.storage_place_id,
-    )
-
-    base_cost = item.default_cost if item.default_cost is not None else item.cost
-    unit_cost = payload.unit_cost if payload.unit_cost is not None else base_cost
-    unit_cost_decimal = Decimal(unit_cost if unit_cost is not None else 0)
-
-    created = _create_item_instances(
-        db,
-        item=item,
-        quantity=payload.quantity,
-        location_kind=payload.location_kind,
-        unit_cost=unit_cost_decimal,
-        restaurant_id=restaurant_id,
-        storage_place_id=storage_place_id,
-        subdivision_id=subdivision_id,
-    )
-    if payload.location_kind == "restaurant" and restaurant_id is not None:
-        _update_stock(
-            db,
-            restaurant_id=restaurant_id,
-            item=item,
-            delta_qty=payload.quantity,
-            cost=unit_cost_decimal,
-        )
-
-    _log_movement_event(
-        db,
-        action_type="quantity_increase",
-        actor_id=current_user.id,
-        item=item,
-        quantity=payload.quantity,
-        to_location_kind=payload.location_kind,
-        to_restaurant_id=restaurant_id,
-        to_storage_place_id=storage_place_id,
-        to_subdivision_id=subdivision_id,
-        comment=payload.comment or "Добавление партии товара из каталога",
-    )
-    _log_item_instance_events(
-        db,
-        instances=created,
-        action_type="quantity_increase",
-        actor_id=current_user.id,
-        item=item,
-        to_location_kind=payload.location_kind,
-        to_restaurant_id=restaurant_id,
-        to_storage_place_id=storage_place_id,
-        to_subdivision_id=subdivision_id,
-        comment=payload.comment or "Добавление партии товара из каталога",
-    )
-    if payload.unit_cost is not None and base_cost is not None and Decimal(base_cost) != unit_cost_decimal:
-        _log_movement_event(
-            db,
-            action_type="cost_changed",
-            actor_id=current_user.id,
-            item=item,
-            field="batch_unit_cost",
-            old_value=str(base_cost),
-            new_value=str(unit_cost_decimal),
-            to_location_kind=payload.location_kind,
-            to_restaurant_id=restaurant_id,
-            to_storage_place_id=storage_place_id,
-            to_subdivision_id=subdivision_id,
-            comment="Стоимость партии отличается от каталожной",
-        )
-
-    db.commit()
-
-    return InvItemAllocateRead(
         item_id=item_id,
-        location_kind=payload.location_kind,
-        restaurant_id=restaurant_id,
-        storage_place_id=storage_place_id,
-        subdivision_id=subdivision_id,
-        added=len(created),
-        unit_cost=unit_cost_decimal,
-        instance_codes=_build_instance_codes_response(item, created),
+        payload=payload,
     )
 
 
@@ -2292,165 +2062,11 @@ def update_item_quantity_at_location(
     current_user: User = Depends(get_current_user),
 ) -> InvItemQuantityUpdateRead:
     _ensure_inventory_movements_create(current_user)
-
-    item = db.query(InvItem).filter(InvItem.id == item_id).first()
-    if not item:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Item not found")
-
-    restaurant_id, subdivision_id = _resolve_location(
+    return run_inventory_update_item_quantity(
         db=db,
         current_user=current_user,
-        location_kind=payload.location_kind,
-        restaurant_id=payload.restaurant_id,
-        subdivision_id=payload.subdivision_id,
-        restaurant_required=True,
-        subdivision_required=True,
-    )
-    storage_place_id = _resolve_storage_place(
-        db=db,
-        current_user=current_user,
-        restaurant_id=restaurant_id if payload.location_kind == "restaurant" else None,
-        storage_place_id=payload.storage_place_id,
-    )
-
-    location_filters = [
-        InvItemInstance.item_id == item_id,
-        InvItemInstance.location_kind == payload.location_kind,
-    ]
-    if payload.location_kind == "restaurant":
-        location_filters.append(InvItemInstance.restaurant_id == restaurant_id)
-        if storage_place_id is None:
-            location_filters.append(InvItemInstance.storage_place_id.is_(None))
-        else:
-            location_filters.append(InvItemInstance.storage_place_id == storage_place_id)
-    elif payload.location_kind == "subdivision":
-        location_filters.append(InvItemInstance.subdivision_id == subdivision_id)
-
-    instances = (
-        db.query(InvItemInstance)
-        .filter(*location_filters)
-        .order_by(InvItemInstance.sequence_no.asc())
-        .with_for_update()
-        .all()
-    )
-    previous_quantity = len(instances)
-    target_quantity = int(payload.quantity)
-    delta = target_quantity - previous_quantity
-    base_cost = item.default_cost if item.default_cost is not None else item.cost
-    unit_cost_decimal = Decimal(payload.unit_cost if payload.unit_cost is not None else (base_cost if base_cost is not None else 0))
-
-    if delta > 0:
-        created_instances = _create_item_instances(
-            db,
-            item=item,
-            quantity=delta,
-            location_kind=payload.location_kind,
-            unit_cost=unit_cost_decimal,
-            restaurant_id=restaurant_id,
-            storage_place_id=storage_place_id,
-            subdivision_id=subdivision_id,
-        )
-        if payload.location_kind == "restaurant" and restaurant_id is not None:
-            _update_stock(
-                db,
-                restaurant_id=restaurant_id,
-                item=item,
-                delta_qty=delta,
-                cost=unit_cost_decimal,
-            )
-        _log_movement_event(
-            db,
-            action_type="quantity_adjusted",
-            actor_id=current_user.id,
-            item=item,
-            quantity=delta,
-            to_location_kind=payload.location_kind,
-            to_restaurant_id=restaurant_id,
-            to_storage_place_id=storage_place_id,
-            to_subdivision_id=subdivision_id,
-            field="quantity",
-            old_value=str(previous_quantity),
-            new_value=str(target_quantity),
-            comment=payload.comment or "Изменение количества",
-        )
-        _log_item_instance_events(
-            db,
-            instances=created_instances,
-            action_type="quantity_adjusted",
-            actor_id=current_user.id,
-            item=item,
-            to_location_kind=payload.location_kind,
-            to_restaurant_id=restaurant_id,
-            to_storage_place_id=storage_place_id,
-            to_subdivision_id=subdivision_id,
-            comment=payload.comment or "Изменение количества",
-        )
-    elif delta < 0:
-        remove_count = abs(delta)
-        removing = instances[:remove_count]
-        _log_item_instance_events(
-            db,
-            instances=removing,
-            action_type="writeoff",
-            actor_id=current_user.id,
-            item=item,
-            from_location_kind=payload.location_kind,
-            from_restaurant_id=restaurant_id,
-            from_storage_place_id=storage_place_id,
-            from_subdivision_id=subdivision_id,
-            comment=payload.comment or "Списание товара",
-        )
-        for instance in removing:
-            db.delete(instance)
-        if payload.location_kind == "restaurant" and restaurant_id is not None:
-            _update_stock(
-                db,
-                restaurant_id=restaurant_id,
-                item=item,
-                delta_qty=-remove_count,
-                cost=unit_cost_decimal,
-            )
-        _log_movement_event(
-            db,
-            action_type="writeoff",
-            actor_id=current_user.id,
-            item=item,
-            quantity=remove_count,
-            from_location_kind=payload.location_kind,
-            from_restaurant_id=restaurant_id,
-            from_storage_place_id=storage_place_id,
-            from_subdivision_id=subdivision_id,
-            field="quantity",
-            old_value=str(previous_quantity),
-            new_value=str(target_quantity),
-            comment=payload.comment or "Списание товара",
-        )
-    if delta > 0 and payload.unit_cost is not None and base_cost is not None and Decimal(base_cost) != unit_cost_decimal:
-        _log_movement_event(
-            db,
-            action_type="cost_changed",
-            actor_id=current_user.id,
-            item=item,
-            field="batch_unit_cost",
-            old_value=str(base_cost),
-            new_value=str(unit_cost_decimal),
-            to_location_kind=payload.location_kind,
-            to_restaurant_id=restaurant_id,
-            to_storage_place_id=storage_place_id,
-            to_subdivision_id=subdivision_id,
-            comment="Стоимость добавленной партии отличается от каталожной",
-        )
-    db.commit()
-
-    return InvItemQuantityUpdateRead(
         item_id=item_id,
-        location_kind=payload.location_kind,
-        restaurant_id=restaurant_id,
-        storage_place_id=storage_place_id,
-        subdivision_id=subdivision_id,
-        previous_quantity=previous_quantity,
-        quantity=target_quantity,
-        delta=delta,
+        payload=payload,
     )
 
 
@@ -2499,249 +2115,28 @@ def list_movement_events(
     current_user: User = Depends(get_current_user),
 ) -> list[InvMovementEventRead]:
     _ensure_inventory_movements_view(current_user)
-
-    query = db.query(InvMovementEvent)
-    allowed_restaurants = get_user_restaurant_ids(db, current_user)
-    if allowed_restaurants is not None:
-        if allowed_restaurants:
-            for condition in _event_matches_allowed_restaurants(allowed_restaurants):
-                query = query.filter(condition)
-        else:
-            query = query.filter(
-                or_(
-                    InvMovementEvent.from_location_kind.is_(None),
-                    InvMovementEvent.from_location_kind != "restaurant",
-                ),
-                or_(
-                    InvMovementEvent.to_location_kind.is_(None),
-                    InvMovementEvent.to_location_kind != "restaurant",
-                ),
-            )
-
-    if created_from is not None:
-        query = query.filter(InvMovementEvent.created_at >= created_from)
-    if created_to is not None:
-        query = query.filter(InvMovementEvent.created_at <= created_to)
-
-    normalized_item_ids = _combine_int_filters(item_ids, item_ids_bracket)
-    if normalized_item_ids:
-        query = query.filter(InvMovementEvent.item_id.in_(normalized_item_ids))
-
-    normalized_group_ids = _combine_int_filters(group_ids, group_ids_bracket)
-    if normalized_group_ids:
-        query = query.filter(InvMovementEvent.group_id.in_(normalized_group_ids))
-
-    normalized_category_ids = _combine_int_filters(category_ids, category_ids_bracket)
-    if normalized_category_ids:
-        query = query.filter(InvMovementEvent.category_id.in_(normalized_category_ids))
-
-    normalized_kind_ids = _combine_int_filters(kind_ids, kind_ids_bracket)
-    if normalized_kind_ids:
-        query = query.filter(InvMovementEvent.kind_id.in_(normalized_kind_ids))
-
-    normalized_action_types = _combine_str_filters(action_types, action_types_bracket)
-    if normalized_action_types:
-        query = query.filter(InvMovementEvent.action_type.in_(normalized_action_types))
-
-    normalized_actor_ids = _combine_int_filters(actor_ids, actor_ids_bracket)
-    if normalized_actor_ids:
-        query = query.filter(InvMovementEvent.actor_id.in_(normalized_actor_ids))
-
-    normalized_object_ids = _combine_str_filters(object_ids, object_ids_bracket)
-    object_conditions = []
-    for object_id in normalized_object_ids:
-        if object_id == "warehouse":
-            object_conditions.append(
-                or_(
-                    InvMovementEvent.from_location_kind == "warehouse",
-                    InvMovementEvent.to_location_kind == "warehouse",
-                )
-            )
-            continue
-        if object_id.startswith("restaurant:"):
-            try:
-                rest_id = int(object_id.split(":", 1)[1])
-            except ValueError:
-                continue
-            object_conditions.append(
-                or_(
-                    InvMovementEvent.from_restaurant_id == rest_id,
-                    InvMovementEvent.to_restaurant_id == rest_id,
-                )
-            )
-            continue
-        if object_id.startswith("subdivision:"):
-            try:
-                sub_id = int(object_id.split(":", 1)[1])
-            except ValueError:
-                continue
-            object_conditions.append(
-                or_(
-                    InvMovementEvent.from_subdivision_id == sub_id,
-                    InvMovementEvent.to_subdivision_id == sub_id,
-                )
-            )
-            continue
-    if object_conditions:
-        query = query.filter(or_(*object_conditions))
-
-    if q:
-        stripped = q.strip()
-        if stripped:
-            term = f"%{stripped}%"
-            query = query.filter(
-                or_(
-                    InvMovementEvent.item_code.ilike(term),
-                    InvMovementEvent.item_name.ilike(term),
-                    InvMovementEvent.comment.ilike(term),
-                )
-            )
-
-    events = (
-        query.order_by(InvMovementEvent.created_at.desc(), InvMovementEvent.id.desc())
-        .limit(limit)
-        .all()
+    return load_inventory_movement_events(
+        db=db,
+        current_user=current_user,
+        created_from=created_from,
+        created_to=created_to,
+        item_ids=item_ids,
+        item_ids_bracket=item_ids_bracket,
+        group_ids=group_ids,
+        group_ids_bracket=group_ids_bracket,
+        category_ids=category_ids,
+        category_ids_bracket=category_ids_bracket,
+        kind_ids=kind_ids,
+        kind_ids_bracket=kind_ids_bracket,
+        object_ids=object_ids,
+        object_ids_bracket=object_ids_bracket,
+        action_types=action_types,
+        action_types_bracket=action_types_bracket,
+        actor_ids=actor_ids,
+        actor_ids_bracket=actor_ids_bracket,
+        q=q,
+        limit=limit,
     )
-    if not events:
-        return []
-
-    actor_id_set = {event.actor_id for event in events if event.actor_id is not None}
-    item_id_set = {event.item_id for event in events if event.item_id is not None}
-    group_id_set = {event.group_id for event in events if event.group_id is not None}
-    category_id_set = {event.category_id for event in events if event.category_id is not None}
-    kind_id_set = {event.kind_id for event in events if event.kind_id is not None}
-    restaurant_id_set = {
-        rest_id
-        for event in events
-        for rest_id in [event.from_restaurant_id, event.to_restaurant_id]
-        if rest_id is not None
-    }
-    subdivision_id_set = {
-        sub_id
-        for event in events
-        for sub_id in [event.from_subdivision_id, event.to_subdivision_id]
-        if sub_id is not None
-    }
-    storage_place_id_set = {
-        place_id
-        for event in events
-        for place_id in [event.from_storage_place_id, event.to_storage_place_id]
-        if place_id is not None
-    }
-
-    actor_rows = (
-        db.query(User.id, User.first_name, User.last_name, User.middle_name, User.username)
-        .filter(User.id.in_(actor_id_set))
-        .all()
-        if actor_id_set
-        else []
-    )
-    actor_map = {
-        int(row.id): _compose_user_name(
-            first_name=row.first_name,
-            last_name=row.last_name,
-            middle_name=row.middle_name,
-            username=row.username,
-            user_id=row.id,
-        )
-        for row in actor_rows
-    }
-
-    item_rows = (
-        db.query(InvItem.id, InvItem.code, InvItem.name)
-        .filter(InvItem.id.in_(item_id_set))
-        .all()
-        if item_id_set
-        else []
-    )
-    item_map = {int(row.id): row for row in item_rows}
-
-    group_map = {
-        int(row.id): row.name
-        for row in (
-            db.query(InvGroup.id, InvGroup.name).filter(InvGroup.id.in_(group_id_set)).all()
-            if group_id_set
-            else []
-        )
-    }
-    category_map = {
-        int(row.id): row.name
-        for row in (
-            db.query(InvCategory.id, InvCategory.name).filter(InvCategory.id.in_(category_id_set)).all()
-            if category_id_set
-            else []
-        )
-    }
-    kind_map = {
-        int(row.id): row.name
-        for row in (
-            db.query(InvKind.id, InvKind.name).filter(InvKind.id.in_(kind_id_set)).all()
-            if kind_id_set
-            else []
-        )
-    }
-    restaurant_names, storage_place_names, subdivision_names = _load_location_name_maps(
-        db,
-        restaurant_ids={int(value) for value in restaurant_id_set},
-        storage_place_ids={int(value) for value in storage_place_id_set},
-        subdivision_ids={int(value) for value in subdivision_id_set},
-    )
-
-    response: list[InvMovementEventRead] = []
-    for event in events:
-        item_row = item_map.get(event.item_id) if event.item_id is not None else None
-        response.append(
-            InvMovementEventRead(
-                id=event.id,
-                created_at=event.created_at,
-                action_type=event.action_type,
-                action_label=_movement_action_label(event.action_type),
-                actor_id=event.actor_id,
-                actor_name=actor_map.get(event.actor_id) if event.actor_id is not None else None,
-                item_id=event.item_id,
-                item_code=event.item_code or (item_row.code if item_row is not None else None),
-                item_name=event.item_name or (item_row.name if item_row is not None else None),
-                group_id=event.group_id,
-                group_name=group_map.get(event.group_id) if event.group_id is not None else None,
-                category_id=event.category_id,
-                category_name=category_map.get(event.category_id) if event.category_id is not None else None,
-                kind_id=event.kind_id,
-                kind_name=kind_map.get(event.kind_id) if event.kind_id is not None else None,
-                quantity=event.quantity,
-                from_location_kind=event.from_location_kind,
-                from_restaurant_id=event.from_restaurant_id,
-                from_storage_place_id=event.from_storage_place_id,
-                from_subdivision_id=event.from_subdivision_id,
-                from_location_name=_location_name(
-                    location_kind=event.from_location_kind,
-                    restaurant_id=event.from_restaurant_id,
-                    storage_place_id=event.from_storage_place_id,
-                    subdivision_id=event.from_subdivision_id,
-                    restaurant_names=restaurant_names,
-                    storage_place_names=storage_place_names,
-                    subdivision_names=subdivision_names,
-                ),
-                to_location_kind=event.to_location_kind,
-                to_restaurant_id=event.to_restaurant_id,
-                to_storage_place_id=event.to_storage_place_id,
-                to_subdivision_id=event.to_subdivision_id,
-                to_location_name=_location_name(
-                    location_kind=event.to_location_kind,
-                    restaurant_id=event.to_restaurant_id,
-                    storage_place_id=event.to_storage_place_id,
-                    subdivision_id=event.to_subdivision_id,
-                    restaurant_names=restaurant_names,
-                    storage_place_names=storage_place_names,
-                    subdivision_names=subdivision_names,
-                ),
-                field=event.field,
-                old_value=event.old_value,
-                new_value=event.new_value,
-                comment=event.comment,
-            )
-        )
-
-    return response
 
 
 # ---- Item records (legacy movements) ----
@@ -3027,93 +2422,11 @@ def list_inventory_balance(
     current_user: User = Depends(get_current_user),
 ) -> list[InventoryBalance]:
     _ensure_inventory_balance_view(current_user)
-
-    allowed_restaurants = get_user_restaurant_ids(db, current_user)
-
-    restaurant_ids: list[int]
-    if restaurant_id is not None:
-        _ensure_restaurant_allowed(allowed_restaurants, restaurant_id)
-        restaurant_ids = [restaurant_id]
-    else:
-        if allowed_restaurants is None:
-            restaurant_ids = [row[0] for row in db.query(Restaurant.id).order_by(Restaurant.id.asc()).all()]
-        else:
-            restaurant_ids = sorted(allowed_restaurants)
-
-    if not restaurant_ids:
-        return []
-
-    rows = (
-        db.query(
-            InvItemStock.restaurant_id.label("restaurant_id"),
-            InvItemStock.item_id.label("item_id"),
-            InvItem.name.label("item_name"),
-            InvItemStock.quantity.label("quantity"),
-            InvItemStock.avg_cost.label("avg_cost"),
-        )
-        .join(InvItem, InvItem.id == InvItemStock.item_id)
-        .filter(InvItemStock.restaurant_id.in_(restaurant_ids))
-        .order_by(InvItemStock.restaurant_id.asc(), InvItem.name.asc())
-        .all()
+    return load_inventory_balances(
+        db=db,
+        current_user=current_user,
+        restaurant_id=restaurant_id,
     )
-
-    count_rows = (
-        db.query(
-            InvItemRecord.restaurant_id.label("restaurant_id"),
-            InvItemRecord.item_id.label("item_id"),
-            func.count(InvItemRecord.id).label("record_count"),
-        )
-        .filter(InvItemRecord.restaurant_id.in_(restaurant_ids))
-        .group_by(InvItemRecord.restaurant_id, InvItemRecord.item_id)
-        .all()
-    )
-
-    record_count_map: dict[tuple[int, int], int] = {
-        (int(row.restaurant_id), int(row.item_id)): int(row.record_count or 0) for row in count_rows
-    }
-
-    result_map: dict[int, InventoryBalance] = {}
-    for rest_id in restaurant_ids:
-        result_map[rest_id] = InventoryBalance(
-            restaurant_id=rest_id,
-            total_quantity=0,
-            total_cost=Decimal("0"),
-            record_count=0,
-            items=[],
-        )
-
-    for row in rows:
-        rest_id = int(row.restaurant_id)
-        item_quantity = int(row.quantity or 0)
-        avg_cost = Decimal(row.avg_cost or 0)
-        item_total_cost = avg_cost * item_quantity
-        record_count = record_count_map.get((rest_id, int(row.item_id)), 0)
-
-        entry = result_map.get(rest_id)
-        if entry is None:
-            entry = InventoryBalance(
-                restaurant_id=rest_id,
-                total_quantity=0,
-                total_cost=Decimal("0"),
-                record_count=0,
-                items=[],
-            )
-            result_map[rest_id] = entry
-
-        entry.items.append(
-            InventoryBalanceItem(
-                item_id=int(row.item_id),
-                item_name=str(row.item_name),
-                total_quantity=item_quantity,
-                total_cost=item_total_cost,
-                record_count=record_count,
-            )
-        )
-        entry.total_quantity += item_quantity
-        entry.total_cost += item_total_cost
-        entry.record_count += record_count
-
-    return [result_map[rest_id] for rest_id in restaurant_ids]
 
 
 @router.get("/balance/{restaurant_id}", response_model=InventoryBalance)
@@ -3123,13 +2436,10 @@ def get_restaurant_balance(
     current_user: User = Depends(get_current_user),
 ) -> InventoryBalance:
     _ensure_inventory_balance_view(current_user)
-    balances = list_inventory_balance(restaurant_id=restaurant_id, db=db, current_user=current_user)
-    return balances[0] if balances else InventoryBalance(
+    return load_inventory_restaurant_balance(
+        db=db,
+        current_user=current_user,
         restaurant_id=restaurant_id,
-        total_quantity=0,
-        total_cost=Decimal("0"),
-        record_count=0,
-        items=[],
     )
 
 
@@ -3142,277 +2452,12 @@ def get_restaurant_item_card(
     current_user: User = Depends(get_current_user),
 ) -> InventoryRestaurantItemCardRead:
     _ensure_inventory_balance_view(current_user)
-    allowed_restaurants = get_user_restaurant_ids(db, current_user)
-    _ensure_restaurant_allowed(allowed_restaurants, restaurant_id)
-
-    item = db.query(InvItem).filter(InvItem.id == item_id).first()
-    if not item:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Item not found")
-    normalized_storage_place_id = _resolve_storage_place(
+    return load_inventory_restaurant_item_card(
         db=db,
         current_user=current_user,
         restaurant_id=restaurant_id,
-        storage_place_id=storage_place_id,
-        require_active=False,
-    )
-
-    stock_row = (
-        db.query(InvItemStock.quantity, InvItemStock.avg_cost)
-        .filter(InvItemStock.restaurant_id == restaurant_id, InvItemStock.item_id == item_id)
-        .first()
-    )
-    current_instances = (
-        db.query(InvItemInstance)
-        .filter(
-            InvItemInstance.item_id == item_id,
-            InvItemInstance.location_kind == "restaurant",
-            InvItemInstance.restaurant_id == restaurant_id,
-        )
-        .filter(
-            InvItemInstance.storage_place_id == normalized_storage_place_id
-            if normalized_storage_place_id is not None
-            else True
-        )
-        .order_by(InvItemInstance.sequence_no.asc())
-        .all()
-    )
-    if stock_row is None and not current_instances:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Item is not available in this restaurant")
-
-    arrival_events = (
-        db.query(InvMovementEvent)
-        .filter(
-            InvMovementEvent.item_id == item_id,
-            InvMovementEvent.to_location_kind == "restaurant",
-            InvMovementEvent.to_restaurant_id == restaurant_id,
-            InvMovementEvent.action_type.in_(["quantity_increase", "transfer", "quantity_adjusted"]),
-        )
-        .filter(
-            InvMovementEvent.to_storage_place_id == normalized_storage_place_id
-            if normalized_storage_place_id is not None
-            else True
-        )
-        .order_by(InvMovementEvent.created_at.desc(), InvMovementEvent.id.desc())
-        .limit(60)
-        .all()
-    )
-
-    instance_events: list[InvItemInstanceEvent] = []
-    instance_event_type_map = _load_instance_event_type_map(db) if item.use_instance_codes else {}
-    if item.use_instance_codes:
-        instance_events = (
-            db.query(InvItemInstanceEvent)
-            .filter(
-                InvItemInstanceEvent.item_id == item_id,
-                InvItemInstanceEvent.instance_code_snapshot.isnot(None),
-                _instance_event_matches_restaurant(restaurant_id),
-            )
-            .filter(
-                _instance_event_matches_storage_place(normalized_storage_place_id)
-                if normalized_storage_place_id is not None
-                else True
-            )
-            .order_by(InvItemInstanceEvent.created_at.desc(), InvItemInstanceEvent.id.desc())
-            .limit(800)
-            .all()
-        )
-
-    actor_ids = {
-        *{event.actor_id for event in arrival_events if event.actor_id is not None},
-        *{event.actor_id for event in instance_events if event.actor_id is not None},
-    }
-    actor_map = _load_actor_name_map(db, {int(actor_id) for actor_id in actor_ids if actor_id is not None})
-
-    restaurant_ids = {restaurant_id}
-    storage_place_ids: set[int] = set()
-    subdivision_ids: set[int] = set()
-    for event in arrival_events:
-        if event.from_restaurant_id is not None:
-            restaurant_ids.add(int(event.from_restaurant_id))
-        if event.to_restaurant_id is not None:
-            restaurant_ids.add(int(event.to_restaurant_id))
-        if event.from_storage_place_id is not None:
-            storage_place_ids.add(int(event.from_storage_place_id))
-        if event.to_storage_place_id is not None:
-            storage_place_ids.add(int(event.to_storage_place_id))
-        if event.from_subdivision_id is not None:
-            subdivision_ids.add(int(event.from_subdivision_id))
-        if event.to_subdivision_id is not None:
-            subdivision_ids.add(int(event.to_subdivision_id))
-    for event in instance_events:
-        if event.from_restaurant_id is not None:
-            restaurant_ids.add(int(event.from_restaurant_id))
-        if event.to_restaurant_id is not None:
-            restaurant_ids.add(int(event.to_restaurant_id))
-        if event.from_storage_place_id is not None:
-            storage_place_ids.add(int(event.from_storage_place_id))
-        if event.to_storage_place_id is not None:
-            storage_place_ids.add(int(event.to_storage_place_id))
-        if event.from_subdivision_id is not None:
-            subdivision_ids.add(int(event.from_subdivision_id))
-        if event.to_subdivision_id is not None:
-            subdivision_ids.add(int(event.to_subdivision_id))
-
-    restaurant_names, storage_place_names, subdivision_names = _load_location_name_maps(
-        db,
-        restaurant_ids=restaurant_ids,
-        storage_place_ids=storage_place_ids,
-        subdivision_ids=subdivision_ids,
-    )
-
-    arrivals = [
-        InventoryRestaurantItemArrivalRead(
-            id=event.id,
-            created_at=event.created_at,
-            action_type=event.action_type,
-            action_label=_movement_action_label(event.action_type),
-            actor_name=actor_map.get(event.actor_id) if event.actor_id is not None else None,
-            quantity=int(event.quantity or 0),
-            source_location_name=_location_name(
-                location_kind=event.from_location_kind,
-                restaurant_id=event.from_restaurant_id,
-                storage_place_id=event.from_storage_place_id,
-                subdivision_id=event.from_subdivision_id,
-                restaurant_names=restaurant_names,
-                storage_place_names=storage_place_names,
-                subdivision_names=subdivision_names,
-            ),
-            target_location_name=_location_name(
-                location_kind=event.to_location_kind,
-                restaurant_id=event.to_restaurant_id,
-                storage_place_id=event.to_storage_place_id,
-                subdivision_id=event.to_subdivision_id,
-                restaurant_names=restaurant_names,
-                storage_place_names=storage_place_names,
-                subdivision_names=subdivision_names,
-            ),
-            comment=event.comment,
-        )
-        for event in arrival_events
-    ]
-
-    summary_map: dict[str, dict] = {}
-    for instance in current_instances:
-        code = instance.instance_code or f"{item.code}-{instance.sequence_no}"
-        summary_map[code] = {
-            "instance_id": instance.id,
-            "instance_code": code,
-            "sequence_no": instance.sequence_no,
-            "purchase_cost": instance.purchase_cost,
-            "arrived_at": instance.arrived_at,
-            "is_current": True,
-            "current_location_name": _location_name(
-                location_kind="restaurant",
-                restaurant_id=restaurant_id,
-                storage_place_id=instance.storage_place_id,
-                subdivision_id=None,
-                restaurant_names=restaurant_names,
-                storage_place_names=storage_place_names,
-                subdivision_names=subdivision_names,
-            ),
-            "current_storage_place_id": instance.storage_place_id,
-            "current_storage_place_name": storage_place_names.get(int(instance.storage_place_id)) if instance.storage_place_id is not None else None,
-            "status_key": "in_stock",
-            "status_label": "В ресторане",
-            "last_event_at": None,
-            "last_event_action": None,
-            "last_event_label": None,
-            "last_comment": None,
-        }
-
-    for event in instance_events:
-        code = (event.instance_code_snapshot or "").strip()
-        if not code:
-            continue
-        summary = summary_map.setdefault(
-            code,
-            {
-                "instance_id": event.instance_id,
-                "instance_code": code,
-                "sequence_no": event.sequence_no,
-                "purchase_cost": event.purchase_cost,
-                "arrived_at": None,
-                "is_current": False,
-                "current_location_name": None,
-                "status_key": "history",
-                "status_label": "История",
-                "last_event_at": None,
-                "last_event_action": None,
-                "last_event_label": None,
-                "last_comment": None,
-            },
-        )
-        if summary["last_event_at"] is None:
-            summary["last_event_at"] = event.created_at
-            summary["last_event_action"] = event.action_type
-            summary["last_event_label"] = _instance_event_action_label(
-                event.action_type,
-                event_type_map=instance_event_type_map,
-            )
-            summary["last_comment"] = event.comment
-            if not summary["is_current"]:
-                if event.action_type == "writeoff":
-                    summary["status_key"] = "written_off"
-                    summary["status_label"] = "Списан"
-                elif event.action_type == "transfer" and event.from_restaurant_id == restaurant_id:
-                    summary["status_key"] = "transferred_out"
-                    summary["status_label"] = "Переведен"
-                    summary["current_location_name"] = _location_name(
-                        location_kind=event.to_location_kind,
-                        restaurant_id=event.to_restaurant_id,
-                        storage_place_id=event.to_storage_place_id,
-                        subdivision_id=event.to_subdivision_id,
-                        restaurant_names=restaurant_names,
-                        storage_place_names=storage_place_names,
-                        subdivision_names=subdivision_names,
-                    )
-                else:
-                    summary["status_key"] = "history"
-                    summary["status_label"] = _instance_event_action_label(
-                        event.action_type,
-                        event_type_map=instance_event_type_map,
-                    )
-        if summary["arrived_at"] is None and event.action_type in {"quantity_increase", "quantity_adjusted", "transfer"}:
-            summary["arrived_at"] = event.created_at
-
-    for summary in summary_map.values():
-        if not summary["is_current"]:
-            continue
-        event_config = instance_event_type_map.get(str(summary["last_event_action"] or ""))
-        status_key = _normalize_inventory_string(str(event_config.get("status_key") or "")) if event_config else None
-        status_label = _normalize_inventory_string(str(event_config.get("status_label") or "")) if event_config else None
-        if status_label:
-            summary["status_key"] = status_key or "repair"
-            summary["status_label"] = status_label
-        else:
-            summary["status_key"] = "in_stock"
-            summary["status_label"] = "В ресторане"
-
-    instances = [
-        InventoryItemInstanceSummaryRead(**payload)
-        for payload in sorted(
-            summary_map.values(),
-            key=lambda row: (
-                0 if row["is_current"] else 1,
-                str(row["instance_code"]).lower(),
-            ),
-        )
-    ]
-
-    return InventoryRestaurantItemCardRead(
         item_id=item_id,
-        restaurant_id=restaurant_id,
-        quantity=len(current_instances) if normalized_storage_place_id is not None else (int(stock_row.quantity or 0) if stock_row is not None else len(current_instances)),
-        avg_cost=(
-            (sum(Decimal(instance.purchase_cost or 0) for instance in current_instances) / Decimal(len(current_instances))).quantize(Decimal("0.01"))
-            if current_instances and normalized_storage_place_id is not None
-            else (stock_row.avg_cost if stock_row is not None else None)
-        ),
-        last_arrival_at=max((instance.arrived_at for instance in current_instances), default=None),
-        storage_place_id=normalized_storage_place_id,
-        instance_tracking_enabled=bool(item.use_instance_codes),
-        arrivals=arrivals,
-        instances=instances,
+        storage_place_id=storage_place_id,
     )
 
 
@@ -3426,84 +2471,14 @@ def list_restaurant_item_instance_events(
     current_user: User = Depends(get_current_user),
 ) -> list[InventoryItemInstanceEventRead]:
     _ensure_inventory_balance_view(current_user)
-    allowed_restaurants = get_user_restaurant_ids(db, current_user)
-    _ensure_restaurant_allowed(allowed_restaurants, restaurant_id)
-
-    item = db.query(InvItem).filter(InvItem.id == item_id).first()
-    if not item:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Item not found")
-    normalized_storage_place_id = _resolve_storage_place(
+    return load_inventory_restaurant_item_instance_events(
         db=db,
         current_user=current_user,
         restaurant_id=restaurant_id,
+        item_id=item_id,
+        instance_code=instance_code,
         storage_place_id=storage_place_id,
-        require_active=False,
     )
-
-    normalized_code = instance_code.strip()
-    if not normalized_code:
-        return []
-
-    events = (
-        db.query(InvItemInstanceEvent)
-        .filter(
-            InvItemInstanceEvent.item_id == item_id,
-            InvItemInstanceEvent.instance_code_snapshot == normalized_code,
-            _instance_event_matches_restaurant(restaurant_id),
-        )
-        .filter(
-            _instance_event_matches_storage_place(normalized_storage_place_id)
-            if normalized_storage_place_id is not None
-            else True
-        )
-        .order_by(InvItemInstanceEvent.created_at.desc(), InvItemInstanceEvent.id.desc())
-        .limit(200)
-        .all()
-    )
-    if not events:
-        return []
-    instance_event_type_map = _load_instance_event_type_map(db)
-
-    actor_map = _load_actor_name_map(
-        db,
-        {int(event.actor_id) for event in events if event.actor_id is not None},
-    )
-    restaurant_ids = {
-        int(rest_id)
-        for event in events
-        for rest_id in [event.from_restaurant_id, event.to_restaurant_id]
-        if rest_id is not None
-    }
-    restaurant_ids.add(restaurant_id)
-    subdivision_ids = {
-        int(sub_id)
-        for event in events
-        for sub_id in [event.from_subdivision_id, event.to_subdivision_id]
-        if sub_id is not None
-    }
-    storage_place_ids = {
-        int(place_id)
-        for event in events
-        for place_id in [event.from_storage_place_id, event.to_storage_place_id]
-        if place_id is not None
-    }
-    restaurant_names, storage_place_names, subdivision_names = _load_location_name_maps(
-        db,
-        restaurant_ids=restaurant_ids,
-        storage_place_ids=storage_place_ids,
-        subdivision_ids=subdivision_ids,
-    )
-    return [
-        _serialize_instance_event(
-            event,
-            actor_map=actor_map,
-            restaurant_names=restaurant_names,
-            storage_place_names=storage_place_names,
-            subdivision_names=subdivision_names,
-            event_type_map=instance_event_type_map,
-        )
-        for event in events
-    ]
 
 
 @router.post(
