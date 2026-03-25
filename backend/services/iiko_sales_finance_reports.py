@@ -4,6 +4,7 @@ from datetime import datetime, timedelta
 from typing import Any, Dict, List, Sequence
 
 import sqlalchemy as sa
+from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
 from backend.bd.iiko_catalog import (
