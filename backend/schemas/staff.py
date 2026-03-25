@@ -79,6 +79,10 @@ class StaffLoginResponse(BaseModel):
 
 class StaffEmployeeListResponse(BaseModel):
     items: List[StaffUserPublic]
+    offset: int = 0
+    limit: int = 0
+    has_more: bool = False
+    next_offset: Optional[int] = None
 
 
 class AttendancePublic(BaseModel):

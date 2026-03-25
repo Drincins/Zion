@@ -13,7 +13,7 @@ from backend.bd.database import SessionLocal
 from backend.utils import (
     extract_auth_token_from_request,
     get_expected_auth_scopes_for_request,
-    resolve_user_from_token,
+    resolve_user_id_from_token,
 )
 from backend.services.startup_bootstrap import run_startup_bootstrap
 from backend.routers.users import router as users_router
@@ -100,18 +100,17 @@ def _authenticate_api_request(request) -> JSONResponse | None:
 
     db = SessionLocal()
     try:
-        user = resolve_user_from_token(
+        user_id = resolve_user_id_from_token(
             token,
             db,
             allowed_scopes=get_expected_auth_scopes_for_request(request),
-            not_found_status=status.HTTP_401_UNAUTHORIZED,
         )
     except HTTPException as exc:
         return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail})
     finally:
         db.close()
 
-    request.state.current_user_id = user.id
+    request.state.current_user_id = user_id
     return None
 
 

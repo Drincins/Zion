@@ -1424,6 +1424,7 @@ let employeesLoadPromise = null;
 let employeesLoadKey = '';
 let employeesLoadAbortController = null;
 const EMPLOYEES_BOOTSTRAP_DEDUP_MS = 5000;
+const EMPLOYEES_PAGE_SIZE = 250;
 let employeesLastBootstrapKey = '';
 let employeesLastBootstrapAt = 0;
 const EMPLOYEE_TAB_AUTOLOAD_DEDUP_MS = 1500;
@@ -2210,7 +2211,7 @@ async function loadEmployees(options = {}) {
         String(selectedRestaurantFilter.value).trim() !== '';
     const restaurantIdRaw = hasRestaurantFilter ? Number(selectedRestaurantFilter.value) : NaN;
     const restaurantId = Number.isFinite(restaurantIdRaw) && restaurantIdRaw > 0 ? restaurantIdRaw : null;
-    const params = {
+    const baseParams = {
         q: search.value || undefined,
         include_fired: includeFired.value || undefined,
         restaurant_id: restaurantId ?? undefined,
@@ -2218,12 +2219,12 @@ async function loadEmployees(options = {}) {
         hire_date_to: hireDateTo.value || undefined,
         fire_date_from: fireDateFrom.value || undefined,
         fire_date_to: fireDateTo.value || undefined,
-        limit: 1000,
+        limit: EMPLOYEES_PAGE_SIZE,
     };
     const canUseBootstrap = Boolean(includeReferences && isEmployeesBootstrapAvailable);
     const requestKey = JSON.stringify({
         includeReferences: canUseBootstrap,
-        ...params,
+        ...baseParams,
     });
     if (
         canUseBootstrap &&
@@ -2245,14 +2246,64 @@ async function loadEmployees(options = {}) {
     const requestId = ++employeesLoadCounter;
     isLoading.value = true;
     const currentPromise = (async () => {
+        const collectPaginatedItems = async (firstPageData, { startOffset = 0 } = {}) => {
+            const initialItems = Array.isArray(firstPageData?.items) ? firstPageData.items : [];
+            const aggregated = [...initialItems];
+            let hasMore = Boolean(firstPageData?.has_more);
+            let nextOffsetRaw = Number(firstPageData?.next_offset);
+            let nextOffset = Number.isFinite(nextOffsetRaw) && nextOffsetRaw >= 0
+                ? nextOffsetRaw
+                : startOffset + initialItems.length;
+
+            while (hasMore) {
+                if (requestId !== employeesLoadCounter || abortController.signal.aborted) {
+                    return aggregated;
+                }
+                const pageData = await fetchEmployees(
+                    {
+                        ...baseParams,
+                        offset: nextOffset,
+                    },
+                    {
+                        signal: abortController.signal,
+                    },
+                );
+                if (requestId !== employeesLoadCounter) {
+                    return aggregated;
+                }
+                const pageItems = Array.isArray(pageData?.items) ? pageData.items : [];
+                if (!pageItems.length) {
+                    break;
+                }
+                aggregated.push(...pageItems);
+
+                hasMore = Boolean(pageData?.has_more);
+                nextOffsetRaw = Number(pageData?.next_offset);
+                const fallbackOffset = nextOffset + pageItems.length;
+                nextOffset = Number.isFinite(nextOffsetRaw) && nextOffsetRaw >= 0
+                    ? nextOffsetRaw
+                    : fallbackOffset;
+                if (nextOffset <= fallbackOffset - pageItems.length) {
+                    break;
+                }
+            }
+            return aggregated;
+        };
+
         try {
             if (canUseBootstrap) {
                 try {
-                    const data = await fetchEmployeesBootstrap(params, {
-                        signal: abortController.signal,
-                    });
+                    const data = await fetchEmployeesBootstrap(
+                        {
+                            ...baseParams,
+                            offset: 0,
+                        },
+                        {
+                            signal: abortController.signal,
+                        },
+                    );
                     if (requestId !== employeesLoadCounter) return;
-                    const items = Array.isArray(data?.items) ? data.items : [];
+                    const items = await collectPaginatedItems(data, { startOffset: 0 });
                     employees.value = items;
                     applyBootstrapReferences(data?.references);
                     if (!positionsLoadedFromAccess.value) {
@@ -2270,10 +2321,17 @@ async function loadEmployees(options = {}) {
                 }
             }
 
-            const { items } = await fetchEmployees(params, {
-                signal: abortController.signal,
-            });
+            const firstPageData = await fetchEmployees(
+                {
+                    ...baseParams,
+                    offset: 0,
+                },
+                {
+                    signal: abortController.signal,
+                },
+            );
             if (requestId !== employeesLoadCounter) return;
+            const items = await collectPaginatedItems(firstPageData, { startOffset: 0 });
             employees.value = items;
 
             if (!positionsLoadedFromAccess.value) {
