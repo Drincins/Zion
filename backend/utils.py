@@ -251,13 +251,12 @@ def get_expected_auth_scopes_for_request(request: Request) -> set[str]:
     return {AUTH_SESSION_SCOPE_MAIN}
 
 
-def resolve_user_from_token(
+def resolve_user_id_from_token(
     token: str,
     db: Session,
     *,
     allowed_scopes: set[str] | None = None,
-    not_found_status: int = status.HTTP_404_NOT_FOUND,
-) -> User:
+) -> int:
     try:
         payload = decode_jwt_payload(token)
     except RuntimeError as exc:
@@ -290,7 +289,21 @@ def resolve_user_from_token(
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Сессия истекла")
     if allowed_scopes and auth_session.scope not in allowed_scopes:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Сессия недействительна")
+    return user_id
 
+
+def resolve_user_from_token(
+    token: str,
+    db: Session,
+    *,
+    allowed_scopes: set[str] | None = None,
+    not_found_status: int = status.HTTP_404_NOT_FOUND,
+) -> User:
+    user_id = resolve_user_id_from_token(
+        token,
+        db,
+        allowed_scopes=allowed_scopes,
+    )
     user = db.query(User).filter(User.id == user_id).first()
     if user is None:
         raise HTTPException(status_code=not_found_status, detail="Пользователь не найден")
@@ -327,6 +340,20 @@ def get_current_user(
     token: str | None = Depends(oauth2_scheme),
     db: Session = Depends(get_db),
 ) -> User:
+    cached_user_id = getattr(request.state, "current_user_id", None)
+    if cached_user_id is not None:
+        try:
+            normalized_user_id = int(cached_user_id)
+        except (TypeError, ValueError):
+            normalized_user_id = None
+        if normalized_user_id is not None:
+            user = db.query(User).filter(User.id == normalized_user_id).first()
+            if user is None:
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Пользователь не найден")
+            if user.fired:
+                raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Пользователь уволен")
+            return user
+
     auth_token = extract_auth_token_from_request(request, token)
     if not auth_token:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Требуется авторизация")

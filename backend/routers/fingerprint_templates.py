@@ -38,11 +38,13 @@ def _ensure_token_configured() -> None:
         )
 
 
-def _ensure_token(request: Request) -> None:
+def _ensure_token(request: Request, *, required: bool = False) -> None:
     expected_token = _get_sync_token()
     if not expected_token:
         if _REQUIRE_SYNC_TOKEN:
             _ensure_token_configured()
+        if required:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
         return
     token = (request.headers.get("X-Fingerprint-Token") or "").strip()
     if not token or not secrets.compare_digest(token, expected_token):
@@ -307,7 +309,7 @@ def get_staff_info(
     staff_code: str = Query(..., min_length=1),
     db: Session = Depends(get_db),
 ) -> dict:
-    _ensure_token(request)
+    _ensure_token(request, required=True)
 
     staff_code = staff_code.strip()
     if not staff_code:

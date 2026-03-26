@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 from backend.bd.database import SessionLocal
 from backend.bd.models import Restaurant
 from backend.routers.iiko_olap_product import sync_olap_sales_full
+from backend.tasks.task_locks import try_task_lock
 from backend.utils import now_local
 
 logger = logging.getLogger(__name__)
@@ -19,6 +20,7 @@ SYNC_HOUR = int(os.getenv("IIKO_OLAP_SYNC_HOUR", "7"))
 SYNC_MINUTE = int(os.getenv("IIKO_OLAP_SYNC_MINUTE", "0"))
 SYNC_DAYS_BACK = int(os.getenv("IIKO_OLAP_SYNC_DAYS_BACK", "1"))
 SYNC_ENABLED = os.getenv("IIKO_OLAP_SYNC_ENABLED", "true").lower() in ("1", "true", "yes", "on")
+IIKO_OLAP_DAILY_SYNC_LOCK_KEY = 810002
 
 
 def _next_run(now):
@@ -76,6 +78,10 @@ async def iiko_olap_daily_sync_loop() -> None:
         target_date = now_local().date() - timedelta(days=SYNC_DAYS_BACK)
         try:
             with SessionLocal() as db:
-                _sync_for_date(db, target_date)
+                with try_task_lock(db, IIKO_OLAP_DAILY_SYNC_LOCK_KEY) as acquired:
+                    if not acquired:
+                        logger.info("Skipping OLAP daily sync: task lock is already held")
+                    else:
+                        _sync_for_date(db, target_date)
         except Exception:
             logger.exception("OLAP daily sync loop failed")

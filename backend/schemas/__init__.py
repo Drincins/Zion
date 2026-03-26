@@ -27,6 +27,27 @@ from .iiko import (
     IikoProductRowRead,
     IikoProductRead,
 )
+from .iiko_sales import (
+    SyncIikoSalesRequest,
+    SyncIikoSalesNetworkRequest,
+    ClearIikoSalesRequest,
+    UpdateIikoPaymentMethodRequest,
+    UpdateIikoNonCashTypeRequest,
+    CreateIikoNonCashTypeRequest,
+    UpsertIikoNonCashEmployeeLimitRequest,
+    UpdateIikoNonCashEmployeeLimitRequest,
+    UpsertIikoSalesLocationMappingRequest,
+    UpdateIikoSalesLocationMappingRequest,
+    UpsertIikoSalesHallTableRequest,
+    UpdateIikoSalesHallTableRequest,
+    CreateIikoSalesHallRequest,
+    UpdateIikoSalesHallRequest,
+    CreateIikoSalesHallZoneRequest,
+    UpdateIikoSalesHallZoneRequest,
+    AssignIikoSalesZoneTableItemRequest,
+    AssignIikoSalesZoneTablesRequest,
+    UpdateIikoWaiterTurnoverSettingsRequest,
+)
 from .staff import (
     StaffLoginRequest,
     StaffUserPublic,

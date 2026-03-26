@@ -538,6 +538,10 @@ class StaffEmployeesReferencePayload(BaseModel):
 class StaffEmployeesBootstrapResponse(BaseModel):
     items: List[StaffUserPublic] = Field(default_factory=list)
     references: StaffEmployeesReferencePayload = Field(default_factory=StaffEmployeesReferencePayload)
+    offset: int = 0
+    limit: int = 0
+    has_more: bool = False
+    next_offset: Optional[int] = None
 
 
 def _can_edit_user(db: Session, viewer: User, target: User) -> bool:
@@ -726,6 +730,22 @@ def _load_staff_references(db: Session, current_user: User) -> StaffEmployeesRef
     return StaffEmployeesReferencePayload.model_validate(payload)
 
 
+def _staff_employee_search_expr():
+    return func.lower(
+        func.coalesce(User.username, "")
+        + " "
+        + func.coalesce(User.first_name, "")
+        + " "
+        + func.coalesce(User.last_name, "")
+        + " "
+        + func.coalesce(User.middle_name, "")
+        + " "
+        + func.coalesce(User.staff_code, "")
+        + " "
+        + func.coalesce(User.phone_number, "")
+    )
+
+
 def _list_staff_employee_items(
     db: Session,
     current_user: User,
@@ -738,8 +758,9 @@ def _list_staff_employee_items(
     hire_date_to: Optional[date] = None,
     fire_date_from: Optional[date] = None,
     fire_date_to: Optional[date] = None,
+    offset: int = 0,
     limit: int = 1000,
-) -> List[StaffUserPublic]:
+) -> tuple[List[StaffUserPublic], bool, Optional[int]]:
     _ensure_staff_view(current_user)
     viewer_can_view_all_rates = has_permission(current_user, PermissionCode.STAFF_RATE_VIEW_ALL)
     viewer_rate_level = _role_level_for_rate(current_user)
@@ -829,16 +850,7 @@ def _list_staff_employee_items(
         query = query.filter(User.fired == False)
     if q:
         like = f"%{q.lower()}%"
-        query = query.filter(
-            or_(
-                func.lower(User.username).like(like),
-                func.lower(func.coalesce(User.first_name, "")).like(like),
-                func.lower(func.coalesce(User.last_name, "")).like(like),
-                func.lower(func.coalesce(User.middle_name, "")).like(like),
-                func.lower(func.coalesce(User.staff_code, "")).like(like),
-                func.lower(func.coalesce(User.phone_number, "")).like(like),
-            )
-        )
+        query = query.filter(_staff_employee_search_expr().like(like))
     if hire_date_from:
         query = query.filter(User.hire_date >= hire_date_from)
     if hire_date_to:
@@ -863,20 +875,25 @@ def _list_staff_employee_items(
             )
         else:
             query = query.filter(User.id == current_user.id)
-    users = (
+    users_window = (
         query.order_by(
             func.lower(User.last_name).nullslast(),
             func.lower(User.first_name).nullslast(),
             User.id.asc(),
         )
-        .limit(limit)
+        .offset(offset)
+        .limit(limit + 1)
         .all()
     )
+    has_more = len(users_window) > limit
+    users = users_window[:limit]
+    next_offset = (offset + len(users)) if has_more else None
 
-    return [
+    items = [
         _to_staff_public(u, current_user, can_see_rate_override=_can_see_rate_for_target(u))
         for u in users
     ]
+    return items, has_more, next_offset
 
 
 @router.get("", response_model=StaffEmployeeListResponse)
@@ -889,11 +906,12 @@ def list_staff_employees(
     hire_date_to: Optional[date] = Query(None),
     fire_date_from: Optional[date] = Query(None),
     fire_date_to: Optional[date] = Query(None),
+    offset: int = Query(0, ge=0),
     limit: int = Query(1000, ge=1, le=1000),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> StaffEmployeeListResponse:
-    items = _list_staff_employee_items(
+    items, has_more, next_offset = _list_staff_employee_items(
         db,
         current_user,
         q=q,
@@ -904,9 +922,16 @@ def list_staff_employees(
         hire_date_to=hire_date_to,
         fire_date_from=fire_date_from,
         fire_date_to=fire_date_to,
+        offset=offset,
         limit=limit,
     )
-    return StaffEmployeeListResponse(items=items)
+    return StaffEmployeeListResponse(
+        items=items,
+        offset=offset,
+        limit=limit,
+        has_more=has_more,
+        next_offset=next_offset,
+    )
 
 
 @router.get("/bootstrap", response_model=StaffEmployeesBootstrapResponse)
@@ -919,11 +944,12 @@ def staff_employees_bootstrap(
     hire_date_to: Optional[date] = Query(None),
     fire_date_from: Optional[date] = Query(None),
     fire_date_to: Optional[date] = Query(None),
+    offset: int = Query(0, ge=0),
     limit: int = Query(1000, ge=1, le=1000),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> StaffEmployeesBootstrapResponse:
-    items = _list_staff_employee_items(
+    items, has_more, next_offset = _list_staff_employee_items(
         db,
         current_user,
         q=q,
@@ -934,10 +960,18 @@ def staff_employees_bootstrap(
         hire_date_to=hire_date_to,
         fire_date_from=fire_date_from,
         fire_date_to=fire_date_to,
+        offset=offset,
         limit=limit,
     )
     references = _load_staff_references(db, current_user)
-    return StaffEmployeesBootstrapResponse(items=items, references=references)
+    return StaffEmployeesBootstrapResponse(
+        items=items,
+        references=references,
+        offset=offset,
+        limit=limit,
+        has_more=has_more,
+        next_offset=next_offset,
+    )
 
 
 @router.get("/timesheet/options", response_model=TimesheetOptionsResponse)

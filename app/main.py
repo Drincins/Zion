@@ -10,14 +10,12 @@ from fastapi.responses import FileResponse, JSONResponse
 
 # ---- Импорты моделей и утилит ----
 from backend.bd.database import SessionLocal
-from backend.bd.models import Permission, User
 from backend.utils import (
     extract_auth_token_from_request,
     get_expected_auth_scopes_for_request,
-    hash_password,
-    resolve_user_from_token,
+    resolve_user_id_from_token,
 )
-from backend.services.permissions import PermissionKey
+from backend.services.startup_bootstrap import run_startup_bootstrap
 from backend.routers.users import router as users_router
 from backend.routers.restaurants import router as restaurants_router
 from backend.routers.companies import router as companies_router
@@ -57,81 +55,6 @@ from backend.services.request_context import (
 
 # ---- Конфиг и создание таблиц ----
 load_dotenv()
-DEFAULT_USERNAME = os.getenv("DEFAULT_USERNAME")
-DEFAULT_PASSWORD = os.getenv("DEFAULT_PASSWORD")
-
-# ---- Админ по умолчанию ----
-def create_default_admin():
-    db = SessionLocal()
-    user = db.query(User).filter(User.username == DEFAULT_USERNAME).first()
-    if not user and DEFAULT_USERNAME and DEFAULT_PASSWORD:
-        new_user = User(
-            username=DEFAULT_USERNAME,
-            hashed_password=hash_password(DEFAULT_PASSWORD)
-        )
-        db.add(new_user)
-        db.commit()
-        print("Админ создан")
-    else:
-        print("Админ уже есть или переменные не заданы")
-    db.close()
-
-create_default_admin()
-
-
-def ensure_default_permissions():
-    db = SessionLocal()
-    try:
-        defaults = [
-            {
-                "api_router": PermissionKey.STAFF_EMPLOYEES_IIKO_SYNC,
-                "router_description": "Синхронизация сотрудников с iiko",
-                "comment": "Право на создание/обновление сотрудника в iiko из раздела сотрудников",
-                "display_name": "Синхронизация сотрудников с iiko",
-                "responsibility_zone": "Сотрудники",
-            },
-            {
-                "api_router": PermissionKey.KNOWLEDGE_BASE_VIEW,
-                "router_description": "Knowledge base: view",
-                "comment": "Read access to folders and documents in the knowledge base module.",
-                "display_name": "Knowledge base: view",
-                "responsibility_zone": "Knowledge base",
-            },
-            {
-                "api_router": PermissionKey.KNOWLEDGE_BASE_MANAGE,
-                "router_description": "Knowledge base: manage",
-                "comment": "Create, edit, move and delete folders/documents in the knowledge base module.",
-                "display_name": "Knowledge base: manage",
-                "responsibility_zone": "Knowledge base",
-            },
-            {
-                "api_router": PermissionKey.KNOWLEDGE_BASE_UPLOAD,
-                "router_description": "Knowledge base: upload files",
-                "comment": "Upload file attachments to the knowledge base module.",
-                "display_name": "Knowledge base: upload files",
-                "responsibility_zone": "Knowledge base",
-            },
-        ]
-
-        for payload in defaults:
-            existing = (
-                db.query(Permission.id)
-                .filter(Permission.api_router == payload["api_router"])
-                .first()
-            )
-            if existing:
-                continue
-            db.add(Permission(**payload))
-        db.commit()
-    except Exception:
-        db.rollback()
-        print("Не удалось добавить базовые права")
-    finally:
-        db.close()
-
-
-ensure_default_permissions()
-
 # ---- FastAPI приложение ----
 app = FastAPI()
 
@@ -177,18 +100,17 @@ def _authenticate_api_request(request) -> JSONResponse | None:
 
     db = SessionLocal()
     try:
-        user = resolve_user_from_token(
+        user_id = resolve_user_id_from_token(
             token,
             db,
             allowed_scopes=get_expected_auth_scopes_for_request(request),
-            not_found_status=status.HTTP_401_UNAUTHORIZED,
         )
     except HTTPException as exc:
         return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail})
     finally:
         db.close()
 
-    request.state.current_user_id = user.id
+    request.state.current_user_id = user_id
     return None
 
 
@@ -275,6 +197,7 @@ app.include_router(knowledge_base_router, prefix="/api")
 # ---- Статика фронта ----
 @app.on_event("startup")
 async def start_background_jobs():
+    run_startup_bootstrap()
     app.state.attendance_auto_close_task = asyncio.create_task(attendance_auto_close_loop())
     app.state.iiko_olap_daily_sync_task = asyncio.create_task(iiko_olap_daily_sync_loop())
     app.state.iiko_sales_auto_sync_task = asyncio.create_task(iiko_sales_auto_sync_loop())
