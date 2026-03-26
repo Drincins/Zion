@@ -417,7 +417,7 @@ def staff_login(
 ):
     code = (payload.staff_code or "").strip()
     if not code:
-        raise HTTPException(status_code=400, detail="staff_code is required")
+        raise HTTPException(status_code=400, detail="Требуется код сотрудника")
 
     user = (
         db.query(User)
@@ -430,7 +430,7 @@ def staff_login(
         .first()
     )
     if not user:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid staff_code")
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Неверный код сотрудника")
     if user.fired:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Пользователь уволен")
     # Требуем право на доступ в портал учёта времени.
