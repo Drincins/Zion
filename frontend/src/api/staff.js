@@ -36,6 +36,61 @@ export async function fetchEmployees(params = {}, options = {}) {
     return data;
 }
 
+export async function fetchAllEmployees(params = {}, options = {}) {
+    const requestedLimit = Number(params?.limit);
+    const pageSize = Number.isFinite(requestedLimit) && requestedLimit > 0
+        ? Math.min(requestedLimit, 1000)
+        : 250;
+    const startOffsetRaw = Number(params?.offset);
+    const startOffset = Number.isFinite(startOffsetRaw) && startOffsetRaw >= 0 ? startOffsetRaw : 0;
+    const baseParams = {
+        ...params,
+        offset: startOffset,
+        limit: pageSize,
+    };
+
+    const firstPage = await fetchEmployees(baseParams, options);
+    const items = Array.isArray(firstPage?.items) ? [...firstPage.items] : [];
+    let hasMore = Boolean(firstPage?.has_more);
+    let nextOffsetRaw = Number(firstPage?.next_offset);
+    let nextOffset = Number.isFinite(nextOffsetRaw) && nextOffsetRaw >= 0
+        ? nextOffsetRaw
+        : startOffset + items.length;
+
+    while (hasMore) {
+        const pageData = await fetchEmployees(
+            {
+                ...baseParams,
+                offset: nextOffset,
+            },
+            options,
+        );
+        const pageItems = Array.isArray(pageData?.items) ? pageData.items : [];
+        if (!pageItems.length) {
+            break;
+        }
+        items.push(...pageItems);
+
+        hasMore = Boolean(pageData?.has_more);
+        nextOffsetRaw = Number(pageData?.next_offset);
+        const fallbackOffset = nextOffset + pageItems.length;
+        nextOffset = Number.isFinite(nextOffsetRaw) && nextOffsetRaw >= 0
+            ? nextOffsetRaw
+            : fallbackOffset;
+        if (nextOffset <= fallbackOffset - pageItems.length) {
+            break;
+        }
+    }
+
+    return {
+        items,
+        offset: startOffset,
+        limit: pageSize,
+        has_more: false,
+        next_offset: null,
+    };
+}
+
 export async function fetchEmployeesBootstrap(params = {}, options = {}) {
     const { data } = await api.get('/api/staff/employees/bootstrap', {
         params,

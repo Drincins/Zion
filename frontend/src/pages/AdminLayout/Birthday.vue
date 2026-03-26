@@ -92,7 +92,7 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { fetchEmployees } from '@/api';
+import { fetchAllEmployees } from '@/api';
 import EmployeesPage from '@/pages/AdminLayout/Employees/EmployeesPage.vue';
 import Table from '@/components/UI-components/Table.vue';
 
@@ -170,7 +170,7 @@ async function loadEmployees() {
     isLoading.value = true;
     loadError.value = '';
     try {
-        const { items } = await fetchEmployees({ limit: 500 });
+        const { items } = await fetchAllEmployees({ limit: 250 });
         employees.value = items ?? [];
     } catch (error) {
         console.error(error);

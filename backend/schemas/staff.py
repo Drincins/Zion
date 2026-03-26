@@ -8,6 +8,8 @@ from pydantic import BaseModel, ConfigDict, Field
 
 PHONE_PATTERN = r"^\+7\d{10}$"
 
+from backend.schemas.permissions import PositionHierarchyNode
+from backend.schemas.core import RestaurantRead, CompanyRead, RoleRead
 from backend.schemas.medical import MedicalCheckRecordPublic
 from backend.schemas.cis_documents import CisDocumentRecordPublic
 
@@ -79,6 +81,22 @@ class StaffLoginResponse(BaseModel):
 
 class StaffEmployeeListResponse(BaseModel):
     items: List[StaffUserPublic]
+    offset: int = 0
+    limit: int = 0
+    has_more: bool = False
+    next_offset: Optional[int] = None
+
+
+class StaffEmployeesReferencePayload(BaseModel):
+    restaurants: List[RestaurantRead] = Field(default_factory=list)
+    companies: List[CompanyRead] = Field(default_factory=list)
+    roles: List[RoleRead] = Field(default_factory=list)
+    positions: List[PositionHierarchyNode] = Field(default_factory=list)
+
+
+class StaffEmployeesBootstrapResponse(BaseModel):
+    items: List[StaffUserPublic] = Field(default_factory=list)
+    references: StaffEmployeesReferencePayload = Field(default_factory=StaffEmployeesReferencePayload)
     offset: int = 0
     limit: int = 0
     has_more: bool = False
