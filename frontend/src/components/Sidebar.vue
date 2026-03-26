@@ -117,6 +117,11 @@ const resolveItemPath = (item) => {
 };
 
 const routeMatchesItemPath = (item) => {
+    const activePrefixes = Array.isArray(item?.activePrefixes) ? item.activePrefixes : [];
+    const matchesActivePrefix = activePrefixes.some((prefix) => route.path === prefix || route.path.startsWith(`${prefix}/`));
+    if (matchesActivePrefix) {
+        return true;
+    }
     const itemPath = resolveItemPath(item);
     if (!itemPath) {
         return false;

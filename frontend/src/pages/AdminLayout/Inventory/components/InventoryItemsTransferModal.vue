@@ -1,0 +1,50 @@
+<template>
+    <Modal @close="closeTransferModal">
+        <template #header>Перевести товар</template>
+        <template #default>
+            <div class="inventory-items__modal-form">
+                <Input :model-value="transferForm.itemCode" label="Товар" disabled />
+                <Select
+                    v-model="transferForm.sourceOptionId"
+                    label="Откуда перевести"
+                    :options="sourceTransferLocationOptions"
+                    placeholder="Выберите источник"
+                    searchable
+                />
+                <Select
+                    v-model="transferForm.targetOptionId"
+                    label="Куда перевести"
+                    :options="targetTransferLocationOptions"
+                    placeholder="Выберите ресторан или виртуальный склад"
+                    searchable
+                />
+                <Input v-model="transferForm.quantity" label="Количество" type="number" min="1" />
+            </div>
+        </template>
+        <template #footer>
+            <Button color="ghost" :disabled="saving" @click="closeTransferModal">Отмена</Button>
+            <Button v-if="canCreateMovement" color="primary" :loading="saving" @click="submitTransfer">Перевести</Button>
+        </template>
+    </Modal>
+</template>
+
+<script setup>
+import Button from '@/components/UI-components/Button.vue';
+import Input from '@/components/UI-components/Input.vue';
+import Modal from '@/components/UI-components/Modal.vue';
+import Select from '@/components/UI-components/Select.vue';
+
+defineProps({
+    canCreateMovement: { type: Boolean, required: true },
+    closeTransferModal: { type: Function, required: true },
+    saving: { type: Boolean, required: true },
+    sourceTransferLocationOptions: { type: Array, required: true },
+    submitTransfer: { type: Function, required: true },
+    targetTransferLocationOptions: { type: Array, required: true },
+    transferForm: { type: Object, required: true },
+});
+</script>
+
+<style scoped lang="scss">
+@use '@/assets/styles/pages/inventory-items' as *;
+</style>
