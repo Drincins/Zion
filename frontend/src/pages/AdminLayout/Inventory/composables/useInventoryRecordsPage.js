@@ -4,7 +4,7 @@ import { useToast } from 'vue-toastification';
 import { useInventoryRecordsFilters } from './useInventoryRecordsFilters';
 import { useInventoryRecordsFormatting } from './useInventoryRecordsFormatting';
 import {
-    fetchEmployees,
+    fetchAllEmployees,
     fetchInventoryCategories,
     fetchInventoryDepartments,
     fetchInventoryGroups,
@@ -75,14 +75,14 @@ export function useInventoryRecordsPage() {
             fetchInventoryCategories(),
             fetchInventoryDepartments(),
             fetchInventoryMovementActions(),
-            fetchEmployees({ include_fired: true, limit: 1000 }),
+            fetchAllEmployees({ include_fired: true }),
         ]);
         groups.value = Array.isArray(groupData) ? groupData : [];
         items.value = Array.isArray(itemsData) ? itemsData : [];
         categories.value = Array.isArray(categoriesData) ? categoriesData : [];
         departments.value = Array.isArray(departmentData) ? departmentData : [];
         actions.value = Array.isArray(actionData) ? actionData : [];
-        staff.value = Array.isArray(staffData?.items) ? staffData.items : [];
+        staff.value = Array.isArray(staffData?.items) ? staffData.items : Array.isArray(staffData) ? staffData : [];
     }
 
     async function loadMovements() {

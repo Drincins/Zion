@@ -369,7 +369,7 @@
                             </thead>
                             <tbody>
                                 <tr v-for="row in payoutModalRows" :key="row.key">
-                                    <td>{{ row.full_name || row.staff_code || row.user_id }}</td>
+                                    <td>{{ payoutEmployeeLabel(row) }}</td>
                                     <td>{{ positionLabel(row.position_id) }}</td>
                                     <td>{{ formatMoney(row.base_amount) }}</td>
                                     <td>{{ formatHours(row.calc_snapshot?.hours_sum) }}</td>
@@ -458,6 +458,7 @@ import {
     deleteKpiPayoutBatch,
     deleteKpiPayoutItem,
     fetchAccessPositions,
+    fetchAllEmployees,
     fetchKpiPayoutBatchesBulk,
     fetchKpiPayoutBatches,
     fetchKpiMetrics,
@@ -481,6 +482,7 @@ const userStore = useUserStore();
 const metrics = ref([]);
 const restaurants = ref([]);
 const positions = ref([]);
+const employeeDirectory = ref([]);
 const batches = ref([]);
 const adjustmentTypes = ref([]);
 const KPI_TYPE_NAME_HINTS = ['kpi бонус', 'kpi штраф', 'kpi', 'премия', 'штраф', 'удерж'];
@@ -549,6 +551,13 @@ const restaurantMap = computed(() =>
 );
 const positionMap = computed(() =>
     new Map(positions.value.map((item) => [Number(item.id), item.name])),
+);
+const employeeDirectoryMap = computed(() =>
+    new Map(
+        (employeeDirectory.value || [])
+            .map((employee) => [Number(employee?.id), employee])
+            .filter(([id]) => Number.isFinite(id) && id > 0),
+    ),
 );
 
 const metricOptions = computed(() =>
@@ -720,6 +729,32 @@ function restaurantLabel(id) {
 function positionLabel(id) {
     if (!id) return 'Должность не указана';
     return positionMap.value.get(Number(id)) || `Должность ${id}`;
+}
+
+function formatEmployeeName(employee) {
+    const parts = [employee?.last_name, employee?.first_name, employee?.middle_name]
+        .map((part) => (part || '').trim())
+        .filter(Boolean);
+    if (parts.length) {
+        return parts.join(' ');
+    }
+    return String(employee?.username || employee?.staff_code || employee?.id || '').trim();
+}
+
+function payoutEmployeeLabel(row) {
+    const directName = String(row?.full_name || '').trim();
+    if (directName) {
+        return directName;
+    }
+    const employee = employeeDirectoryMap.value.get(Number(row?.user_id));
+    if (employee) {
+        return formatEmployeeName(employee);
+    }
+    const staffCode = String(row?.staff_code || '').trim();
+    if (staffCode) {
+        return staffCode;
+    }
+    return row?.user_id ? `ID ${row.user_id}` : '—';
 }
 
 function formatDate(value) {
@@ -898,11 +933,12 @@ function resolveApiErrorMessage(error, fallback) {
 
 async function loadOptions() {
     try {
-        const [metricsData, restaurantsData, positionsData, typesData] = await Promise.all([
+        const [metricsData, restaurantsData, positionsData, typesData, employeesData] = await Promise.all([
             fetchKpiMetrics(),
             fetchRestaurants(),
             fetchAccessPositions(),
             fetchPayrollAdjustmentTypes(),
+            fetchAllEmployees({ include_fired: true, limit: 250 }),
         ]);
         metrics.value = Array.isArray(metricsData?.items) ? metricsData.items : metricsData || [];
         restaurants.value = Array.isArray(restaurantsData?.items)
@@ -910,6 +946,11 @@ async function loadOptions() {
             : restaurantsData || [];
         positions.value = Array.isArray(positionsData) ? positionsData : positionsData?.items || [];
         adjustmentTypes.value = Array.isArray(typesData?.items) ? typesData.items : typesData || [];
+        employeeDirectory.value = Array.isArray(employeesData?.items)
+            ? employeesData.items
+            : Array.isArray(employeesData)
+                ? employeesData
+                : [];
     } catch (error) {
         toast.error('Не удалось загрузить справочники KPI');
         console.error(error);
@@ -1138,8 +1179,8 @@ function buildPayoutModalRows(batchesList) {
     });
 
     rows.sort((a, b) => {
-        const nameA = String(a.full_name || a.staff_code || a.user_id || '').toLowerCase();
-        const nameB = String(b.full_name || b.staff_code || b.user_id || '').toLowerCase();
+        const nameA = String(payoutEmployeeLabel(a) || '').toLowerCase();
+        const nameB = String(payoutEmployeeLabel(b) || '').toLowerCase();
         return nameA.localeCompare(nameB, 'ru');
     });
 

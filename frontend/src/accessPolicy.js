@@ -78,6 +78,7 @@ export const ACCESS_CONTROL_VIEW_PERMISSIONS = [
     'access_control.manage'
 ];
 export const TRAININGS_VIEW_PERMISSIONS = ['training.view', 'training.manage'];
+export const TRAININGS_MANAGE_PERMISSIONS = ['training.manage'];
 export const PAYROLL_TYPES_VIEW_PERMISSIONS = ['payroll.view', PAYROLL_MANAGE_PERMISSION];
 export const SETTINGS_SUBDIVISIONS_VIEW_PERMISSIONS = ['positions.manage'];
 

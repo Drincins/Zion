@@ -2,6 +2,7 @@
     <div class="employees-page__modal-section">
         <div class="employees-page__trainings-toolbar">
             <Button
+                v-if="canManageTrainings"
                 color="primary"
                 :loading="creatingTrainingRecord"
                 :disabled="trainingTypesLoading || !trainingTypeOptions.length"
@@ -107,6 +108,7 @@
                             </template>
                             <template v-else>
                                 <button
+                                    v-if="canManageTrainings"
                                     type="button"
                                     class="employees-page__icon-button employees-page__icon-button--edit"
                                     title="Редактировать"
@@ -115,6 +117,7 @@
                                     <BaseIcon name="Edit" />
                                 </button>
                                 <button
+                                    v-if="canManageTrainings"
                                     type="button"
                                     class="employees-page__icon-button"
                                     :disabled="deletingTrainingRecordId === training.id"
@@ -145,6 +148,7 @@ import Select from '@/components/UI-components/Select.vue';
 import Table from '@/components/UI-components/Table.vue';
 
 defineProps({
+    canManageTrainings: { type: Boolean, default: false },
     creatingTrainingRecord: { type: Boolean, default: false },
     trainingTypesLoading: { type: Boolean, default: false },
     trainingTypeOptions: { type: Array, default: () => [] },

@@ -607,6 +607,7 @@
 <script setup>
     import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue';
     import {
+        fetchAllEmployees,
         fetchKitchenRestaurants,
         fetchKitchenSalesItems,
         fetchKitchenWaiterSalesOptions,
@@ -702,6 +703,7 @@
     const fieldSettings = ref(loadSalesReportFieldSettings());
 
     const restaurants = ref([]);
+    const employeeDirectory = ref([]);
     const reportRows = ref([]);
     const optionsPayload = ref({
         waiters: [],
@@ -809,6 +811,13 @@
             label: restaurant.name,
         })),
     ]);
+    const employeeDirectoryMap = computed(() =>
+        new Map(
+            (employeeDirectory.value || [])
+                .map((employee) => [Number(employee?.id), employee])
+                .filter(([id]) => Number.isFinite(id) && id > 0),
+        ),
+    );
 
     const waiterOptions = computed(() => {
         const options = [{ value: '', label: 'Все сотрудники' }];
@@ -834,7 +843,8 @@
     const waiterFilterOptions = computed(() => {
         const values = [];
         for (const waiter of optionsPayload.value.waiters || []) {
-            const name = String(waiter?.name || '').trim();
+            const option = waiterOptionFromPayload(waiter);
+            const name = String(option?.label || waiter?.name || '').trim();
             if (name) {
                 values.push(name);
             }
@@ -1113,7 +1123,9 @@
             return null;
         }
 
-        const name = String(waiter.name || '').trim() || 'Сотрудник';
+        const matchedEmployee = employeeDirectoryMap.value.get(Number(waiter?.user_id));
+        const resolvedName = String(waiter?.name || '').trim() || formatEmployeeName(matchedEmployee);
+        const name = resolvedName || 'Сотрудник';
         const hasMatch = waiter.user_id !== null && waiter.user_id !== undefined;
         const label = hasMatch ? name : `${name} (без сопоставления)`;
         if (waiter.user_id !== null && waiter.user_id !== undefined) {
@@ -1138,6 +1150,19 @@
             };
         }
         return null;
+    }
+
+    function formatEmployeeName(employee) {
+        if (!employee) {
+            return '';
+        }
+        const parts = [employee?.last_name, employee?.first_name, employee?.middle_name]
+            .map((part) => (part || '').trim())
+            .filter(Boolean);
+        if (parts.length) {
+            return parts.join(' ');
+        }
+        return String(employee?.username || employee?.staff_code || employee?.id || '').trim();
     }
 
     function startRuleComposer(mode) {
@@ -1562,6 +1587,19 @@
         restaurants.value = Array.isArray(data) ? data : [];
     }
 
+    async function loadEmployeeDirectory() {
+        try {
+            const data = await fetchAllEmployees({ include_fired: true, limit: 250 });
+            employeeDirectory.value = Array.isArray(data?.items)
+                ? data.items
+                : Array.isArray(data)
+                    ? data
+                    : [];
+        } catch (error) {
+            console.warn('Не удалось загрузить справочник сотрудников для отчета продаж', error);
+        }
+    }
+
     async function loadOptions() {
         if (!canViewSalesReport.value) {
             return;
@@ -1879,7 +1917,7 @@
             return;
         }
         try {
-            await loadRestaurants();
+            await Promise.all([loadRestaurants(), loadEmployeeDirectory()]);
         } catch (error) {
             toast.error(
                 `Ошибка загрузки ресторанов: ${error.response?.data?.detail || error.message}`,

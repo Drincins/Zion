@@ -783,7 +783,7 @@ import {
     deleteChecklist,
     fetchChecklists,
     fetchAccessPositions,
-    fetchEmployees,
+    fetchAllEmployees,
     updateChecklist,
     fetchChecklistReportSummary,
     fetchChecklistReportMetrics,
@@ -1674,7 +1674,7 @@ async function loadAll() {
             fetchAccessPositions(),
             fetchRestaurants(),
             fetchRestaurantSubdivisions(),
-            fetchEmployees({ include_fired: true, limit: 1000 }),
+            fetchAllEmployees({ include_fired: true }),
         ]);
         const [checklistsData, positionsData, restaurantsData, subdivisionsData, employeesData] = results.map(
             (res) => (res.status === 'fulfilled' ? res.value : []),

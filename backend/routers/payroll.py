@@ -33,6 +33,7 @@ from backend.schemas import (
     PayrollAdjustmentBulkCreate,
     PayrollAdjustmentBulkResponse,
     PayrollAdjustmentBulkResultItem,
+    PayrollAdjustmentBulkStatusItem,
     PayrollAdjustmentListResponse,
     PayrollAdjustmentPublic,
     PayrollAdjustmentTypeCreate,
@@ -870,27 +871,72 @@ def create_adjustments_bulk(
 
     skipped: list[PayrollAdjustmentBulkResultItem] = []
     errors: list[PayrollAdjustmentBulkResultItem] = []
+    results: list[PayrollAdjustmentBulkStatusItem] = []
     to_create: list[PayrollAdjustment] = []
 
     for row in payload.rows:
         staff_code = (row.staff_code or "").strip()
         if not staff_code:
             errors.append(PayrollAdjustmentBulkResultItem(staff_code="", reason="Пустой табельный код"))
+            results.append(PayrollAdjustmentBulkStatusItem(staff_code="", status="error", reason="Пустой табельный код"))
             continue
 
         user = users_by_staff.get(staff_code)
         if not user:
             errors.append(PayrollAdjustmentBulkResultItem(staff_code=staff_code, reason="Сотрудник не найден"))
+            results.append(
+                PayrollAdjustmentBulkStatusItem(
+                    staff_code=staff_code,
+                    status="error",
+                    reason="Сотрудник не найден",
+                )
+            )
             continue
 
         try:
             _ensure_adjustment_restaurant_access(db, user, payload.restaurant_id, current_user)
         except HTTPException as exc:
-            errors.append(PayrollAdjustmentBulkResultItem(staff_code=staff_code, user_id=user.id, reason=f"Нет доступа: {exc.detail}"))
+            full_name = _full_name(user)
+            reason = f"Нет доступа: {exc.detail}"
+            errors.append(
+                PayrollAdjustmentBulkResultItem(
+                    staff_code=staff_code,
+                    user_id=user.id,
+                    full_name=full_name,
+                    reason=reason,
+                )
+            )
+            results.append(
+                PayrollAdjustmentBulkStatusItem(
+                    staff_code=staff_code,
+                    user_id=user.id,
+                    full_name=full_name,
+                    status="error",
+                    reason=reason,
+                )
+            )
             continue
 
         if user.id in existing_map:
-            skipped.append(PayrollAdjustmentBulkResultItem(staff_code=staff_code, user_id=user.id, reason="Уже существует запись на эту дату/тип/ресторан"))
+            full_name = _full_name(user)
+            reason = "Уже существует запись на эту дату/тип/ресторан"
+            skipped.append(
+                PayrollAdjustmentBulkResultItem(
+                    staff_code=staff_code,
+                    user_id=user.id,
+                    full_name=full_name,
+                    reason=reason,
+                )
+            )
+            results.append(
+                PayrollAdjustmentBulkStatusItem(
+                    staff_code=staff_code,
+                    user_id=user.id,
+                    full_name=full_name,
+                    status="skipped",
+                    reason=reason,
+                )
+            )
             continue
         amount = _normalize_amount(row.amount, adjustment_type.kind)
         to_create.append(
@@ -902,6 +948,14 @@ def create_adjustments_bulk(
                 date=payload.date,
                 responsible_id=current_user.id,
                 comment=payload.comment,
+            )
+        )
+        results.append(
+            PayrollAdjustmentBulkStatusItem(
+                staff_code=staff_code,
+                user_id=user.id,
+                full_name=_full_name(user),
+                status="created",
             )
         )
 
@@ -917,6 +971,7 @@ def create_adjustments_bulk(
         created_count=created_count,
         skipped=skipped,
         errors=errors,
+        results=results,
     )
 
 

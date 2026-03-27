@@ -11,7 +11,7 @@ from uuid import uuid4
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile, status
 from sqlalchemy import func
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from backend.bd.database import get_db
 from backend.bd.models import (
@@ -113,6 +113,7 @@ def _invoice_schema(invoice: AccountingInvoice) -> AccountingInvoiceRead:
             file_key=doc.file_key,
             file_url=_resolve_url(doc.file_key),
             uploaded_by_user_id=doc.uploaded_by_user_id,
+            uploaded_by_name=getattr(doc, "uploaded_by_name", None),
             uploaded_at=doc.uploaded_at,
             original_filename=doc.original_filename,
             content_type=doc.content_type,
@@ -124,6 +125,7 @@ def _invoice_schema(invoice: AccountingInvoice) -> AccountingInvoiceRead:
         created_at=invoice.created_at,
         updated_at=invoice.updated_at,
         created_by_user_id=invoice.created_by_user_id,
+        created_by_name=getattr(invoice, "created_by_name", None),
         from_restaurant_id=invoice.from_restaurant_id,
         for_restaurant_id=invoice.for_restaurant_id,
         amount=invoice.amount,
@@ -175,7 +177,10 @@ def list_invoices(
 ) -> AccountingInvoiceListResponse:
     ensure_permissions(current_user, PermissionKey.ACCOUNTING_INVOICES_VIEW)
 
-    query = db.query(AccountingInvoice)
+    query = db.query(AccountingInvoice).options(
+        joinedload(AccountingInvoice.created_by),
+        joinedload(AccountingInvoice.closing_documents).joinedload(AccountingInvoiceClosingDocument.uploaded_by),
+    )
     if status_filter:
         query = query.filter(AccountingInvoice.status == status_filter)
     if from_restaurant_id:
@@ -477,6 +482,7 @@ def list_invoice_changes(
     ensure_permissions(current_user, PermissionKey.ACCOUNTING_INVOICES_VIEW)
     changes = (
         db.query(AccountingInvoiceChange)
+        .options(joinedload(AccountingInvoiceChange.changed_by))
         .filter(AccountingInvoiceChange.invoice_id == invoice_id)
         .order_by(AccountingInvoiceChange.changed_at.desc())
         .all()
@@ -493,6 +499,7 @@ def list_invoice_events(
     ensure_permissions(current_user, PermissionKey.ACCOUNTING_INVOICES_VIEW)
     events = (
         db.query(AccountingInvoiceEvent)
+        .options(joinedload(AccountingInvoiceEvent.actor))
         .filter(AccountingInvoiceEvent.invoice_id == invoice_id)
         .order_by(AccountingInvoiceEvent.created_at.desc())
         .all()

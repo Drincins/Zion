@@ -26,10 +26,13 @@
                     :options="positionOptions"
                     placeholder="Все должности"
                 />
-                <Input
+                <Select
                     v-model="resultForm.employeeId"
-                    label="Сотрудник (ID)"
+                    label="Сотрудник"
+                    :options="employeeOptions"
                     placeholder="Опционально"
+                    searchable
+                    search-placeholder="Введите ФИО"
                 />
                 <div class="kpi-panel__field">
                     <label class="kpi-panel__label">Период от</label>
@@ -97,6 +100,7 @@
                     <div class="kpi-card__meta">
                         <span>{{ restaurantLabel(result.restaurant_id) }}</span>
                         <span>{{ positionLabel(result.position_id) }}</span>
+                        <span v-if="result.employee_id">{{ employeeLabel(result.employee_id) }}</span>
                         <span>{{ formatDateRange(result.period_start, result.period_end) }}</span>
                         <span>Факт: {{ formatNumber(result.fact_value) }}</span>
                     </div>
@@ -124,6 +128,7 @@ import {
     createKpiResult,
     deleteKpiResult,
     fetchAccessPositions,
+    fetchAllEmployees,
     fetchKpiMetrics,
     fetchKpiResults,
     fetchRestaurants,
@@ -146,6 +151,7 @@ const resultEditingId = ref(null);
 const metrics = ref([]);
 const restaurants = ref([]);
 const positions = ref([]);
+const employeeDirectory = ref([]);
 
 const statusOptions = [
     { value: 'draft', label: 'Черновик' },
@@ -194,6 +200,12 @@ const positionOptions = computed(() => [
     { value: null, label: 'Все должности' },
     ...positions.value.map((pos) => ({ value: pos.id, label: pos.name })),
 ]);
+const employeeOptions = computed(() =>
+    employeeDirectory.value.map((employee) => ({
+        value: employee.id,
+        label: formatFullName(employee),
+    })),
+);
 
 function metricName(metric) {
     return metric?.name || `Метрика ${metric?.id || ''}`.trim();
@@ -207,6 +219,17 @@ function restaurantLabel(id) {
 function positionLabel(id) {
     const pos = positions.value.find((item) => Number(item.id) === Number(id));
     return pos?.name || (id ? `Должность ${id}` : 'Все должности');
+}
+
+function formatFullName(employee) {
+    if (!employee) return '—';
+    const parts = [employee.last_name, employee.first_name, employee.middle_name].filter(Boolean);
+    return parts.length ? parts.join(' ') : employee.username || `ID ${employee.id}`;
+}
+
+function employeeLabel(id) {
+    const employee = employeeDirectory.value.find((item) => Number(item.id) === Number(id));
+    return employee ? formatFullName(employee) : `ID ${id}`;
 }
 
 function formatDateRange(start, end) {
@@ -230,16 +253,18 @@ function statusLabel(status) {
 
 async function loadOptions() {
     try {
-        const [metricsData, restaurantsData, positionsData] = await Promise.all([
+        const [metricsData, restaurantsData, positionsData, employeesData] = await Promise.all([
             fetchKpiMetrics(),
             fetchRestaurants(),
             fetchAccessPositions(),
+            fetchAllEmployees({ include_fired: true, limit: 250 }),
         ]);
         metrics.value = Array.isArray(metricsData?.items) ? metricsData.items : metricsData || [];
         restaurants.value = Array.isArray(restaurantsData?.items)
             ? restaurantsData.items
             : restaurantsData || [];
         positions.value = Array.isArray(positionsData) ? positionsData : positionsData?.items || [];
+        employeeDirectory.value = Array.isArray(employeesData?.items) ? employeesData.items : employeesData || [];
     } catch (error) {
         toast.error('Не удалось загрузить справочники');
         console.error(error);

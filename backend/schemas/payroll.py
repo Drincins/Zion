@@ -122,12 +122,14 @@ class PayrollAdjustmentBulkCreate(BaseModel):
 class PayrollAdjustmentBulkResultItem(BaseModel):
     staff_code: str
     user_id: Optional[int] = None
+    full_name: Optional[str] = None
     reason: str
 
 
 class PayrollAdjustmentBulkStatusItem(BaseModel):
     staff_code: str
     user_id: Optional[int] = None
+    full_name: Optional[str] = None
     status: Literal["created", "skipped", "error"]
     reason: Optional[str] = None
 

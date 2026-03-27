@@ -3181,11 +3181,9 @@ watch(
 watch(
     () => route.query.employeeId,
     (queryEmployeeId) => {
-        if (!showEmployeeCardOverlay.value) return;
-        if (!resolveEmployeeIdFromQuery(queryEmployeeId)) {
-            showEmployeeCardOverlay.value = false;
-        }
+        showEmployeeCardOverlay.value = Boolean(resolveEmployeeIdFromQuery(queryEmployeeId));
     },
+    { immediate: true },
 );
 
 watch(
@@ -3251,7 +3249,7 @@ async function handlePost() {
             staffCode: String(row?.staff_code || '').trim(),
             status: String(row?.status || ''),
             reason: row?.reason || '',
-            fullName: '',
+            fullName: String(row?.full_name || '').trim(),
         }));
         if (!rows.length) {
             rows = [
@@ -3259,13 +3257,13 @@ async function handlePost() {
                     staffCode: String(row?.staff_code || '').trim(),
                     status: 'error',
                     reason: row?.reason || '',
-                    fullName: '',
+                    fullName: String(row?.full_name || '').trim(),
                 })),
                 ...skipped.map((row) => ({
                     staffCode: String(row?.staff_code || '').trim(),
                     status: 'skipped',
                     reason: row?.reason || '',
-                    fullName: '',
+                    fullName: String(row?.full_name || '').trim(),
                 })),
             ];
         }

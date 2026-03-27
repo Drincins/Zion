@@ -7,7 +7,10 @@
                     <h1 class="employees-page__title">Сотрудники</h1>
                 </div>
                 <div class="employees-page__header-actions">
-                    <div v-if="canDownloadEmployeesList || canBulkPayrollAdjust || canExportTimesheet" class="employees-page__toolbar">
+                    <div
+                        v-if="canDownloadEmployeesList || canBulkPayrollAdjust || canExportPayroll || canExportTimesheet"
+                        class="employees-page__toolbar"
+                    >
                         <Button
                             v-if="canDownloadEmployeesList"
                             color="secondary"
@@ -25,6 +28,9 @@
                             @click="openBulkAdjustModal"
                         >
                             Массовое начисление/удержание
+                        </Button>
+                        <Button v-if="canExportPayroll" color="secondary" size="sm" @click="openPayrollExportModal">
+                            Ведомость
                         </Button>
                         <Button v-if="canExportTimesheet" color="secondary" size="sm" @click="openTimesheetExportModal">
                             Табель смен
@@ -191,6 +197,20 @@
                 @update:sort-by="handleSortByChange"
                 @update:sort-direction="handleSortDirectionChange"
             />
+            <div v-if="employeesHasMore || isLoadingMoreEmployees" class="employees-page__table-actions">
+                <p class="employees-page__table-meta">
+                    Показано {{ sortedEmployees.length }} сотрудников
+                </p>
+                <Button
+                    color="secondary"
+                    size="sm"
+                    :loading="isLoadingMoreEmployees"
+                    :disabled="isLoading || isLoadingMoreEmployees"
+                    @click="loadMoreEmployees"
+                >
+                    Показать ещё
+                </Button>
+            </div>
             </div>
 
             <EmployeeModal
@@ -209,7 +229,9 @@
                 :employee-card="employeeCard"
                 :employee-change-events="employeeChangeEvents"
                 :employee-change-events-loading="employeeChangeEventsLoading"
+                :employee-change-events-loading-more="employeeChangeEventsLoadingMore"
                 :employee-change-events-error="employeeChangeEventsError"
+                :employee-change-events-has-more="employeeChangeEventsHasMore"
                 :can-view-employee-changes="canViewEmployeeChanges"
                 :can-restore-employees="canRestoreEmployees"
                 :format-full-name="formatFullName"
@@ -217,6 +239,8 @@
                 :format-amount="formatAmount"
                 :format-date="formatDate"
                 :format-responsible="formatResponsible"
+                :can-view-trainings="canViewTrainings"
+                :can-manage-trainings="canManageTrainings"
                 :can-manage-user-permissions="canManageUserPermissions"
                 :user-permission-catalog="userPermissionCatalogRows"
                 :user-permissions="userPermissions"
@@ -323,6 +347,7 @@
                 @upload-employment-attachment="handleUploadEmploymentAttachment"
                 @upload-photo="handleUploadEmployeePhoto"
                 @toggle-user-permission="handleToggleUserPermission"
+                @load-more-employee-change-events="loadMoreEmployeeChangeEvents"
                 @update:active-tab="handleActiveTabChange"
                 @update:attendance-date-from="handleAttendanceDateFromChange"
                 @update:attendance-date-to="handleAttendanceDateToChange"
@@ -482,11 +507,11 @@
             />
 
             <Modal
-                v-if="isPayrollExportModalOpen"
+                v-if="isPayrollExportModalOpen && canExportPayroll"
                 class="employees-page__export-modal"
                 @close="closePayrollExportModal"
             >
-                <template #header>Выгрузка табеля</template>
+                <template #header>Выгрузка ведомости</template>
                 <template #default>
                     <form class="employees-page__export-form" @submit.prevent>
                         <DateInput
@@ -1267,7 +1292,7 @@
 </template>
 
 <script setup>
-import { computed, onBeforeUnmount, reactive, ref, watch, nextTick } from 'vue';
+import { computed, defineAsyncComponent, onBeforeUnmount, reactive, ref, watch, nextTick } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useToast } from 'vue-toastification';
 import {
@@ -1309,16 +1334,17 @@ import Modal from '@/components/UI-components/Modal.vue';
 import Select from '@/components/UI-components/Select.vue';
 import Checkbox from '@/components/UI-components/Checkbox.vue';
 import Divider from '@/components/UI-components/Divider.vue';
-import AttendanceEditModal from './components/AttendanceEditModal.vue';
-import EmployeeCreateModal from './components/EmployeeCreateModal.vue';
-import EmployeeEditModal from './components/EmployeeEditModal.vue';
-import EmployeeModal from './components/EmployeeModal.vue';
 import EmployeesTable from './components/EmployeesTable.vue';
-import PayrollAdjustmentModal from './components/PayrollAdjustmentModal.vue';
-import TrainingAssignmentModal from './components/TrainingAssignmentModal.vue';
 import { getEmployeeColumns } from './employeeColumns';
 import { formatDateInputValue, formatDateValue, formatNumberValue, parseDate } from '@/utils/format';
 import { formatPhoneForInput, normalizePhoneForApi, sanitizePhoneInput } from '@/utils/phone';
+
+const AttendanceEditModal = defineAsyncComponent(() => import('./components/AttendanceEditModal.vue'));
+const EmployeeCreateModal = defineAsyncComponent(() => import('./components/EmployeeCreateModal.vue'));
+const EmployeeEditModal = defineAsyncComponent(() => import('./components/EmployeeEditModal.vue'));
+const EmployeeModal = defineAsyncComponent(() => import('./components/EmployeeModal.vue'));
+const PayrollAdjustmentModal = defineAsyncComponent(() => import('./components/PayrollAdjustmentModal.vue'));
+const TrainingAssignmentModal = defineAsyncComponent(() => import('./components/TrainingAssignmentModal.vue'));
 
 const PERMISSION_CODE_GROUP_FALLBACKS = [
     { pattern: /^system(\.|$)/, label: 'Система' },
@@ -1371,8 +1397,11 @@ const {
     canLoadCompanies,
     canLoadPositions,
     canBulkPayrollAdjust,
+    canExportPayroll,
     canExportTimesheet,
     canDownloadEmployeesList,
+    canViewTrainings,
+    canManageTrainings,
     canViewDocuments,
     canViewMedicalChecks,
     canViewCisDocuments,
@@ -1418,13 +1447,32 @@ const {
 });
 
 const employees = ref([]);
+const employeesHasMore = ref(false);
+const employeesNextOffset = ref(0);
 const isLoading = ref(false);
+const isLoadingMoreEmployees = ref(false);
 let employeesLoadCounter = 0;
 let employeesLoadPromise = null;
 let employeesLoadKey = '';
 let employeesLoadAbortController = null;
 const EMPLOYEES_BOOTSTRAP_DEDUP_MS = 5000;
+const EMPLOYEES_INITIAL_PAGE_SIZE = 100;
 const EMPLOYEES_PAGE_SIZE = 250;
+const SERVER_SORTABLE_EMPLOYEE_FIELDS = new Set([
+    'staff_code',
+    'full_name',
+    'phone_number',
+    'company_name',
+    'position_name',
+    'role_name',
+    'iiko_id',
+    'gender',
+    'hire_date',
+    'fire_date',
+    'birth_date',
+    'is_cis_employee',
+    'status',
+]);
 let employeesLastBootstrapKey = '';
 let employeesLastBootstrapAt = 0;
 const EMPLOYEE_TAB_AUTOLOAD_DEDUP_MS = 1500;
@@ -1440,7 +1488,10 @@ const uploadingPhoto = ref(false);
 const activeModalTab = ref('info');
 const employeeChangeEvents = ref([]);
 const employeeChangeEventsLoading = ref(false);
+const employeeChangeEventsLoadingMore = ref(false);
 const employeeChangeEventsError = ref('');
+const employeeChangeEventsHasMore = ref(false);
+const employeeChangeEventsNextOffset = ref(0);
 const CARD_CHANGE_FIELDS = new Set([
     'rate',
     'individual_rate',
@@ -1496,6 +1547,9 @@ const isIikoSyncActionLoading = computed(
 const employeePhotoUrl = computed(() => employeeCard.value?.photo_url || '');
 
 const handleActiveTabChange = (tab) => {
+    if (tab === 'trainings' && !canViewTrainings.value) {
+        return;
+    }
     if (tab === 'permissions' && !canManageUserPermissions.value) {
         return;
     }
@@ -1634,6 +1688,8 @@ const {
     activeEmployee,
     employeeCard,
     formatDateInput,
+    canViewTrainings,
+    canManageTrainings,
 });
 
 function handleEditTrainingRecordField(payload) {
@@ -1934,6 +1990,7 @@ const {
     handleExportTimesheet,
 } = useEmployeeTimesheetExport({
     formatDateInput,
+    canExportTimesheet,
 });
 
 const {
@@ -2193,37 +2250,66 @@ function applyBootstrapReferences(references) {
     referencesLoadedFromBootstrap.value = true;
 }
 
-async function loadEmployees(options = {}) {
-    const includeReferences = Boolean(options?.includeReferences);
-    if (!canViewEmployees.value) {
-        if (employeesLoadAbortController) {
-            employeesLoadAbortController.abort();
-            employeesLoadAbortController = null;
-        }
-        employees.value = [];
-        employeesLastBootstrapKey = '';
-        employeesLastBootstrapAt = 0;
-        return;
-    }
+function isServerSortableEmployeeField(field) {
+    return SERVER_SORTABLE_EMPLOYEE_FIELDS.has(String(field || '').trim());
+}
+
+function buildEmployeeListBaseParams(limit = EMPLOYEES_PAGE_SIZE) {
     const hasRestaurantFilter =
         selectedRestaurantFilter.value !== null &&
         selectedRestaurantFilter.value !== undefined &&
         String(selectedRestaurantFilter.value).trim() !== '';
     const restaurantIdRaw = hasRestaurantFilter ? Number(selectedRestaurantFilter.value) : NaN;
     const restaurantId = Number.isFinite(restaurantIdRaw) && restaurantIdRaw > 0 ? restaurantIdRaw : null;
-    const baseParams = {
+    const useServerSort = isServerSortableEmployeeField(sortBy.value);
+
+    return {
         q: search.value || undefined,
         include_fired: includeFired.value || undefined,
+        only_fired: onlyFired.value || undefined,
+        only_formalized: onlyFormalized.value || undefined,
+        only_not_formalized: onlyNotFormalized.value || undefined,
+        only_cis: onlyCis.value || undefined,
+        only_not_cis: onlyNotCis.value || undefined,
+        position_ids: selectedPositionFilters.value.length ? selectedPositionFilters.value : undefined,
         restaurant_id: restaurantId ?? undefined,
         hire_date_from: hireDateFrom.value || undefined,
         hire_date_to: hireDateTo.value || undefined,
         fire_date_from: fireDateFrom.value || undefined,
         fire_date_to: fireDateTo.value || undefined,
-        limit: EMPLOYEES_PAGE_SIZE,
+        sort_by: useServerSort ? sortBy.value : undefined,
+        sort_direction: useServerSort ? sortDirection.value : undefined,
+        limit,
     };
-    const canUseBootstrap = Boolean(includeReferences && isEmployeesBootstrapAvailable);
+}
+
+async function loadEmployees(options = {}) {
+    const includeReferences = Boolean(options?.includeReferences);
+    const append = Boolean(options?.append);
+    if (!canViewEmployees.value) {
+        if (employeesLoadAbortController) {
+            employeesLoadAbortController.abort();
+            employeesLoadAbortController = null;
+        }
+        employees.value = [];
+        employeesHasMore.value = false;
+        employeesNextOffset.value = 0;
+        employeesLastBootstrapKey = '';
+        employeesLastBootstrapAt = 0;
+        return;
+    }
+    if (append && (!employeesHasMore.value || isLoading.value || isLoadingMoreEmployees.value)) {
+        return;
+    }
+
+    const requestLimit = append ? EMPLOYEES_PAGE_SIZE : EMPLOYEES_INITIAL_PAGE_SIZE;
+    const baseParams = buildEmployeeListBaseParams(requestLimit);
+    const requestOffset = append ? Number(employeesNextOffset.value || 0) : 0;
+    const canUseBootstrap = Boolean(includeReferences && isEmployeesBootstrapAvailable && !append);
     const requestKey = JSON.stringify({
+        append,
         includeReferences: canUseBootstrap,
+        offset: requestOffset,
         ...baseParams,
     });
     if (
@@ -2237,81 +2323,83 @@ async function loadEmployees(options = {}) {
         return await employeesLoadPromise;
     }
 
-    if (employeesLoadAbortController) {
+    if (!append && employeesLoadAbortController) {
         employeesLoadAbortController.abort();
         employeesLoadAbortController = null;
     }
     const abortController = new AbortController();
-    employeesLoadAbortController = abortController;
+    if (!append) {
+        employeesLoadAbortController = abortController;
+    }
     const requestId = ++employeesLoadCounter;
-    isLoading.value = true;
+    if (append) {
+        isLoadingMoreEmployees.value = true;
+    } else {
+        isLoading.value = true;
+    }
     const currentPromise = (async () => {
-        const collectPaginatedItems = async (firstPageData, { startOffset = 0 } = {}) => {
-            const initialItems = Array.isArray(firstPageData?.items) ? firstPageData.items : [];
-            const aggregated = [...initialItems];
-            let hasMore = Boolean(firstPageData?.has_more);
-            let nextOffsetRaw = Number(firstPageData?.next_offset);
-            let nextOffset = Number.isFinite(nextOffsetRaw) && nextOffsetRaw >= 0
-                ? nextOffsetRaw
-                : startOffset + initialItems.length;
-
-            while (hasMore) {
-                if (requestId !== employeesLoadCounter || abortController.signal.aborted) {
-                    return aggregated;
+        try {
+            let data = null;
+            let bootstrapData = null;
+            if (canUseBootstrap) {
+                try {
+                    const [pageData, refsData] = await Promise.all([
+                        fetchEmployees(
+                            {
+                                ...baseParams,
+                                offset: requestOffset,
+                            },
+                            {
+                                signal: abortController.signal,
+                            },
+                        ),
+                        fetchEmployeesBootstrap(
+                            {
+                                include_companies: false,
+                                include_roles: false,
+                                include_items: false,
+                            },
+                            {
+                                signal: abortController.signal,
+                            },
+                        ),
+                    ]);
+                    data = pageData;
+                    bootstrapData = refsData;
+                } catch (error) {
+                    if (error?.response?.status === 404) {
+                        isEmployeesBootstrapAvailable = false;
+                        bootstrapData = null;
+                    } else {
+                        throw error;
+                    }
                 }
-                const pageData = await fetchEmployees(
+            }
+
+            if (!data) {
+                data = await fetchEmployees(
                     {
                         ...baseParams,
-                        offset: nextOffset,
+                        offset: requestOffset,
                     },
                     {
                         signal: abortController.signal,
                     },
                 );
-                if (requestId !== employeesLoadCounter) {
-                    return aggregated;
-                }
-                const pageItems = Array.isArray(pageData?.items) ? pageData.items : [];
-                if (!pageItems.length) {
-                    break;
-                }
-                aggregated.push(...pageItems);
-
-                hasMore = Boolean(pageData?.has_more);
-                nextOffsetRaw = Number(pageData?.next_offset);
-                const fallbackOffset = nextOffset + pageItems.length;
-                nextOffset = Number.isFinite(nextOffsetRaw) && nextOffsetRaw >= 0
-                    ? nextOffsetRaw
-                    : fallbackOffset;
-                if (nextOffset <= fallbackOffset - pageItems.length) {
-                    break;
-                }
             }
-            return aggregated;
-        };
 
-        try {
-            if (canUseBootstrap) {
+            if (!bootstrapData && canUseBootstrap && isEmployeesBootstrapAvailable) {
                 try {
-                    const data = await fetchEmployeesBootstrap(
+                    bootstrapData = await fetchEmployeesBootstrap(
                         {
-                            ...baseParams,
-                            offset: 0,
+                            include_companies: false,
+                            include_roles: false,
+                            include_items: false,
                         },
                         {
                             signal: abortController.signal,
                         },
                     );
-                    if (requestId !== employeesLoadCounter) return;
-                    const items = await collectPaginatedItems(data, { startOffset: 0 });
-                    employees.value = items;
-                    applyBootstrapReferences(data?.references);
-                    if (!positionsLoadedFromAccess.value) {
-                        derivePositionsFromEmployees(items);
-                    }
-                    employeesLastBootstrapKey = requestKey;
-                    employeesLastBootstrapAt = Date.now();
-                    return;
                 } catch (error) {
                     if (error?.response?.status === 404) {
                         isEmployeesBootstrapAvailable = false;
@@ -2321,21 +2409,24 @@ async function loadEmployees(options = {}) {
                 }
             }
 
-            const firstPageData = await fetchEmployees(
-                {
-                    ...baseParams,
-                    offset: 0,
-                },
-                {
-                    signal: abortController.signal,
-                },
-            );
             if (requestId !== employeesLoadCounter) return;
-            const items = await collectPaginatedItems(firstPageData, { startOffset: 0 });
-            employees.value = items;
+            const pageItems = Array.isArray(data?.items) ? data.items : [];
+            employees.value = append ? [...employees.value, ...pageItems] : pageItems;
+            employeesHasMore.value = Boolean(data?.has_more) && pageItems.length > 0;
+            const nextOffsetRaw = Number(data?.next_offset);
+            const fallbackOffset = requestOffset + pageItems.length;
+            employeesNextOffset.value =
+                Number.isFinite(nextOffsetRaw) && nextOffsetRaw >= 0 ? nextOffsetRaw : fallbackOffset;
+
+            const references = bootstrapData?.references ?? data?.references;
+            if (!append && references) {
+                applyBootstrapReferences(references);
+                employeesLastBootstrapKey = requestKey;
+                employeesLastBootstrapAt = Date.now();
+            }
 
             if (!positionsLoadedFromAccess.value) {
-                derivePositionsFromEmployees(items);
+                derivePositionsFromEmployees(employees.value);
             }
         } catch (error) {
             if (error?.code === 'ERR_CANCELED' || error?.name === 'CanceledError') {
@@ -2345,6 +2436,8 @@ async function loadEmployees(options = {}) {
             const detail = error?.response?.data?.detail;
             if (error?.response?.status === 403) {
                 employees.value = [];
+                employeesHasMore.value = false;
+                employeesNextOffset.value = 0;
                 positions.value = [];
                 positionsLoadedFromAccess.value = false;
             } else {
@@ -2353,9 +2446,13 @@ async function loadEmployees(options = {}) {
             }
         } finally {
             if (requestId === employeesLoadCounter) {
-                isLoading.value = false;
+                if (append) {
+                    isLoadingMoreEmployees.value = false;
+                } else {
+                    isLoading.value = false;
+                }
             }
-            if (employeesLoadAbortController === abortController) {
+            if (!append && employeesLoadAbortController === abortController) {
                 employeesLoadAbortController = null;
             }
         }
@@ -2371,6 +2468,10 @@ async function loadEmployees(options = {}) {
             employeesLoadKey = '';
         }
     }
+}
+
+async function loadMoreEmployees() {
+    await loadEmployees({ append: true });
 }
 
 function formatFullName(employee) {
@@ -2509,23 +2610,16 @@ function applyPhoneInput(target, value) {
 const collator = new Intl.Collator('ru', { numeric: true, sensitivity: 'base' });
 
 const sortedEmployees = computed(() => {
-    const baseList = filterEmployeesByRestaurant(employees.value, selectedRestaurantFilter.value);
-    const filteredList = filterEmployeesByPositions(baseList, selectedPositionFilters.value);
-    const hireFilteredList = filterEmployeesByDateRange(
-        filteredList,
-        'hire_date',
-        hireDateFrom.value,
-        hireDateTo.value,
-    );
-    const fireFilteredList = filterEmployeesByDateRange(
-        hireFilteredList,
-        'fire_date',
-        fireDateFrom.value,
-        fireDateTo.value,
-    );
-    const flaggedList = filterEmployeesByFlags(fireFilteredList);
-    const list = Array.isArray(flaggedList) ? [...flaggedList] : [];
-    if (!list.length || !sortBy.value) {
+    const baseList = Array.isArray(employees.value) ? employees.value : [];
+    if (!baseList.length || !sortBy.value) {
+        return baseList;
+    }
+    if (isServerSortableEmployeeField(sortBy.value)) {
+        return baseList;
+    }
+
+    const list = [...baseList];
+    if (!list.length) {
         return list;
     }
 
@@ -2558,10 +2652,12 @@ const {
     payrollExporting,
     employeesListExporting,
     payrollExportForm,
+    openPayrollExportModal,
     closePayrollExportModal,
     downloadEmployeesList,
     handleExportPayroll,
 } = useEmployeeExports({
+    canExportPayroll,
     canDownloadEmployeesList,
     getSortedEmployees: () => sortedEmployees.value,
     employeeColumnOptions,
@@ -2762,29 +2858,56 @@ async function loadEmployeeCard(userId) {
     }
 }
 
-async function loadEmployeeChangeEvents() {
+async function loadEmployeeChangeEvents(options = {}) {
     if (!activeEmployee.value || !canViewEmployeeChanges.value) {
         employeeChangeEvents.value = [];
+        employeeChangeEventsHasMore.value = false;
+        employeeChangeEventsNextOffset.value = 0;
         employeeChangeEventsError.value = '';
         return;
     }
-    employeeChangeEventsLoading.value = true;
+    const append = Boolean(options?.append);
+    if (append && (!employeeChangeEventsHasMore.value || employeeChangeEventsLoading.value || employeeChangeEventsLoadingMore.value)) {
+        return;
+    }
+    if (append) {
+        employeeChangeEventsLoadingMore.value = true;
+    } else {
+        employeeChangeEventsLoading.value = true;
+    }
     employeeChangeEventsError.value = '';
     try {
         const data = await fetchEmployeeChangeEvents({
             user_id: activeEmployee.value.id,
-            limit: 200,
+            limit: 50,
+            offset: append ? Number(employeeChangeEventsNextOffset.value || 0) : 0,
         });
         const items = Array.isArray(data?.items) ? data.items : [];
-        employeeChangeEvents.value = items.filter((item) => CARD_CHANGE_FIELDS.has(item.field));
+        const filteredItems = items.filter((item) => CARD_CHANGE_FIELDS.has(item.field));
+        employeeChangeEvents.value = append
+            ? [...employeeChangeEvents.value, ...filteredItems]
+            : filteredItems;
+        employeeChangeEventsHasMore.value = Boolean(data?.has_more);
+        employeeChangeEventsNextOffset.value = Number.isFinite(Number(data?.next_offset))
+            ? Number(data.next_offset)
+            : (append ? employeeChangeEvents.value.length : filteredItems.length);
     } catch (error) {
         console.error(error);
         employeeChangeEventsError.value =
             error?.response?.data?.detail || 'Не удалось загрузить историю';
-        employeeChangeEvents.value = [];
+        if (!append) {
+            employeeChangeEvents.value = [];
+            employeeChangeEventsHasMore.value = false;
+            employeeChangeEventsNextOffset.value = 0;
+        }
     } finally {
         employeeChangeEventsLoading.value = false;
+        employeeChangeEventsLoadingMore.value = false;
     }
+}
+
+async function loadMoreEmployeeChangeEvents() {
+    await loadEmployeeChangeEvents({ append: true });
 }
 
 function resolveActiveEmployeeTabKey() {
@@ -2837,6 +2960,9 @@ async function autoLoadShiftTab() {
 }
 
 async function autoLoadTrainingTab() {
+    if (!canViewTrainings.value) {
+        return;
+    }
     const key = resolveActiveEmployeeTabKey();
     if (!key) {
         return;
@@ -3030,6 +3156,7 @@ async function enterEditMode() {
     }
     try {
         editContextLoading.value = true;
+        await ensureEmployeeReferenceData();
         isEditMode.value = true;
         const userData = await fetchUser(activeEmployee.value.id);
         populateEmployeeEditForm(employeeCard.value, userData);
@@ -3236,6 +3363,9 @@ function closeEmployeeModal() {
     employeeChangeEvents.value = [];
     employeeChangeEventsError.value = '';
     employeeChangeEventsLoading.value = false;
+    employeeChangeEventsLoadingMore.value = false;
+    employeeChangeEventsHasMore.value = false;
+    employeeChangeEventsNextOffset.value = 0;
     resetEmployeeTrainingsState();
     resetUserPermissionState();
     resetEmployeePayrollState();
@@ -3249,11 +3379,12 @@ function closeEmployeeModal() {
     }
 }
 
-function openCreateModal() {
+async function openCreateModal() {
     if (!canCreateEmployees.value) {
         toast.error('Не удалось выполнить операцию');
         return;
     }
+    await ensureEmployeeReferenceData();
     isCreateModalOpen.value = true;
 }
 
@@ -3874,23 +4005,27 @@ async function loadPositions() {
 
 let employeeReferenceDataPromise = null;
 
-async function ensureEmployeeReferenceData() {
+async function ensureEmployeeReferenceData(options = {}) {
+    const includeRestaurants = options?.includeRestaurants !== false;
+    const includeCompanies = options?.includeCompanies !== false;
+    const includeRoles = options?.includeRoles !== false;
+    const includePositions = options?.includePositions !== false;
     if (employeeReferenceDataPromise) {
         return await employeeReferenceDataPromise;
     }
 
     employeeReferenceDataPromise = (async () => {
         const tasks = [];
-        if (canLoadRestaurants.value && !restaurants.value.length) {
+        if (includeRestaurants && canLoadRestaurants.value && !restaurants.value.length) {
             tasks.push(loadRestaurants());
         }
-        if (canLoadCompanies.value && !companies.value.length) {
+        if (includeCompanies && canLoadCompanies.value && !companies.value.length) {
             tasks.push(loadCompanies());
         }
-        if (canLoadRoles.value && !roles.value.length) {
+        if (includeRoles && canLoadRoles.value && !roles.value.length) {
             tasks.push(loadRoles());
         }
-        if (canLoadPositions.value && !positionsLoadedFromAccess.value) {
+        if (includePositions && canLoadPositions.value && !positionsLoadedFromAccess.value) {
             tasks.push(loadPositions());
         }
         if (!tasks.length) {
@@ -4726,6 +4861,9 @@ watch(
             resetUserPermissionState();
             employeeChangeEvents.value = [];
             employeeChangeEventsError.value = '';
+            employeeChangeEventsLoadingMore.value = false;
+            employeeChangeEventsHasMore.value = false;
+            employeeChangeEventsNextOffset.value = 0;
             return;
         }
         resetUserPermissionState();
@@ -4744,7 +4882,10 @@ watch(
         if (allowed) {
             await loadEmployees({ includeReferences: true });
             if (!referencesLoadedFromBootstrap.value) {
-                void ensureEmployeeReferenceData();
+                void ensureEmployeeReferenceData({
+                    includeCompanies: false,
+                    includeRoles: false,
+                });
             }
             if (modalOnly.value || route.query.employeeId) {
                 await openEmployeeFromQuery();
@@ -4767,6 +4908,25 @@ watch(
     () => {
         if (modalOnly.value || route.query.employeeId) {
             openEmployeeFromQuery();
+        }
+    },
+    { immediate: true },
+);
+
+watch(
+    () => canViewTrainings.value,
+    async (allowed) => {
+        if (!allowed) {
+            if (activeModalTab.value === 'trainings') {
+                activeModalTab.value = 'info';
+            }
+            closeTrainingAssignmentModal();
+            cancelEditTrainingRecord();
+            resetEmployeeTrainingsState();
+            return;
+        }
+        if (activeEmployee.value && activeModalTab.value === 'trainings') {
+            await autoLoadTrainingTab();
         }
     },
     { immediate: true },
@@ -4797,6 +4957,9 @@ watch(
         if (!allowed) {
             employeeChangeEvents.value = [];
             employeeChangeEventsError.value = '';
+            employeeChangeEventsLoadingMore.value = false;
+            employeeChangeEventsHasMore.value = false;
+            employeeChangeEventsNextOffset.value = 0;
         }
     },
     { immediate: true },
@@ -4805,17 +4968,40 @@ watch(
 const debouncedLoadEmployees = useDebounce(loadEmployees, 400);
 const debouncedFilterLoadEmployees = useDebounce(() => loadEmployees(), 120);
 
-watch(includeFired, () => {
-    if (canViewEmployees.value) {
-        debouncedFilterLoadEmployees();
-    }
-});
+watch(
+    () => [
+        includeFired.value,
+        onlyFired.value,
+        onlyFormalized.value,
+        onlyNotFormalized.value,
+        onlyCis.value,
+        onlyNotCis.value,
+        selectedRestaurantFilter.value,
+        selectedPositionFilters.value.join(','),
+        hireDateFrom.value,
+        hireDateTo.value,
+        fireDateFrom.value,
+        fireDateTo.value,
+    ],
+    () => {
+        if (canViewEmployees.value) {
+            debouncedFilterLoadEmployees();
+        }
+    },
+);
 
-watch(selectedRestaurantFilter, () => {
-    if (canViewEmployees.value) {
+watch(
+    () => [sortBy.value, sortDirection.value],
+    ([nextSortBy], [prevSortBy]) => {
+        if (!canViewEmployees.value) {
+            return;
+        }
+        if (!isServerSortableEmployeeField(nextSortBy) && !isServerSortableEmployeeField(prevSortBy)) {
+            return;
+        }
         debouncedFilterLoadEmployees();
-    }
-});
+    },
+);
 
 watch(
     search,
@@ -4840,7 +5026,7 @@ watch(
         if (tab === 'shifts' && activeEmployee.value) {
             await autoLoadShiftTab();
         }
-        if (tab === 'trainings' && activeEmployee.value) {
+        if (tab === 'trainings' && activeEmployee.value && canViewTrainings.value) {
             await autoLoadTrainingTab();
         }
         if (tab === 'permissions' && activeEmployee.value && canManageUserPermissions.value) {

@@ -5,7 +5,7 @@
                 <h1 class="admin-page__title">Обучения</h1>
                 <p class="admin-page__subtitle">Типы тренингов</p>
             </div>
-            <div class="admin-page__header-actions">
+            <div v-if="canManageTrainings" class="admin-page__header-actions">
                 <Button
                     v-if="!showCreateTrainingTypeForm"
                     type="button"
@@ -17,7 +17,11 @@
             </div>
         </header>
 
-        <FiltersPanel v-if="showCreateTrainingTypeForm" :collapsible="false" title="Новый тип тренинга">
+        <FiltersPanel
+            v-if="showCreateTrainingTypeForm && canManageTrainings"
+            :collapsible="false"
+            title="Новый тип тренинга"
+        >
             <div class="admin-training__form">
                 <Input
                     v-model="newTrainingTypeName"
@@ -52,7 +56,7 @@
                 <thead>
                     <tr>
                         <th>Название</th>
-                        <th class="admin-page__actions">Действия</th>
+                        <th v-if="canManageTrainings" class="admin-page__actions">Действия</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -60,7 +64,7 @@
                         v-for="type in trainingEventTypes"
                         :key="type.id"
                         :class="{ 'admin-training__row--editing': editingTrainingType.id === type.id }"
-                        @click="editingTrainingType.id !== type.id && startEditTrainingType(type)"
+                        @click="canManageTrainings && editingTrainingType.id !== type.id && startEditTrainingType(type)"
                     >
                         <td>
                             <template v-if="editingTrainingType.id === type.id">
@@ -74,7 +78,7 @@
                                 {{ type.name }}
                             </template>
                         </td>
-                        <td class="admin-page__actions">
+                        <td v-if="canManageTrainings" class="admin-page__actions">
                             <template v-if="editingTrainingType.id === type.id">
                                 <Button
                                     color="primary"
@@ -118,7 +122,7 @@
 </template>
 
 <script setup>
-import { onMounted, reactive, ref } from 'vue';
+import { computed, onMounted, reactive, ref } from 'vue';
 import {
     createTrainingEventType,
     deleteTrainingEventType,
@@ -131,8 +135,14 @@ import Input from '@/components/UI-components/Input.vue';
 import Table from '@/components/UI-components/Table.vue';
 import BaseIcon from '@/components/UI-components/BaseIcon.vue';
 import FiltersPanel from '@/components/UI-components/FiltersPanel.vue';
+import { useUserStore } from '@/stores/user';
+import { TRAININGS_MANAGE_PERMISSIONS } from '@/accessPolicy';
 
 const toast = useToast();
+const userStore = useUserStore();
+const canManageTrainings = computed(() =>
+    userStore.hasAnyPermission(...TRAININGS_MANAGE_PERMISSIONS),
+);
 
 const trainingEventTypes = ref([]);
 const trainingTypesLoading = ref(false);
@@ -154,7 +164,7 @@ async function loadTrainingEventTypes() {
         } else {
             trainingEventTypes.value = [];
         }
-        showCreateTrainingTypeForm.value = !trainingEventTypes.value.length;
+        showCreateTrainingTypeForm.value = canManageTrainings.value && !trainingEventTypes.value.length;
     } catch (error) {
         toast.error('Не удалось загрузить типы тренингов');
         console.error(error);
@@ -164,6 +174,9 @@ async function loadTrainingEventTypes() {
 }
 
 async function handleCreateTrainingType() {
+    if (!canManageTrainings.value) {
+        return;
+    }
     const name = newTrainingTypeName.value.trim();
     if (!name) {
         toast.error('Введите название типа тренинга');
@@ -197,6 +210,9 @@ function cancelCreateTrainingType() {
 }
 
 function startEditTrainingType(type) {
+    if (!canManageTrainings.value) {
+        return;
+    }
     editingTrainingType.id = type.id;
     editingTrainingType.name = type.name;
 }
@@ -208,6 +224,9 @@ function cancelEditTrainingType() {
 }
 
 async function handleUpdateTrainingType() {
+    if (!canManageTrainings.value) {
+        return;
+    }
     if (!editingTrainingType.id) {
         return;
     }
@@ -238,6 +257,9 @@ async function handleUpdateTrainingType() {
 }
 
 async function handleDeleteTrainingType(typeId) {
+    if (!canManageTrainings.value) {
+        return;
+    }
     if (!window.confirm('Удалить тип тренинга?')) {
         return;
     }
@@ -250,7 +272,7 @@ async function handleDeleteTrainingType(typeId) {
         if (editingTrainingType.id === typeId) {
             cancelEditTrainingType();
         }
-        showCreateTrainingTypeForm.value = trainingEventTypes.value.length === 0;
+        showCreateTrainingTypeForm.value = canManageTrainings.value && trainingEventTypes.value.length === 0;
         toast.success('Тип тренинга удален');
     } catch (error) {
         const detail = error?.response?.data?.detail;

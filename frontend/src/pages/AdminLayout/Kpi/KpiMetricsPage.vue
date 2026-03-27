@@ -434,7 +434,7 @@
                                         <span class="kpi-rule-row__chip">{{ subdivisionLabel(rule.position_id) }}</span>
                                         <span class="kpi-rule-row__chip">{{ positionLabel(rule.position_id) }}</span>
                                         <span v-if="rule.employee_id" class="kpi-rule-row__chip">
-                                            Сотрудник ID {{ rule.employee_id }}
+                                            Сотрудник: {{ employeeLabel(rule.employee_id) }}
                                         </span>
                                     </div>
                                 </div>
@@ -1145,7 +1145,7 @@
                                         <span class="kpi-rule-row__chip">{{ ruleRestaurantLabel(rule) }}</span>
                                         <span class="kpi-rule-row__chip">{{ subdivisionLabel(rule.position_id) }}</span>
                                         <span class="kpi-rule-row__chip">{{ positionLabel(rule.position_id) }}</span>
-                                        <span v-if="rule.employee_id" class="kpi-rule-row__chip">Сотрудник ID {{ rule.employee_id }}</span>
+                                        <span v-if="rule.employee_id" class="kpi-rule-row__chip">Сотрудник: {{ employeeLabel(rule.employee_id) }}</span>
                                     </div>
                                 </div>
 
@@ -1406,6 +1406,7 @@ import {
     deleteKpiRule,
     deleteKpiMetric,
     fetchAccessPositions,
+    fetchAllEmployees,
     fetchEmployees,
     fetchKpiMetricGroups,
     fetchKpiMetricGroupPlanFacts,
@@ -1496,6 +1497,7 @@ const subdivisions = ref([]);
 const employeeSearch = ref('');
 const employeeSearchResults = ref([]);
 const employeeSearchLoading = ref(false);
+const employeeDirectory = ref([]);
 const ruleOptionsLoaded = ref(false);
 const ruleActionRows = ref([]);
 const isMetricRestaurantSelectOpen = ref(false);
@@ -1745,16 +1747,44 @@ const positionOptions = computed(() => {
     );
     return filtered.map((pos) => ({ value: Number(pos.id), label: pos.name }));
 });
+const employeeDirectoryMap = computed(() => {
+    const map = new Map();
+    employeeDirectory.value.forEach((employee) => {
+        const id = Number(employee?.id);
+        if (Number.isFinite(id)) {
+            map.set(id, employee);
+        }
+    });
+    return map;
+});
 const employeeOptions = computed(() => {
-    const options = employeeSearchResults.value.map((employee) => ({
-        value: employee.id,
-        label: formatFullName(employee),
-    }));
+    const options = [];
+    const seen = new Set();
+    const pushEmployee = (employee) => {
+        const id = Number(employee?.id);
+        if (!Number.isFinite(id) || seen.has(id)) {
+            return;
+        }
+        seen.add(id);
+        options.push({
+            value: id,
+            label: formatFullName(employee),
+        });
+    };
+    employeeSearchResults.value.forEach(pushEmployee);
     if (
         ruleForm.value.employeeId &&
-        !options.find((item) => Number(item.value) === Number(ruleForm.value.employeeId))
+        !seen.has(Number(ruleForm.value.employeeId))
     ) {
-        options.unshift({ value: ruleForm.value.employeeId, label: `ID ${ruleForm.value.employeeId}` });
+        const selectedEmployee = employeeDirectoryMap.value.get(Number(ruleForm.value.employeeId));
+        if (selectedEmployee) {
+            options.unshift({
+                value: Number(selectedEmployee.id),
+                label: formatFullName(selectedEmployee),
+            });
+        } else {
+            options.unshift({ value: ruleForm.value.employeeId, label: `ID ${ruleForm.value.employeeId}` });
+        }
     }
     return options;
 });
@@ -2209,6 +2239,14 @@ function formatFullName(employee) {
     if (!employee) return '—';
     const parts = [employee.last_name, employee.first_name, employee.middle_name].filter(Boolean);
     return parts.length ? parts.join(' ') : employee.username || `ID ${employee.id}`;
+}
+
+function employeeLabel(employeeId) {
+    if (!employeeId) {
+        return '—';
+    }
+    const employee = employeeDirectoryMap.value.get(Number(employeeId));
+    return employee ? formatFullName(employee) : `ID ${employeeId}`;
 }
 
 function subdivisionLabel(positionId) {
@@ -3197,12 +3235,14 @@ async function loadAdjustmentTypes() {
 async function loadRuleOptions() {
     if (ruleOptionsLoaded.value) return;
     try {
-        const [positionsData, subdivisionsData] = await Promise.all([
+        const [positionsData, subdivisionsData, employeesData] = await Promise.all([
             fetchAccessPositions(),
             fetchRestaurantSubdivisions(),
+            fetchAllEmployees({ include_fired: true, limit: 250 }),
         ]);
         positions.value = Array.isArray(positionsData) ? positionsData : positionsData?.items || [];
         subdivisions.value = Array.isArray(subdivisionsData) ? subdivisionsData : [];
+        employeeDirectory.value = Array.isArray(employeesData?.items) ? employeesData.items : employeesData || [];
         ruleOptionsLoaded.value = true;
     } catch (error) {
         toast.error('Не удалось загрузить справочники для правил');

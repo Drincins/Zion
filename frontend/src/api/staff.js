@@ -130,7 +130,7 @@ export async function fetchEmployeeChangeEvents(params = {}) {
 }
 
 export async function fetchEmployeeCard(userId) {
-    const { data } = await api.get(`/api/employees/${userId}/card`);
+    const { data } = await api.get(`/api/staff/employees/${userId}/card`);
     return data;
 }
 
@@ -180,31 +180,31 @@ export async function deleteWaiterTurnoverRule(ruleId, params = {}) {
 }
 
 export async function fetchEmployeeAttendances(userId, params = {}) {
-    const { data } = await api.get(`/api/employees/${userId}/attendances`, { params });
+    const { data } = await api.get(`/api/staff/employees/${userId}/attendances`, { params });
     return data;
 }
 
 export async function createEmployeeAttendance(userId, payload = {}) {
-    const { data } = await api.post(`/api/employees/${userId}/attendances`, payload);
+    const { data } = await api.post(`/api/staff/employees/${userId}/attendances`, payload);
     return data;
 }
 
 export async function updateEmployeeAttendance(userId, attendanceId, payload = {}) {
     const { data } = await api.patch(
-        `/api/employees/${userId}/attendances/${attendanceId}`,
+        `/api/staff/employees/${userId}/attendances/${attendanceId}`,
         payload
     );
     return data;
 }
 
 export async function deleteEmployeeAttendance(userId, attendanceId) {
-    const { data } = await api.delete(`/api/employees/${userId}/attendances/${attendanceId}`);
+    const { data } = await api.delete(`/api/staff/employees/${userId}/attendances/${attendanceId}`);
     return data;
 }
 
 export async function recalculateEmployeeNightMinutes(userId, payload = {}) {
     const { data } = await api.post(
-        `/api/employees/${userId}/attendances/recalculate-night`,
+        `/api/staff/employees/${userId}/attendances/recalculate-night`,
         payload
     );
     return data;

@@ -99,7 +99,7 @@
                         >
                             <td>{{ formatDate(invoice.sent_at) }}</td>
                             <td>{{ formatDate(invoice.invoice_date) }}</td>
-                            <td>{{ formatUser(invoice.created_by_user_id) }}</td>
+                            <td>{{ formatUser(invoice.created_by_user_id, invoice.created_by_name) }}</td>
                             <td>{{ formatRestaurant(invoice.from_restaurant_id) }}</td>
                             <td>{{ formatRestaurant(invoice.for_restaurant_id) }}</td>
                             <td>{{ formatAmount(invoice.amount) }}</td>
@@ -332,7 +332,7 @@
                                     <td>{{ change.old_value || '-' }}</td>
                                     <td>{{ change.new_value || '-' }}</td>
                                     <td>{{ formatDateTime(change.changed_at) }}</td>
-                                    <td>{{ formatUser(change.changed_by_user_id) }}</td>
+                                    <td>{{ formatUser(change.changed_by_user_id, change.changed_by_name) }}</td>
                                 </tr>
                             </tbody>
                         </Table>
@@ -356,7 +356,7 @@
                                 <td>{{ event.event_type }}</td>
                                 <td>{{ event.message || '-' }}</td>
                                 <td>{{ formatDateTime(event.created_at) }}</td>
-                                <td>{{ formatUser(event.actor_user_id) }}</td>
+                                <td>{{ formatUser(event.actor_user_id, event.actor_name) }}</td>
                             </tr>
                         </tbody>
                     </Table>
@@ -396,7 +396,7 @@ import {
     fetchAccountingInvoiceChanges,
     fetchAccountingInvoiceEvents,
     fetchAccountingInvoices,
-    fetchEmployees,
+    fetchAllEmployees,
     fetchRestaurants,
     updateAccountingInvoice,
     updateAccountingInvoiceStatus,
@@ -583,7 +583,8 @@ function formatAmount(value) {
     });
 }
 
-function formatUser(userId) {
+function formatUser(userId, userName = '') {
+    if (userName) return userName;
     if (!userId) return '—';
     if (Number(userId) === Number(userStore.id)) {
         return currentUserName.value;
@@ -634,7 +635,7 @@ function closeFilePreview() {
 
 async function loadStaff() {
     try {
-        const data = await fetchEmployees({ include_fired: true, limit: 1000 });
+        const data = await fetchAllEmployees({ include_fired: true });
         staff.value = Array.isArray(data?.items) ? data.items : Array.isArray(data) ? data : [];
     } catch (error) {
         console.error(error);

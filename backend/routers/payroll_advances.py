@@ -185,6 +185,15 @@ def _content_disposition(filename: str, fallback: str = "statement.xlsx") -> str
     return f"attachment; filename=\"{safe_name}\"; filename*=UTF-8''{encoded_name}"
 
 
+def _full_name(user: Optional[User]) -> Optional[str]:
+    if not user:
+        return None
+    last = (getattr(user, "last_name", None) or "").strip()
+    first = (getattr(user, "first_name", None) or "").strip()
+    full_name = " ".join(part for part in (last, first) if part).strip()
+    return full_name or getattr(user, "username", None)
+
+
 def _item_to_public(item: PayrollAdvanceItem) -> PayrollAdvanceItemPublic:
     restaurant_name = None
     if item.restaurant:
@@ -1136,11 +1145,11 @@ def post_statement(
     created_total = Decimal("0")
 
     users = (
-        db.query(User.id, User.staff_code)
+        db.query(User)
         .filter(User.staff_code.in_([r["staff_code"] for r in rows]))
         .all()
     )
-    staff_to_id = {row.staff_code: row.id for row in users if row.staff_code}
+    staff_to_user = {row.staff_code: row for row in users if row.staff_code}
 
     target_restaurant_id = statement.restaurant_id or payload.restaurant_id
 
@@ -1154,19 +1163,29 @@ def post_statement(
 
     for row in rows:
         code = row["staff_code"]
-        user_id = staff_to_id.get(code)
-        if not user_id:
+        user = staff_to_user.get(code)
+        if not user:
             reason = "Сотрудник не найден"
             errors.append(PayrollAdjustmentBulkResultItem(staff_code=code, reason=reason))
             results.append(PayrollAdjustmentBulkStatusItem(staff_code=code, status="error", reason=reason))
             continue
+        user_id = user.id
+        full_name = _full_name(user)
         if user_id in existing_map:
             reason = "Запись уже существует"
-            skipped.append(PayrollAdjustmentBulkResultItem(staff_code=code, user_id=user_id, reason=reason))
+            skipped.append(
+                PayrollAdjustmentBulkResultItem(
+                    staff_code=code,
+                    user_id=user_id,
+                    full_name=full_name,
+                    reason=reason,
+                )
+            )
             results.append(
                 PayrollAdjustmentBulkStatusItem(
                     staff_code=code,
                     user_id=user_id,
+                    full_name=full_name,
                     status="skipped",
                     reason=reason,
                 )
@@ -1188,6 +1207,7 @@ def post_statement(
             PayrollAdjustmentBulkStatusItem(
                 staff_code=code,
                 user_id=user_id,
+                full_name=full_name,
                 status="created",
             )
         )

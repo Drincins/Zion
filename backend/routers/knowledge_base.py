@@ -627,7 +627,6 @@ def get_access_options(
         )
         .filter(User.fired.is_(False))
         .order_by(func.lower(User.last_name).nullslast(), func.lower(User.first_name).nullslast(), User.id.asc())
-        .limit(1000)
         .all()
     )
     position_restaurant_ids_map: dict[int, set[int]] = {}

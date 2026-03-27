@@ -19,53 +19,71 @@
             >
                 {{ employeeChangeEventsError }}
             </div>
-            <Table v-else-if="employeeChangeEvents.length" class="employees-page__changes-table">
-                <thead>
-                    <tr>
-                        <th>Дата</th>
-                        <th>Поле</th>
-                        <th>Было</th>
-                        <th>Стало</th>
-                        <th>Автор</th>
-                        <th>Комментарий</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr v-for="event in employeeChangeEvents" :key="event.id">
-                        <td>{{ formatChangeDate(event.created_at) }}</td>
-                        <td>{{ formatChangeField(event.field) }}</td>
-                        <td class="employees-page__changes-value">
-                            {{ formatChangeValue(event.old_value) }}
-                        </td>
-                        <td class="employees-page__changes-value">
-                            {{ formatChangeValue(event.new_value) }}
-                        </td>
-                        <td>{{ formatChangeAuthor(event) }}</td>
-                        <td class="employees-page__changes-value">
-                            {{ formatChangeComment(event.comment) }}
-                        </td>
-                    </tr>
-                </tbody>
-            </Table>
+            <template v-else-if="employeeChangeEvents.length">
+                <Table class="employees-page__changes-table">
+                    <thead>
+                        <tr>
+                            <th>Дата</th>
+                            <th>Поле</th>
+                            <th>Было</th>
+                            <th>Стало</th>
+                            <th>Автор</th>
+                            <th>Комментарий</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr v-for="event in employeeChangeEvents" :key="event.id">
+                            <td>{{ formatChangeDate(event.created_at) }}</td>
+                            <td>{{ formatChangeField(event.field) }}</td>
+                            <td class="employees-page__changes-value">
+                                {{ formatChangeValue(event.old_value) }}
+                            </td>
+                            <td class="employees-page__changes-value">
+                                {{ formatChangeValue(event.new_value) }}
+                            </td>
+                            <td>{{ formatChangeAuthor(event) }}</td>
+                            <td class="employees-page__changes-value">
+                                {{ formatChangeComment(event.comment) }}
+                            </td>
+                        </tr>
+                    </tbody>
+                </Table>
+                <div v-if="employeeChangeEventsHasMore || employeeChangeEventsLoadingMore" class="employees-page__changes-actions">
+                    <Button
+                        color="secondary"
+                        size="sm"
+                        :loading="employeeChangeEventsLoadingMore"
+                        :disabled="employeeChangeEventsLoadingMore"
+                        @click="emit('load-more')"
+                    >
+                        Показать ещё
+                    </Button>
+                </div>
+            </template>
             <p v-else class="employees-page__empty">Записей пока нет.</p>
         </section>
     </div>
 </template>
 
 <script setup>
+import Button from '@/components/UI-components/Button.vue';
 import Table from '@/components/UI-components/Table.vue';
 
 defineProps({
     canViewEmployeeChanges: { type: Boolean, default: false },
     employeeChangeEvents: { type: Array, default: () => [] },
     employeeChangeEventsLoading: { type: Boolean, default: false },
+    employeeChangeEventsLoadingMore: { type: Boolean, default: false },
     employeeChangeEventsError: { type: String, default: '' },
+    employeeChangeEventsHasMore: { type: Boolean, default: false },
     formatChangeDate: { type: Function, required: true },
     formatChangeField: { type: Function, required: true },
     formatChangeValue: { type: Function, required: true },
     formatChangeAuthor: { type: Function, required: true },
     formatChangeComment: { type: Function, required: true }
 });
+
+const emit = defineEmits(['load-more']);
 </script>
 
 <style scoped lang="scss">
@@ -122,6 +140,12 @@ defineProps({
 .employees-page__changes-value {
     max-width: 240px;
     word-break: break-word;
+}
+
+.employees-page__changes-actions {
+    display: flex;
+    justify-content: center;
+    padding-top: 8px;
 }
 
 .employees-page__state {

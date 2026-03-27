@@ -161,6 +161,11 @@ def to_card(
     return EmployeeCardPublic(
         id=user.id,
         username=user.username,
+        full_name=" ".join(
+            part.strip()
+            for part in [user.last_name, user.first_name, user.middle_name]
+            if isinstance(part, str) and part.strip()
+        ) or None,
         first_name=user.first_name,
         last_name=user.last_name,
         middle_name=user.middle_name,

@@ -5,6 +5,7 @@ import { extractApiErrorMessage } from '@/utils/apiErrors';
 import { downloadBlobFile } from '@/utils/downloadBlobFile';
 
 export function useEmployeeExports({
+    canExportPayroll,
     canDownloadEmployeesList,
     getSortedEmployees,
     employeeColumnOptions,
@@ -26,6 +27,9 @@ export function useEmployeeExports({
     });
 
     function openPayrollExportModal() {
+        if (!canExportPayroll?.value) {
+            return;
+        }
         isPayrollExportModalOpen.value = true;
     }
 
@@ -89,6 +93,9 @@ export function useEmployeeExports({
     }
 
     async function handleExportPayroll() {
+        if (!canExportPayroll?.value) {
+            return;
+        }
         if (!payrollExportForm.dateFrom || !payrollExportForm.dateTo) {
             toast.error('Укажите период для выгрузки');
             return;

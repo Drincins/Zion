@@ -208,11 +208,19 @@ def _position_hierarchy_payload(position: Position) -> PositionHierarchyNode:
     )
 
 
-def load_staff_references(db: Session, current_user: User) -> StaffEmployeesReferencePayload:
-    can_load_restaurants = _can_load_restaurant_references(current_user)
-    can_load_companies = _can_load_company_references(current_user)
-    can_load_roles = _can_load_role_references(current_user)
-    can_load_positions = _can_load_position_references(current_user)
+def load_staff_references(
+    db: Session,
+    current_user: User,
+    *,
+    include_restaurants: bool = True,
+    include_companies: bool = True,
+    include_roles: bool = True,
+    include_positions: bool = True,
+) -> StaffEmployeesReferencePayload:
+    can_load_restaurants = include_restaurants and _can_load_restaurant_references(current_user)
+    can_load_companies = include_companies and _can_load_company_references(current_user)
+    can_load_roles = include_roles and _can_load_role_references(current_user)
+    can_load_positions = include_positions and _can_load_position_references(current_user)
     allowed_restaurants = get_user_restaurant_ids(db, current_user) if can_load_restaurants else None
 
     cache_key = (
@@ -221,6 +229,10 @@ def load_staff_references(db: Session, current_user: User) -> StaffEmployeesRefe
         bool(can_load_companies),
         bool(can_load_roles),
         bool(can_load_positions),
+        bool(include_restaurants),
+        bool(include_companies),
+        bool(include_roles),
+        bool(include_positions),
         ids_scope_key(allowed_restaurants) if can_load_restaurants else ("skip",),
     )
 
@@ -296,6 +308,64 @@ def _staff_employee_search_expr():
     )
 
 
+def _apply_order_direction(expression, direction: str):
+    if (direction or "asc").lower() == "desc":
+        return expression.desc().nullslast()
+    return expression.asc().nullslast()
+
+
+def _apply_staff_employee_sort(query, sort_by: Optional[str], sort_direction: str):
+    normalized_sort = (sort_by or "").strip().lower()
+    direction = (sort_direction or "asc").lower()
+    order_clauses = []
+
+    if normalized_sort == "staff_code":
+        order_clauses.append(_apply_order_direction(func.lower(func.coalesce(User.staff_code, "")), direction))
+    elif normalized_sort == "full_name":
+        order_clauses.extend(
+            [
+                _apply_order_direction(func.lower(func.coalesce(User.last_name, "")), direction),
+                _apply_order_direction(func.lower(func.coalesce(User.first_name, "")), direction),
+                _apply_order_direction(func.lower(func.coalesce(User.middle_name, "")), direction),
+            ]
+        )
+    elif normalized_sort == "phone_number":
+        order_clauses.append(_apply_order_direction(func.lower(func.coalesce(User.phone_number, "")), direction))
+    elif normalized_sort == "company_name":
+        query = query.outerjoin(User.company)
+        order_clauses.append(_apply_order_direction(func.lower(func.coalesce(Company.name, "")), direction))
+    elif normalized_sort == "position_name":
+        query = query.outerjoin(User.position)
+        order_clauses.append(_apply_order_direction(func.lower(func.coalesce(Position.name, "")), direction))
+    elif normalized_sort == "role_name":
+        query = query.outerjoin(User.role)
+        order_clauses.append(_apply_order_direction(func.lower(func.coalesce(Role.name, "")), direction))
+    elif normalized_sort == "iiko_id":
+        order_clauses.append(_apply_order_direction(func.lower(func.coalesce(User.iiko_id, "")), direction))
+    elif normalized_sort == "gender":
+        order_clauses.append(_apply_order_direction(func.lower(func.coalesce(User.gender, "")), direction))
+    elif normalized_sort == "hire_date":
+        order_clauses.append(_apply_order_direction(User.hire_date, direction))
+    elif normalized_sort == "fire_date":
+        order_clauses.append(_apply_order_direction(User.fire_date, direction))
+    elif normalized_sort == "birth_date":
+        order_clauses.append(_apply_order_direction(User.birth_date, direction))
+    elif normalized_sort == "is_cis_employee":
+        order_clauses.append(_apply_order_direction(User.is_cis_employee, direction))
+    elif normalized_sort == "status":
+        order_clauses.append(_apply_order_direction(User.fired, direction))
+
+    if order_clauses:
+        order_clauses.append(User.id.asc())
+        return query.order_by(*order_clauses)
+
+    return query.order_by(
+        func.lower(User.last_name).nullslast(),
+        func.lower(User.first_name).nullslast(),
+        User.id.asc(),
+    )
+
+
 def list_staff_employee_items(
     db: Session,
     current_user: User,
@@ -303,6 +373,13 @@ def list_staff_employee_items(
     q: Optional[str] = None,
     include_fired: bool = False,
     only_fired: bool = False,
+    only_formalized: bool = False,
+    only_not_formalized: bool = False,
+    only_cis: bool = False,
+    only_not_cis: bool = False,
+    position_ids: Optional[list[int]] = None,
+    sort_by: Optional[str] = None,
+    sort_direction: str = "asc",
     restaurant_id: Optional[int] = None,
     hire_date_from: Optional[date] = None,
     hire_date_to: Optional[date] = None,
@@ -393,9 +470,31 @@ def list_staff_employee_items(
         query = query.filter(User.fired == True)
     elif not include_fired:
         query = query.filter(User.fired == False)
+    if only_formalized and not only_not_formalized:
+        query = query.filter(User.is_formalized == True)
+    elif only_not_formalized and not only_formalized:
+        query = query.filter(or_(User.is_formalized == False, User.is_formalized.is_(None)))
+    if only_cis and not only_not_cis:
+        query = query.filter(User.is_cis_employee == True)
+    elif only_not_cis and not only_cis:
+        query = query.filter(or_(User.is_cis_employee == False, User.is_cis_employee.is_(None)))
     if q:
         like = f"%{q.lower()}%"
         query = query.filter(_staff_employee_search_expr().like(like))
+    if position_ids:
+        normalized_position_ids: list[int] = []
+        seen_position_ids: set[int] = set()
+        for raw_position_id in position_ids:
+            try:
+                position_id = int(raw_position_id)
+            except Exception:
+                continue
+            if position_id <= 0 or position_id in seen_position_ids:
+                continue
+            seen_position_ids.add(position_id)
+            normalized_position_ids.append(position_id)
+        if normalized_position_ids:
+            query = query.filter(User.position_id.in_(normalized_position_ids))
     if hire_date_from:
         query = query.filter(User.hire_date >= hire_date_from)
     if hire_date_to:
@@ -421,16 +520,7 @@ def list_staff_employee_items(
         else:
             query = query.filter(User.id == current_user.id)
 
-    users_window = (
-        query.order_by(
-            func.lower(User.last_name).nullslast(),
-            func.lower(User.first_name).nullslast(),
-            User.id.asc(),
-        )
-        .offset(offset)
-        .limit(limit + 1)
-        .all()
-    )
+    users_window = _apply_staff_employee_sort(query, sort_by, sort_direction).offset(offset).limit(limit + 1).all()
     has_more = len(users_window) > limit
     users = users_window[:limit]
     next_offset = (offset + len(users)) if has_more else None
