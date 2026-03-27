@@ -1,25 +1,48 @@
-<template>
+﻿<template>
     <Modal @close="closeItemModal">
         <template #header>{{ isEditMode ? 'Изменить товар' : 'Новый товар' }}</template>
         <template #default>
             <div class="inventory-catalog__modal-form">
-                <Input v-model="itemForm.name" label="Название" />
-                <Input v-model="itemForm.note" label="Описание" placeholder="Описание товара" />
-                <Input v-model="itemForm.manufacturer" label="Производитель" placeholder="Например: Valio" />
                 <Input
-                    v-model="itemForm.storageConditions"
+                    :model-value="itemForm.name"
+                    label="Название"
+                    @update:model-value="updateItemFormField('name', $event)"
+                />
+                <Input
+                    :model-value="itemForm.note"
+                    label="Описание"
+                    placeholder="Описание товара"
+                    @update:model-value="updateItemFormField('note', $event)"
+                />
+                <Input
+                    :model-value="itemForm.manufacturer"
+                    label="Производитель"
+                    placeholder="Например: Valio"
+                    @update:model-value="updateItemFormField('manufacturer', $event)"
+                />
+                <Input
+                    :model-value="itemForm.storageConditions"
                     label="Условия хранения"
                     placeholder="Температура, сроки, требования к хранению"
+                    @update:model-value="updateItemFormField('storageConditions', $event)"
                 />
                 <label class="inventory-catalog__instance-toggle">
-                    <input v-model="itemForm.useInstanceCodes" type="checkbox">
+                    <input
+                        :checked="itemForm.useInstanceCodes"
+                        type="checkbox"
+                        @change="updateItemFormField('useInstanceCodes', $event.target.checked)"
+                    >
                     <span>Индивидуальные коды единиц (1, 2, 3...)</span>
                 </label>
                 <p class="inventory-catalog__instance-toggle-hint">
                     Для массовых товаров (например, тарелки) выключите переключатель, чтобы учитывать их только по общему коду.
                 </p>
                 <label class="inventory-catalog__instance-toggle">
-                    <input v-model="itemForm.isActive" type="checkbox">
+                    <input
+                        :checked="itemForm.isActive"
+                        type="checkbox"
+                        @change="updateItemFormField('isActive', $event.target.checked)"
+                    >
                     <span>Карточка активна</span>
                 </label>
                 <p class="inventory-catalog__instance-toggle-hint">
@@ -89,7 +112,14 @@
                         </template>
                     </div>
                 </div>
-                <Input v-model="itemForm.cost" label="Стоимость" type="number" step="0.01" min="0" />
+                <Input
+                    :model-value="itemForm.cost"
+                    label="Стоимость"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    @update:model-value="updateItemFormField('cost', $event)"
+                />
 
                 <div class="inventory-catalog__photo-field">
                     <span class="inventory-catalog__photo-label">Фото</span>
@@ -113,7 +143,7 @@
                             <span>{{ uploadingPhoto ? 'Загрузка...' : 'Загрузить фото' }}</span>
                         </button>
                         <input
-                            ref="photoInputRef"
+                            :ref="photoInputRef"
                             type="file"
                             accept="image/*"
                             class="inventory-catalog__photo-input"
@@ -126,7 +156,7 @@
                             color="ghost"
                             size="sm"
                             :disabled="uploadingPhoto || saving || !canSubmitItemModal"
-                            @click="itemForm.photoUrl = ''"
+                            @click="clearItemPhoto"
                         >
                             Удалить фото
                         </Button>
@@ -146,9 +176,9 @@ import Button from '@/components/UI-components/Button.vue';
 import Input from '@/components/UI-components/Input.vue';
 import Modal from '@/components/UI-components/Modal.vue';
 
-defineEmits(['update:isCatalogModalOpen']);
+const emit = defineEmits(['update:isCatalogModalOpen', 'update:itemForm']);
 
-defineProps({
+const props = defineProps({
     canSubmitItemModal: { type: Boolean, required: true },
     categoriesByGroup: { type: Object, required: true },
     catalogModalRef: { type: Object, required: true },
@@ -160,7 +190,7 @@ defineProps({
     isModalGroupExpanded: { type: Function, required: true },
     itemForm: { type: Object, required: true },
     openPhotoPicker: { type: Function, required: true },
-    photoInputRef: { type: Object, required: true },
+    photoInputRef: { type: [Object, Function], required: true },
     saving: { type: Boolean, required: true },
     selectModalType: { type: Function, required: true },
     selectedTypeLabel: { type: String, required: true },
@@ -171,8 +201,20 @@ defineProps({
     typesByCategory: { type: Object, required: true },
     uploadingPhoto: { type: Boolean, required: true },
 });
+
+function updateItemFormField(field, value) {
+    emit('update:itemForm', {
+        ...props.itemForm,
+        [field]: value
+    });
+}
+
+function clearItemPhoto() {
+    updateItemFormField('photoUrl', '');
+}
 </script>
 
 <style scoped lang="scss">
 @use '@/assets/styles/pages/inventory-catalog' as *;
 </style>
+

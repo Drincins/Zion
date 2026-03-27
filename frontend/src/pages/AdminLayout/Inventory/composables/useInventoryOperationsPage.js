@@ -164,7 +164,6 @@ export function useInventoryOperationsPage() {
             ]);
             items.value = Array.isArray(itemData) ? itemData : [];
             departments.value = Array.isArray(departmentData) ? departmentData : [];
-            ensureLocationDefaults();
         } catch (error) {
             toast.error(getErrorMessage(error, 'Не удалось загрузить данные склада'));
             console.error(error);

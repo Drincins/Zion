@@ -1,4 +1,4 @@
-<template>
+﻿<template>
     <Modal class="inventory-catalog__card-modal-window" @close="closeItemCard">
         <template #header>
             <div class="inventory-catalog__card-header">
@@ -42,34 +42,52 @@
         <template #default>
             <div v-if="itemCardActiveTab === 'info'" class="inventory-catalog__card-panel inventory-catalog__card-panel--info">
                 <div class="inventory-catalog__modal-form">
-                    <Input v-model="itemForm.name" label="Название" :readonly="!canEditNomenclature" />
                     <Input
-                        v-model="itemForm.note"
+                        :model-value="itemForm.name"
+                        label="Название"
+                        :readonly="!canEditNomenclature"
+                        @update:model-value="updateItemFormField('name', $event)"
+                    />
+                    <Input
+                        :model-value="itemForm.note"
                         label="Описание"
                         placeholder="Описание товара"
                         :readonly="!canEditNomenclature"
+                        @update:model-value="updateItemFormField('note', $event)"
                     />
                     <Input
-                        v-model="itemForm.manufacturer"
+                        :model-value="itemForm.manufacturer"
                         label="Производитель"
                         placeholder="Например: Valio"
                         :readonly="!canEditNomenclature"
+                        @update:model-value="updateItemFormField('manufacturer', $event)"
                     />
                     <Input
-                        v-model="itemForm.storageConditions"
+                        :model-value="itemForm.storageConditions"
                         label="Условия хранения"
                         placeholder="Температура, сроки, требования к хранению"
                         :readonly="!canEditNomenclature"
+                        @update:model-value="updateItemFormField('storageConditions', $event)"
                     />
                     <label class="inventory-catalog__instance-toggle">
-                        <input v-model="itemForm.useInstanceCodes" type="checkbox" :disabled="!canEditNomenclature">
+                        <input
+                            :checked="itemForm.useInstanceCodes"
+                            type="checkbox"
+                            :disabled="!canEditNomenclature"
+                            @change="updateItemFormField('useInstanceCodes', $event.target.checked)"
+                        >
                         <span>Индивидуальные коды единиц (1, 2, 3...)</span>
                     </label>
                     <p class="inventory-catalog__instance-toggle-hint">
                         Включено: для каждой единицы создается свой код. Выключено: учет ведется только по общему коду товара.
                     </p>
                     <label class="inventory-catalog__instance-toggle">
-                        <input v-model="itemForm.isActive" type="checkbox" :disabled="!canEditNomenclature">
+                        <input
+                            :checked="itemForm.isActive"
+                            type="checkbox"
+                            :disabled="!canEditNomenclature"
+                            @change="updateItemFormField('isActive', $event.target.checked)"
+                        >
                         <span>Карточка активна</span>
                     </label>
                     <p class="inventory-catalog__instance-toggle-hint">
@@ -142,12 +160,13 @@
                     </div>
 
                     <Input
-                        v-model="itemForm.cost"
+                        :model-value="itemForm.cost"
                         label="Стоимость"
                         type="number"
                         step="0.01"
                         min="0"
                         :readonly="!canEditNomenclature"
+                        @update:model-value="updateItemFormField('cost', $event)"
                     />
                     <div class="inventory-catalog__readonly-field">
                         <span class="inventory-catalog__picker-label">Дата создания</span>
@@ -258,9 +277,9 @@ import Input from '@/components/UI-components/Input.vue';
 import Modal from '@/components/UI-components/Modal.vue';
 import Table from '@/components/UI-components/Table.vue';
 
-defineEmits(['update:isCatalogModalOpen', 'update:itemCardActiveTab']);
+const emit = defineEmits(['update:isCatalogModalOpen', 'update:itemCardActiveTab', 'update:itemForm']);
 
-defineProps({
+const props = defineProps({
     canEditNomenclature: { type: Boolean, required: true },
     categoriesByGroup: { type: Object, required: true },
     catalogModalRef: { type: Object, required: true },
@@ -298,8 +317,16 @@ defineProps({
     typesByCategory: { type: Object, required: true },
     uploadingPhoto: { type: Boolean, required: true },
 });
+
+function updateItemFormField(field, value) {
+    emit('update:itemForm', {
+        ...props.itemForm,
+        [field]: value
+    });
+}
 </script>
 
 <style scoped lang="scss">
 @use '@/assets/styles/pages/inventory-catalog' as *;
 </style>
+

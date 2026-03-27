@@ -21,7 +21,6 @@ import {
 } from '@/api';
 
 export function useInventoryGroupsModals({
-    categoriesByGroup,
     categoryMap,
     firstFloorOptions,
     groupMap,
@@ -29,7 +28,6 @@ export function useInventoryGroupsModals({
     loadTree,
     secondFloorOptions,
     sortedGroups,
-    typesByCategory,
 }) {
     const toast = useToast();
     const userStore = useUserStore();

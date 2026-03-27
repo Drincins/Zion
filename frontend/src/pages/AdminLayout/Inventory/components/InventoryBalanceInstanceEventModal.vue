@@ -10,14 +10,16 @@
         <template #default>
             <div class="inventory-balance__instance-form">
                 <Select
-                    v-model="instanceEventForm.eventTypeId"
+                    :model-value="instanceEventForm.eventTypeId"
                     label="Тип события"
                     :options="instanceEventTypeOptions"
+                    @update:model-value="updateInstanceEventFormField('eventTypeId', $event)"
                 />
                 <Input
-                    v-model="instanceEventForm.comment"
+                    :model-value="instanceEventForm.comment"
                     label="Комментарий"
                     placeholder="Например: отправили в ремонт, провели ТО, проверили состояние"
+                    @update:model-value="updateInstanceEventFormField('comment', $event)"
                 />
             </div>
         </template>
@@ -41,7 +43,9 @@ import Input from '@/components/UI-components/Input.vue';
 import Modal from '@/components/UI-components/Modal.vue';
 import Select from '@/components/UI-components/Select.vue';
 
-defineProps({
+const emit = defineEmits(['update:instanceEventForm']);
+
+const props = defineProps({
     closeInstanceEventModal: { type: Function, required: true },
     instanceEventForm: { type: Object, required: true },
     instanceEventSubmitting: { type: Boolean, required: true },
@@ -49,6 +53,13 @@ defineProps({
     selectedInstanceSummary: { type: Object, default: null },
     submitInstanceEvent: { type: Function, required: true },
 });
+
+function updateInstanceEventFormField(field, value) {
+    emit('update:instanceEventForm', {
+        ...props.instanceEventForm,
+        [field]: value
+    });
+}
 </script>
 
 <style scoped lang="scss">

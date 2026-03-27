@@ -78,7 +78,7 @@
             :item-form="itemForm"
             :loading-catalog-items="loadingCatalogItems"
             :open-photo-picker="openPhotoPicker"
-            :photo-input-ref="photoInputRef"
+            :photo-input-ref="setPhotoInputRef"
             :saving="saving"
             :select-catalog-item="selectCatalogItem"
             :select-modal-type="selectModalType"
@@ -91,6 +91,7 @@
             :types-by-category="typesByCategory"
             :uploading-photo="uploadingPhoto"
             @update:is-catalog-modal-open="isCatalogModalOpen = $event"
+            @update:item-form="Object.assign(itemForm, $event)"
         />
 
         <InventoryItemsTransferModal
@@ -102,6 +103,7 @@
             :submit-transfer="submitTransfer"
             :target-transfer-location-options="targetTransferLocationOptions"
             :transfer-form="transferForm"
+            @update:transfer-form="Object.assign(transferForm, $event)"
         />
 
         <InventoryItemsPhotoModal
@@ -120,6 +122,7 @@
             :handle-update-quantity-from-detail="handleUpdateQuantityFromDetail"
             :quantity-form="quantityForm"
             :saving="saving"
+            @update:quantity-form="Object.assign(quantityForm, $event)"
         />
     </div>
 </template>
@@ -214,6 +217,10 @@ const {
     submitTransfer,
     getCatalogPath,
 } = useInventoryItemsPage();
+
+function setPhotoInputRef(el) {
+    photoInputRef.value = el;
+}
 
 </script>
 

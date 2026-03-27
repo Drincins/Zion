@@ -67,7 +67,6 @@ async function bootstrapUserSession() {
     }
 }
 
-app.use(router);
 app.use(Toast, {
     position: POSITION.TOP_RIGHT,
     timeout: 3000,
@@ -80,5 +79,7 @@ if ('serviceWorker' in navigator && import.meta.env.PROD) {
 }
 
 await bootstrapUserSession();
+
+app.use(router);
 
 app.mount('#app');

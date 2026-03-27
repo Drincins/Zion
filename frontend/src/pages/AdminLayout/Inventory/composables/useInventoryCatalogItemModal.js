@@ -4,7 +4,6 @@ import { createInventoryItem, updateInventoryItem, uploadInventoryItemPhoto } fr
 
 export function useInventoryCatalogItemModal({
     canCreateNomenclature,
-    canEditNomenclature,
     canSubmitItemModal,
     isCatalogModalOpen,
     isEditMode,

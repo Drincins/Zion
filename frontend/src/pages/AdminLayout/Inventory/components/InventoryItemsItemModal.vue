@@ -1,4 +1,4 @@
-<template>
+﻿<template>
     <Modal @close="closeItemModal">
         <template #header>{{ isEditMode ? 'Изменить товар' : 'Новый товар' }}</template>
         <template #default>
@@ -24,9 +24,10 @@
 
                 <div v-if="isCatalogSourceMode" class="inventory-items__catalog-search-block">
                     <Input
-                        v-model="itemForm.catalogSearch"
+                        :model-value="itemForm.catalogSearch"
                         label="Поиск в каталоге"
                         placeholder="Введите название, описание или код"
+                        @update:model-value="updateItemFormField('catalogSearch', $event)"
                     />
                     <div class="inventory-items__catalog-search-results">
                         <div v-if="loadingCatalogItems" class="inventory-items__catalog-empty">
@@ -51,27 +52,39 @@
                     </div>
                 </div>
 
-                <Input v-model="itemForm.name" label="Название" :readonly="isCatalogSourceMode" />
                 <Input
-                    v-model="itemForm.note"
+                    :model-value="itemForm.name"
+                    label="Название"
+                    :readonly="isCatalogSourceMode"
+                    @update:model-value="updateItemFormField('name', $event)"
+                />
+                <Input
+                    :model-value="itemForm.note"
                     label="Описание"
                     placeholder="Описание товара"
                     :readonly="isCatalogSourceMode"
+                    @update:model-value="updateItemFormField('note', $event)"
                 />
                 <Input
-                    v-model="itemForm.manufacturer"
+                    :model-value="itemForm.manufacturer"
                     label="Производитель"
                     placeholder="Например: Valio"
                     :readonly="isCatalogSourceMode"
+                    @update:model-value="updateItemFormField('manufacturer', $event)"
                 />
                 <Input
-                    v-model="itemForm.storageConditions"
+                    :model-value="itemForm.storageConditions"
                     label="Условия хранения"
                     placeholder="Температура, сроки, требования к хранению"
                     :readonly="isCatalogSourceMode"
+                    @update:model-value="updateItemFormField('storageConditions', $event)"
                 />
                 <label v-if="!isCatalogSourceMode" class="inventory-items__instance-toggle">
-                    <input v-model="itemForm.useInstanceCodes" type="checkbox">
+                    <input
+                        :checked="itemForm.useInstanceCodes"
+                        type="checkbox"
+                        @change="updateItemFormField('useInstanceCodes', $event.target.checked)"
+                    >
                     <span>Индивидуальные коды единиц (1, 2, 3...)</span>
                 </label>
                 <p v-if="!isCatalogSourceMode" class="inventory-items__instance-toggle-hint">
@@ -143,11 +156,12 @@
                 </div>
 
                 <Input
-                    v-model="itemForm.cost"
+                    :model-value="itemForm.cost"
                     label="Стоимость"
                     type="number"
                     step="0.01"
                     :disabled="isCatalogSourceMode && !selectedCatalogItem"
+                    @update:model-value="updateItemFormField('cost', $event)"
                 />
                 <p v-if="isCatalogSourceMode" class="inventory-items__catalog-cost-hint" :class="{ 'is-warning': isCatalogCostOverride }">
                     <template v-if="isCatalogCostOverride">
@@ -201,7 +215,7 @@
                             color="ghost"
                             size="sm"
                             :disabled="uploadingPhoto || saving || !canEditModalPhoto"
-                            @click="itemForm.photoUrl = ''"
+                            @click="clearItemPhoto"
                         >
                             Удалить фото
                         </Button>
@@ -224,17 +238,19 @@
 
                     <div class="inventory-items__assign-fields">
                         <Select
-                            v-model="itemForm.targetOptionId"
+                            :model-value="itemForm.targetOptionId"
                             label="Подразделение"
                             :options="createDepartmentOptions"
                             placeholder="Выберите подразделение"
                             searchable
+                            @update:model-value="updateItemFormField('targetOptionId', $event)"
                         />
                         <Input
-                            v-model="itemForm.targetQuantity"
+                            :model-value="itemForm.targetQuantity"
                             label="Количество наименований"
                             type="number"
                             min="1"
+                            @update:model-value="updateItemFormField('targetQuantity', $event)"
                         />
                     </div>
                 </div>
@@ -253,9 +269,9 @@ import Input from '@/components/UI-components/Input.vue';
 import Modal from '@/components/UI-components/Modal.vue';
 import Select from '@/components/UI-components/Select.vue';
 
-defineEmits(['update:isCatalogModalOpen']);
+const emit = defineEmits(['update:isCatalogModalOpen', 'update:itemForm']);
 
-defineProps({
+const props = defineProps({
     canEditModalPhoto: { type: Boolean, required: true },
     canSubmitItemModal: { type: Boolean, required: true },
     canToggleCreateSourceMode: { type: Boolean, required: true },
@@ -276,7 +292,7 @@ defineProps({
     itemForm: { type: Object, required: true },
     loadingCatalogItems: { type: Boolean, required: true },
     openPhotoPicker: { type: Function, required: true },
-    photoInputRef: { type: Object, required: true },
+    photoInputRef: { type: [Object, Function], required: true },
     saving: { type: Boolean, required: true },
     selectCatalogItem: { type: Function, required: true },
     selectModalType: { type: Function, required: true },
@@ -289,8 +305,20 @@ defineProps({
     typesByCategory: { type: Object, required: true },
     uploadingPhoto: { type: Boolean, required: true },
 });
+
+function updateItemFormField(field, value) {
+    emit('update:itemForm', {
+        ...props.itemForm,
+        [field]: value
+    });
+}
+
+function clearItemPhoto() {
+    updateItemFormField('photoUrl', '');
+}
 </script>
 
 <style scoped lang="scss">
 @use '@/assets/styles/pages/inventory-items' as *;
 </style>
+

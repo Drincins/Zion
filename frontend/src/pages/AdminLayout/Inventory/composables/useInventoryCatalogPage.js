@@ -9,7 +9,7 @@ import { useUserStore } from '@/stores/user';
 import { formatDateTimeValue, formatNumberValue } from '@/utils/format';
 import { ITEM_CARD_TABS, useInventoryCatalogItemCard } from './useInventoryCatalogItemCard';
 import { useInventoryCatalogItemModal } from './useInventoryCatalogItemModal';
-import { useInventoryCatalogTree } from './useInventoryCatalogTree';
+import { DETAIL_PANE_STORAGE_KEY, useInventoryCatalogTree } from './useInventoryCatalogTree';
 import {
     fetchInventoryCategories,
     fetchInventoryGroups,
@@ -129,7 +129,6 @@ export function useInventoryCatalogPage() {
         submitItem,
     } = useInventoryCatalogItemModal({
         canCreateNomenclature,
-        canEditNomenclature,
         canSubmitItemModal,
         isCatalogModalOpen,
         isEditMode,
@@ -395,6 +394,7 @@ export function useInventoryCatalogPage() {
         isModalCategoryExpanded,
         toggleModalGroup,
         toggleModalCategory,
+        selectModalType,
         seedModalPickerTree,
         onDocumentClick,
         loadLookupData,

@@ -46,7 +46,10 @@ npm run dev
 2. Убедиться, что БД запущена: `docker compose up -d db`.
 3. Сделать дамп: `docker compose exec db pg_dump -U zion_user -d zion > db.sql`.
 4. Скопировать `db.sql` на локальный ПК в корень проекта.
-5. Локально удалить старый volume БД: `docker compose down -v`.
-6. Поднять только БД: `docker compose up -d db`.
-7. Загрузить дамп в контейнер: `docker compose cp db.sql db:/db.sql`.
-8. Восстановить базу: `docker compose exec -T db psql -U zion_user -d zion -f /db.sql`.
+5. На локалке — полностью удалить старую БД `docker compose down -v`
+6. Закинуть файл db.sql в папку проекта
+7. Поднять только postgres `docker compose up -d db`
+8. Скопировать дамп в контейнер `docker compose cp db.sql db:/db.sql`
+9. Восстановить дамп В БАЗУ:
+Войти в контейнер `docker compose exec -it db bash`
+10. Применить дамп `psql -U zion_user -d zion -f /db.sql`

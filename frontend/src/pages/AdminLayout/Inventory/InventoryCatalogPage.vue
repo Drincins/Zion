@@ -76,7 +76,7 @@
             :is-modal-group-expanded="isModalGroupExpanded"
             :item-form="itemForm"
             :open-photo-picker="openPhotoPicker"
-            :photo-input-ref="photoInputRef"
+            :photo-input-ref="setPhotoInputRef"
             :saving="saving"
             :select-modal-type="selectModalType"
             :selected-type-label="selectedTypeLabel"
@@ -87,6 +87,7 @@
             :types-by-category="typesByCategory"
             :uploading-photo="uploadingPhoto"
             @update:is-catalog-modal-open="isCatalogModalOpen = $event"
+            @update:item-form="Object.assign(itemForm, $event)"
         />
 
         <InventoryCatalogItemCardModal
@@ -129,6 +130,7 @@
             :uploading-photo="uploadingPhoto"
             @update:is-catalog-modal-open="isCatalogModalOpen = $event"
             @update:item-card-active-tab="itemCardActiveTab = $event"
+            @update:item-form="Object.assign(itemForm, $event)"
         />
 
         <InventoryCatalogPhotoModal
@@ -138,7 +140,7 @@
             :handle-replace-preview-photo="handleReplacePreviewPhoto"
             :is-preview-photo-editable="isPreviewPhotoEditable"
             :open-preview-photo-picker="openPreviewPhotoPicker"
-            :preview-photo-input-ref="previewPhotoInputRef"
+            :preview-photo-input-ref="setPreviewPhotoInputRef"
             :preview-photo-item="previewPhotoItem"
             :preview-photo-url="previewPhotoUrl"
             :remove-preview-photo="removePreviewPhoto"
@@ -239,6 +241,14 @@ const {
     categoriesByGroup,
     typesByCategory,
 } = useInventoryCatalogPage();
+
+function setPhotoInputRef(el) {
+    photoInputRef.value = el;
+}
+
+function setPreviewPhotoInputRef(el) {
+    previewPhotoInputRef.value = el;
+}
 </script>
 
 <style scoped lang="scss">

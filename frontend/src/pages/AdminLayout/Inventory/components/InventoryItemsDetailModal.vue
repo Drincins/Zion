@@ -1,4 +1,4 @@
-<template>
+﻿<template>
     <Modal @close="closeItemDetail">
         <template #header>Карточка товара</template>
         <template #default>
@@ -52,11 +52,12 @@
             </div>
             <div class="inventory-items__detail-actions">
                 <Input
-                    v-model="quantityForm.value"
+                    :model-value="quantityForm.value"
                     label="Изменить количество в подразделении"
                     type="number"
                     min="0"
                     :readonly="!canCreateMovement"
+                    @update:model-value="updateQuantityFormField('value', $event)"
                 />
                 <Button
                     v-if="canCreateMovement"
@@ -77,7 +78,9 @@ import Button from '@/components/UI-components/Button.vue';
 import Input from '@/components/UI-components/Input.vue';
 import Modal from '@/components/UI-components/Modal.vue';
 
-defineProps({
+const emit = defineEmits(['update:quantityForm']);
+
+const props = defineProps({
     canCreateMovement: { type: Boolean, required: true },
     closeItemDetail: { type: Function, required: true },
     detailItemEntry: { type: Object, required: true },
@@ -87,8 +90,16 @@ defineProps({
     quantityForm: { type: Object, required: true },
     saving: { type: Boolean, required: true },
 });
+
+function updateQuantityFormField(field, value) {
+    emit('update:quantityForm', {
+        ...props.quantityForm,
+        [field]: value
+    });
+}
 </script>
 
 <style scoped lang="scss">
 @use '@/assets/styles/pages/inventory-items' as *;
 </style>
+

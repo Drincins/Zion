@@ -124,6 +124,7 @@
             :instance-event-type-options="instanceEventTypeOptions"
             :selected-instance-summary="selectedInstanceSummary"
             :submit-instance-event="submitInstanceEvent"
+            @update:instance-event-form="Object.assign(instanceEventForm, $event)"
         />
 
         <InventoryBalanceOperationModal
@@ -147,6 +148,7 @@
             :source-storage-place-options="sourceStoragePlaceOptions"
             :submit-operation="submitOperation"
             :target-storage-place-options="targetStoragePlaceOptions"
+            @update:operation-form="Object.assign(operationForm, $event)"
             @update:operation-type="operationType = $event"
         />
     </div>

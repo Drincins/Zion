@@ -1,7 +1,7 @@
 import { computed, ref } from 'vue';
 
 const TREE_STATE_STORAGE_KEY = 'zion.inventory.catalog.tree.v1';
-const DETAIL_PANE_STORAGE_KEY = 'zion.inventory.catalog.detail-pane.v1';
+export const DETAIL_PANE_STORAGE_KEY = 'zion.inventory.catalog.detail-pane.v1';
 
 export function useInventoryCatalogTree({
     categories,
@@ -451,6 +451,7 @@ export function useInventoryCatalogTree({
         restoreExpandedTree,
         seedExpandedTree,
         seedModalPickerTree,
+        selectModalType,
         selectedTypeLabel,
         sortedCategories,
         sortedGroups,

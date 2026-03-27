@@ -304,7 +304,6 @@ const {
     formatTo,
     formatQuantity,
     formatReason,
-    loadOperations,
     loadAllData,
     submitOperation,
 } = useInventoryOperationsPage();

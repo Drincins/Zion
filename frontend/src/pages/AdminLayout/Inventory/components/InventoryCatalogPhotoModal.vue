@@ -25,7 +25,7 @@
             </div>
             <input
                 v-if="isPreviewPhotoEditable"
-                ref="previewPhotoInputRef"
+                :ref="previewPhotoInputRef"
                 type="file"
                 accept="image/*"
                 class="inventory-catalog__photo-input"
@@ -45,7 +45,7 @@ defineProps({
     handleReplacePreviewPhoto: { type: Function, required: true },
     isPreviewPhotoEditable: { type: Boolean, required: true },
     openPreviewPhotoPicker: { type: Function, required: true },
-    previewPhotoInputRef: { type: Object, required: true },
+    previewPhotoInputRef: { type: [Object, Function], required: true },
     previewPhotoItem: { type: Object, default: null },
     previewPhotoUrl: { type: String, required: true },
     removePreviewPhoto: { type: Function, required: true },
