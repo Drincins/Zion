@@ -3185,64 +3185,6 @@ async function toggleEditMode() {
 }
 
 
-function filterEmployeesByRestaurant(list, filterValue) {
-    if (!filterValue) {
-        return list || [];
-    }
-    const parsedId = Number(filterValue);
-    if (!Number.isFinite(parsedId)) {
-        return list || [];
-    }
-    return (list || []).filter((employee) => employeeMatchesWorkplace(employee, parsedId));
-}
-
-function filterEmployeesByPositions(list, selectedIds) {
-    if (!Array.isArray(selectedIds) || selectedIds.length === 0) {
-        return list || [];
-    }
-    const allowed = new Set(
-        selectedIds
-            .map((id) => Number(id))
-            .filter((id) => Number.isFinite(id)),
-    );
-    if (!allowed.size) {
-        return list || [];
-    }
-    return (list || []).filter((employee) => {
-        const positionId = Number(employee?.position_id);
-        return Number.isFinite(positionId) && allowed.has(positionId);
-    });
-}
-
-function parseDateFilterValue(value) {
-    if (!value) {
-        return null;
-    }
-    const time = Date.parse(value);
-    return Number.isFinite(time) ? time : null;
-}
-
-function filterEmployeesByDateRange(list, field, fromValue, toValue) {
-    const fromTime = parseDateFilterValue(fromValue);
-    const toTime = parseDateFilterValue(toValue);
-    if (fromTime === null && toTime === null) {
-        return list || [];
-    }
-    return (list || []).filter((employee) => {
-        const time = parseDateFilterValue(employee?.[field]);
-        if (time === null) {
-            return false;
-        }
-        if (fromTime !== null && time < fromTime) {
-            return false;
-        }
-        if (toTime !== null && time > toTime) {
-            return false;
-        }
-        return true;
-    });
-}
-
 function getEmployeeFlagValue(sources, keys) {
     for (const source of sources) {
         if (!source) {
@@ -3257,65 +3199,12 @@ function getEmployeeFlagValue(sources, keys) {
     return false;
 }
 
-function getEmployeeFiredValue(...sources) {
-    return getEmployeeFlagValue(sources, ['fired', 'is_fired', 'isFired']);
-}
-
 function getEmployeeFormalizedValue(...sources) {
     return getEmployeeFlagValue(sources, ['is_formalized', 'isFormalized', 'formalized']);
 }
 
 function getEmployeeCisValue(...sources) {
     return getEmployeeFlagValue(sources, ['is_cis_employee', 'isCisEmployee', 'cis']);
-}
-
-function isEmployeeFired(employee) {
-    return getEmployeeFiredValue(employee);
-}
-
-function isEmployeeFormalized(employee) {
-    return getEmployeeFormalizedValue(employee);
-}
-
-function isEmployeeCis(employee) {
-    return getEmployeeCisValue(employee);
-}
-
-function filterEmployeesByFlags(list) {
-    const wantsFormalized = onlyFormalized.value;
-    const wantsNotFormalized = onlyNotFormalized.value;
-    const formalizedFilterActive = wantsFormalized || wantsNotFormalized;
-    const hasContradiction = wantsFormalized && wantsNotFormalized;
-    const wantsCis = onlyCis.value;
-    const wantsNotCis = onlyNotCis.value;
-    const cisFilterActive = wantsCis || wantsNotCis;
-    const cisContradiction = wantsCis && wantsNotCis;
-
-    if (!onlyFired.value && !formalizedFilterActive && !cisFilterActive) {
-        return list || [];
-    }
-    return (list || []).filter((employee) => {
-        if (onlyFired.value && !isEmployeeFired(employee)) {
-            return false;
-        }
-        if (!hasContradiction) {
-            if (wantsFormalized && !isEmployeeFormalized(employee)) {
-                return false;
-            }
-            if (wantsNotFormalized && isEmployeeFormalized(employee)) {
-                return false;
-            }
-        }
-        if (!cisContradiction) {
-            if (wantsCis && !isEmployeeCis(employee)) {
-                return false;
-            }
-            if (wantsNotCis && isEmployeeCis(employee)) {
-                return false;
-            }
-        }
-        return true;
-    });
 }
 
 function getEmployeeRestaurantsList(employee) {
