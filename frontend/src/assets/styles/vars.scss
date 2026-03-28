@@ -70,3 +70,142 @@ $danger: #aa2d2a;
     --color-red-background: rgba(248, 113, 113, 0.25);
     --color-red-text: #f87171;
 }
+
+.interface-classic {
+    --color-primary: #{$primary};
+}
+
+.interface-blue {
+    --color-background:
+    radial-gradient(circle at 14% 68%, rgba(74, 133, 191, 0.08) 0, rgba(255, 255, 255, 0) 55%),
+    radial-gradient(circle at 82% 10%, rgba(146, 192, 228, 0.20) 0, rgba(255, 255, 255, 0) 45%),
+    radial-gradient(circle at 8% 85%, rgba(122, 163, 196, 0.22) 0, rgba(122, 163, 196, 0) 60%),
+    linear-gradient(130deg, rgba(235, 244, 251, 0.72) 0%, rgba(210, 225, 238, 0.52) 45%, rgba(235, 244, 251, 0.72) 100%);
+    --color-modal: #d5e7f733;
+    --color-primary: #65a7bb;
+    --color-border: #c6d8e5;
+    --color-surface: #ddeaf3;
+    --color-surface-100: #edf5fb;
+    --color-surface-200: #cfdfea;
+}
+
+.dark.interface-blue {
+    --color-background:
+    radial-gradient(circle at 14% 68%, rgb(71 66 61 / 0%) 0, rgb(95 88 80 / 0%) 55%),
+    radial-gradient(circle at 82% 10%, rgb(71 66 61 / 26%) 0, rgb(75 68 60 / 0%) 45%),
+    radial-gradient(circle at 8% 85%, rgb(35 32 28) 0, rgb(35 32 28 / 0%) 55%),
+    linear-gradient(130deg, rgb(0 0 0) 0%, rgb(0 0 0) 45%, rgb(38 70 119 / 75%) 100%);
+    --color-primary: #65a7bb;
+    --color-border: #2c4258;
+    --color-surface: #141b24;
+    --color-surface-100: #0c1118;
+    --color-surface-200: #23384d;
+}
+
+.interface-green {
+    --color-background:
+    radial-gradient(circle at 14% 68%, rgba(70, 156, 104, 0.10) 0, rgba(255, 255, 255, 0) 55%),
+    radial-gradient(circle at 82% 10%, rgba(152, 215, 177, 0.22) 0, rgba(255, 255, 255, 0) 45%),
+    radial-gradient(circle at 8% 85%, rgba(132, 188, 156, 0.25) 0, rgba(132, 188, 156, 0) 60%),
+    linear-gradient(130deg, rgba(236, 247, 241, 0.72) 0%, rgba(213, 232, 221, 0.52) 45%, rgba(236, 247, 241, 0.72) 100%);
+    --color-modal: #d8f0e133;
+    --color-primary: #65bb8a;
+    --color-border: #c5decf;
+    --color-surface: #ddefe3;
+    --color-surface-100: #edf8f2;
+    --color-surface-200: #d0e6d8;
+}
+
+.dark.interface-green {
+    --color-background:
+    radial-gradient(circle at 14% 68%, rgb(29 60 40 / 0%) 0, rgb(35 74 50 / 0%) 55%),
+    radial-gradient(circle at 82% 10%, rgb(41 85 58 / 30%) 0, rgb(41 85 58 / 0%) 45%),
+    radial-gradient(circle at 8% 85%, rgb(20 33 26) 0, rgb(20 33 26 / 0%) 55%),
+    linear-gradient(130deg, rgb(0 0 0) 0%, rgb(0 0 0) 45%, rgb(22 80 55 / 75%) 100%);
+    --color-primary: #65bb8a;
+    --color-border: #2f4a3c;
+    --color-surface: #121c17;
+    --color-surface-100: #0b110e;
+    --color-surface-200: #234234;
+}
+
+.interface-red {
+    --color-background:
+    radial-gradient(circle at 14% 68%, rgba(197, 76, 76, 0.10) 0, rgba(255, 255, 255, 0) 55%),
+    radial-gradient(circle at 82% 10%, rgba(236, 165, 165, 0.22) 0, rgba(255, 255, 255, 0) 45%),
+    radial-gradient(circle at 8% 85%, rgba(214, 136, 136, 0.24) 0, rgba(214, 136, 136, 0) 60%),
+    linear-gradient(130deg, rgba(250, 237, 237, 0.72) 0%, rgba(238, 216, 216, 0.52) 45%, rgba(250, 237, 237, 0.72) 100%);
+    --color-modal: #f8dddd33;
+    --color-primary: #bb6565;
+    --color-border: #e1c9c9;
+    --color-surface: #f3dddd;
+    --color-surface-100: #f9efef;
+    --color-surface-200: #ecd3d3;
+}
+
+.dark.interface-red {
+    --color-background:
+    radial-gradient(circle at 14% 68%, rgb(84 33 33 / 0%) 0, rgb(99 40 40 / 0%) 55%),
+    radial-gradient(circle at 82% 10%, rgb(110 45 45 / 30%) 0, rgb(110 45 45 / 0%) 45%),
+    radial-gradient(circle at 8% 85%, rgb(40 18 18) 0, rgb(40 18 18 / 0%) 55%),
+    linear-gradient(130deg, rgb(0 0 0) 0%, rgb(0 0 0) 45%, rgb(108 34 34 / 75%) 100%);
+    --color-primary: #bb6565;
+    --color-border: #563131;
+    --color-surface: #231414;
+    --color-surface-100: #160d0d;
+    --color-surface-200: #422626;
+}
+
+.interface-pink {
+    --color-background:
+    radial-gradient(circle at 14% 68%, rgba(198, 116, 158, 0.10) 0, rgba(255, 255, 255, 0) 55%),
+    radial-gradient(circle at 82% 10%, rgba(239, 187, 214, 0.23) 0, rgba(255, 255, 255, 0) 45%),
+    radial-gradient(circle at 8% 85%, rgba(223, 162, 193, 0.25) 0, rgba(223, 162, 193, 0) 60%),
+    linear-gradient(130deg, rgba(250, 238, 245, 0.72) 0%, rgba(238, 219, 230, 0.52) 45%, rgba(250, 238, 245, 0.72) 100%);
+    --color-modal: #f6deed33;
+    --color-primary: #bb6595;
+    --color-border: #e0cade;
+    --color-surface: #f1deeb;
+    --color-surface-100: #f9eff5;
+    --color-surface-200: #ead5e5;
+}
+
+.dark.interface-pink {
+    --color-background:
+    radial-gradient(circle at 14% 68%, rgb(69 35 56 / 0%) 0, rgb(90 45 72 / 0%) 55%),
+    radial-gradient(circle at 82% 10%, rgb(106 53 87 / 30%) 0, rgb(106 53 87 / 0%) 45%),
+    radial-gradient(circle at 8% 85%, rgb(35 20 30) 0, rgb(35 20 30 / 0%) 55%),
+    linear-gradient(130deg, rgb(0 0 0) 0%, rgb(0 0 0) 45%, rgb(99 52 82 / 75%) 100%);
+    --color-primary: #bb6595;
+    --color-border: #52334a;
+    --color-surface: #1f151d;
+    --color-surface-100: #130d12;
+    --color-surface-200: #3f2a39;
+}
+
+.interface-purple {
+    --color-background:
+    radial-gradient(circle at 14% 68%, rgba(136, 102, 198, 0.10) 0, rgba(255, 255, 255, 0) 55%),
+    radial-gradient(circle at 82% 10%, rgba(206, 181, 241, 0.23) 0, rgba(255, 255, 255, 0) 45%),
+    radial-gradient(circle at 8% 85%, rgba(187, 154, 228, 0.25) 0, rgba(187, 154, 228, 0) 60%),
+    linear-gradient(130deg, rgba(246, 240, 252, 0.72) 0%, rgba(230, 220, 242, 0.52) 45%, rgba(246, 240, 252, 0.72) 100%);
+    --color-modal: #eadff833;
+    --color-primary: #9a65bb;
+    --color-border: #d9cde7;
+    --color-surface: #ece0f4;
+    --color-surface-100: #f5effa;
+    --color-surface-200: #decee9;
+}
+
+.dark.interface-purple {
+    --color-background:
+    radial-gradient(circle at 14% 68%, rgb(52 38 76 / 0%) 0, rgb(64 47 92 / 0%) 55%),
+    radial-gradient(circle at 82% 10%, rgb(84 62 120 / 30%) 0, rgb(84 62 120 / 0%) 45%),
+    radial-gradient(circle at 8% 85%, rgb(27 20 39) 0, rgb(27 20 39 / 0%) 55%),
+    linear-gradient(130deg, rgb(0 0 0) 0%, rgb(0 0 0) 45%, rgb(73 48 112 / 75%) 100%);
+    --color-primary: #9a65bb;
+    --color-border: #493a58;
+    --color-surface: #1c1623;
+    --color-surface-100: #110e16;
+    --color-surface-200: #352744;
+}

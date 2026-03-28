@@ -9,6 +9,7 @@ import { persistedState } from './plugins/persist';
 import { setupValidation } from './plugins/validation';
 import { api } from './api';
 import { useUserStore } from './stores/user';
+import { useThemeStore } from './stores/theme';
 import { fetchCurrentSessionUser } from './api/auth';
 
 const app = createApp(App);
@@ -20,6 +21,7 @@ app.use(pinia);
 setupValidation();
 
 const userStore = useUserStore(pinia);
+const themeStore = useThemeStore(pinia);
 api.interceptors.request.use((config) => {
     if (userStore.token) {
         config.headers.Authorization = `Bearer ${userStore.token}`;
@@ -78,7 +80,11 @@ if ('serviceWorker' in navigator && import.meta.env.PROD) {
     });
 }
 
+themeStore.resetTheme();
 await bootstrapUserSession();
+if (userStore.isAuthenticated) {
+    await themeStore.bootstrapTheme();
+}
 
 app.use(router);
 

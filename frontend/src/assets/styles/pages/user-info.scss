@@ -237,4 +237,18 @@
         font-size: 14px;
         opacity: 0.85;
     }
+
+    &__theme-card {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        max-width: 420px;
+    }
+
+    &__theme-note,
+    &__theme-hint {
+        margin: 0;
+        font-size: 14px;
+        color: color-mix(in srgb, var(--color-text) 82%, var(--color-surface) 18%);
+    }
 }

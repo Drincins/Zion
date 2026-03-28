@@ -1,6 +1,5 @@
 <template>
     <div class="user-info">
-        <!-- Личные данные -->
         <section v-if="showProfile" class="user-info__card">
             <h3 class="h3 user-info__card-title">Личные данные пользователя</h3>
             <div v-if="user">
@@ -22,7 +21,7 @@
                 <p class="user-info__card-data">
                     <strong class="user-info__card-strong">Рестораны:</strong>
                     <span v-if="user.restaurants && user.restaurants.length">
-                        &nbsp;{{ user.restaurants.map((r) => r.name).join(', ') }}
+                        &nbsp;{{ user.restaurants.map((restaurant) => restaurant.name).join(', ') }}
                     </span>
                     <span v-else>-</span>
                 </p>
@@ -31,6 +30,20 @@
                 <p>Загрузка...</p>
             </div>
         </section>
+
+        <section v-if="canCustomizeInterfaceTheme" class="user-info__card user-info__theme-card">
+            <h3 class="h3 user-info__card-title">Тема интерфейса</h3>
+            <p class="user-info__theme-note">Настройка сохраняется в вашем аккаунте и не влияет на других сотрудников.</p>
+            <Select
+                :model-value="themeStore.interfaceTheme"
+                label="Текущая тема интерфейса"
+                :options="interfaceThemeOptions"
+                :disabled="themeStore.isSaving"
+                placeholder="Выберите тему"
+                @update:model-value="handleInterfaceThemeChange"
+            />
+            <p class="user-info__theme-hint">Для пользователей без админки всегда используется классическая тема.</p>
+        </section>
     </div>
 </template>
 
@@ -38,6 +51,8 @@
 import { computed, onMounted, ref } from 'vue';
 import { fetchUser } from '@/api';
 import { useToast } from 'vue-toastification';
+import Select from '@/components/UI-components/Select.vue';
+import { useThemeStore } from '@/stores/theme';
 import { useUserStore } from '@/stores/user';
 import { isSystemLevelRole } from '@/utils/roles';
 
@@ -49,9 +64,12 @@ const props = defineProps({
 });
 
 const userStore = useUserStore();
+const themeStore = useThemeStore();
 const toast = useToast();
 
 const showProfile = computed(() => props.section === 'all' || props.section === 'profile');
+const canCustomizeInterfaceTheme = computed(() => themeStore.canCustomizeInterfaceTheme);
+const interfaceThemeOptions = computed(() => themeStore.interfaceThemeOptions);
 
 const canViewSensitiveStaffFields = computed(() => {
     return userStore.hasPermission('system.admin') || isSystemLevelRole(userStore.roleName);
@@ -79,9 +97,26 @@ async function loadUser(userId) {
     }
 }
 
-onMounted(() => {
+async function handleInterfaceThemeChange(nextTheme) {
+    if (!nextTheme || nextTheme === themeStore.interfaceTheme) {
+        return;
+    }
+    const result = await themeStore.saveInterfaceTheme(nextTheme);
+    if (!result.ok) {
+        toast.error('Не удалось сохранить тему');
+    }
+}
+
+onMounted(async () => {
+    const tasks = [];
     if (showProfile.value && userStore.id) {
-        loadUser(userStore.id);
+        tasks.push(loadUser(userStore.id));
+    }
+    if (userStore.isAuthenticated && !themeStore.isLoaded) {
+        tasks.push(themeStore.bootstrapTheme());
+    }
+    if (tasks.length) {
+        await Promise.all(tasks);
     }
 });
 </script>

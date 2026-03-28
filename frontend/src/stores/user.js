@@ -1,6 +1,13 @@
 import { defineStore } from 'pinia';
 import { fetchUser } from '@/api';
 import { logoutUser } from '@/api/auth';
+import { useThemeStore } from '@/stores/theme';
+import {
+    DEFAULT_INTERFACE_THEME,
+    DEFAULT_THEME_MODE,
+    applyInterfaceThemeToDocument,
+    applyThemeModeToDocument,
+} from '@/utils/theme';
 
 export const useUserStore = defineStore('user', {
     state: () => ({
@@ -132,7 +139,14 @@ export const useUserStore = defineStore('user', {
             }
             this.clearUser();
             localStorage.removeItem('pinia-user');
+            localStorage.removeItem('theme');
             sessionStorage.removeItem('pinia-user');
+            try {
+                useThemeStore().resetTheme();
+            } catch {
+                applyThemeModeToDocument(DEFAULT_THEME_MODE);
+                applyInterfaceThemeToDocument(DEFAULT_INTERFACE_THEME);
+            }
         },
         setFiredFromDetail(detail) {
             if (typeof detail !== 'string') {

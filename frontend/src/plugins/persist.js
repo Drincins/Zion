@@ -14,6 +14,9 @@ function resolveLegacyStorage(storeId) {
 
 export function persistedState(context) {
     const { store } = context;
+    if (store.$id === 'theme') {
+        return;
+    }
     const key = `pinia-${store.$id}`;
     const storage = resolveStorage(store.$id);
     const legacyStorage = resolveLegacyStorage(store.$id);

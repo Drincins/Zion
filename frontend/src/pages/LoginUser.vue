@@ -86,6 +86,7 @@ import { RouterLink, useRouter } from 'vue-router';
 import { useToast } from 'vue-toastification';
 import { identifyFingerprint, loginStaffByCode } from '@/api';
 import { useUserStore } from '@/stores/user';
+import { useThemeStore } from '@/stores/theme';
 import Button from '@/components/UI-components/Button.vue';
 
 const MAX_LENGTH = 5;
@@ -100,6 +101,7 @@ const downloadUrl = '/api/downloads/zionscan';
 const router = useRouter();
 const toast = useToast();
 const userStore = useUserStore();
+const themeStore = useThemeStore();
 
 let pointerQuery;
 
@@ -245,6 +247,7 @@ async function submitCode(
         });
 
         toast.success('Успешный вход');
+        await themeStore.bootstrapTheme();
         router.push({ name: 'time-tracking' });
     } catch (error) {
         if (error.response?.status === 401) {

@@ -1,10 +1,10 @@
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
-from backend.bd.models import Company, User, Restaurant, Role
+from backend.bd.models import Company, User, Restaurant, Role, UserThemePreference
 from backend.bd.database import get_db
 from backend.utils import (
     hash_password,
@@ -16,10 +16,20 @@ from backend.utils import (
     clear_auth_cookie,
     revoke_session_token,
 )
-from backend.services.permissions import PermissionCode, ensure_permissions
+from backend.services.permissions import (
+    PermissionCode,
+    ensure_permissions,
+    get_user_permission_codes,
+    has_global_access,
+)
 from fastapi.security import OAuth2PasswordRequestForm
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
+
+AVAILABLE_THEME_MODE_KEYS = ("light", "dark")
+DEFAULT_THEME_MODE_KEY = "dark"
+AVAILABLE_INTERFACE_THEME_KEYS = ("classic", "blue", "green", "red", "pink", "purple")
+DEFAULT_INTERFACE_THEME_KEY = "classic"
 
 class RegisterRequest(BaseModel):
     username: str | None = None
@@ -108,6 +118,82 @@ class SessionUserResponse(BaseModel):
     last_name: str | None = None
     iiko_code: str | None = None
 
+
+class ThemePreferenceResponse(BaseModel):
+    mode: str
+    interface_theme: str
+    can_customize_interface_theme: bool
+    available_modes: list[str] = Field(default_factory=list)
+    available_interface_themes: list[str] = Field(default_factory=list)
+
+
+class ThemePreferenceUpdateRequest(BaseModel):
+    mode: str | None = None
+    interface_theme: str | None = None
+
+
+def _normalize_theme_mode_key(value: str | None) -> str:
+    normalized = (value or "").strip().lower()
+    if normalized in AVAILABLE_THEME_MODE_KEYS:
+        return normalized
+    return DEFAULT_THEME_MODE_KEY
+
+
+def _normalize_interface_theme_key(value: str | None) -> str:
+    normalized = (value or "").strip().lower()
+    if normalized in AVAILABLE_INTERFACE_THEME_KEYS:
+        return normalized
+    return DEFAULT_INTERFACE_THEME_KEY
+
+
+def _can_customize_interface_theme(current_user: User) -> bool:
+    if has_global_access(current_user):
+        return True
+    codes = get_user_permission_codes(current_user)
+    if any(code.startswith("sections.") for code in codes):
+        return True
+    return any(
+        code in codes
+        for code in (
+            PermissionCode.USERS_VIEW,
+            PermissionCode.USERS_MANAGE,
+            PermissionCode.STAFF_EMPLOYEES_VIEW,
+            PermissionCode.STAFF_EMPLOYEES_MANAGE,
+            PermissionCode.ACCESS_CONTROL_READ,
+            PermissionCode.ACCESS_CONTROL_MANAGE,
+            PermissionCode.INVENTORY_VIEW,
+            PermissionCode.PAYROLL_VIEW,
+            PermissionCode.KPI_VIEW,
+            PermissionCode.SALES_REPORT_VIEW_QTY,
+            PermissionCode.SALES_REPORT_VIEW_MONEY,
+            PermissionCode.ACCOUNTING_INVOICES_VIEW,
+            PermissionCode.KNOWLEDGE_BASE_SECTION,
+        )
+    )
+
+
+def _build_theme_preference_response(
+    *,
+    mode: str,
+    interface_theme: str,
+    can_customize_interface_theme: bool,
+) -> ThemePreferenceResponse:
+    if not can_customize_interface_theme:
+        return ThemePreferenceResponse(
+            mode=_normalize_theme_mode_key(mode),
+            interface_theme=DEFAULT_INTERFACE_THEME_KEY,
+            can_customize_interface_theme=False,
+            available_modes=list(AVAILABLE_THEME_MODE_KEYS),
+            available_interface_themes=[DEFAULT_INTERFACE_THEME_KEY],
+        )
+    return ThemePreferenceResponse(
+        mode=_normalize_theme_mode_key(mode),
+        interface_theme=_normalize_interface_theme_key(interface_theme),
+        can_customize_interface_theme=True,
+        available_modes=list(AVAILABLE_THEME_MODE_KEYS),
+        available_interface_themes=list(AVAILABLE_INTERFACE_THEME_KEYS),
+    )
+
 @router.post("/login", response_model=TokenResponse)
 def login(user: LoginRequest, request: Request, response: Response, db: Session = Depends(get_db)):
     db_user = db.query(User).filter(User.username == user.username).first()
@@ -164,6 +250,90 @@ def get_me(current_user: User = Depends(get_current_user)):
         first_name=current_user.first_name,
         last_name=current_user.last_name,
         iiko_code=current_user.iiko_code,
+    )
+
+
+@router.get("/theme", response_model=ThemePreferenceResponse)
+def get_theme_preference(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    can_customize_interface_theme = _can_customize_interface_theme(current_user)
+
+    preference = (
+        db.query(UserThemePreference)
+        .filter(UserThemePreference.user_id == current_user.id)
+        .first()
+    )
+    saved_mode = preference.theme_key if preference else DEFAULT_THEME_MODE_KEY
+    saved_interface_theme = (
+        preference.interface_theme_key
+        if preference
+        else DEFAULT_INTERFACE_THEME_KEY
+    )
+    return _build_theme_preference_response(
+        mode=saved_mode,
+        interface_theme=saved_interface_theme,
+        can_customize_interface_theme=can_customize_interface_theme,
+    )
+
+
+@router.put("/theme", response_model=ThemePreferenceResponse)
+def set_theme_preference(
+    payload: ThemePreferenceUpdateRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    if payload.mode is None and payload.interface_theme is None:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No theme fields provided")
+
+    can_customize_interface_theme = _can_customize_interface_theme(current_user)
+
+    preference = (
+        db.query(UserThemePreference)
+        .filter(UserThemePreference.user_id == current_user.id)
+        .first()
+    )
+    if not preference:
+        preference = UserThemePreference(
+            user_id=current_user.id,
+            theme_key=DEFAULT_THEME_MODE_KEY,
+            interface_theme_key=DEFAULT_INTERFACE_THEME_KEY,
+        )
+        db.add(preference)
+
+    current_mode = _normalize_theme_mode_key(preference.theme_key)
+    current_interface_theme = _normalize_interface_theme_key(preference.interface_theme_key)
+
+    if payload.mode is not None:
+        requested_mode = (payload.mode or "").strip().lower()
+        if requested_mode not in AVAILABLE_THEME_MODE_KEYS:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Unsupported mode")
+        current_mode = requested_mode
+
+    if payload.interface_theme is not None:
+        requested_interface_theme = (payload.interface_theme or "").strip().lower()
+        if requested_interface_theme not in AVAILABLE_INTERFACE_THEME_KEYS:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Unsupported interface theme")
+        if not can_customize_interface_theme and requested_interface_theme != DEFAULT_INTERFACE_THEME_KEY:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Interface theme customization is available only in admin panel",
+            )
+        current_interface_theme = requested_interface_theme
+
+    if not can_customize_interface_theme:
+        current_interface_theme = DEFAULT_INTERFACE_THEME_KEY
+
+    preference.theme_key = current_mode
+    preference.interface_theme_key = current_interface_theme
+
+    db.commit()
+
+    return _build_theme_preference_response(
+        mode=current_mode,
+        interface_theme=current_interface_theme,
+        can_customize_interface_theme=can_customize_interface_theme,
     )
 
 
