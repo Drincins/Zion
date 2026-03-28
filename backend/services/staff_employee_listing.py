@@ -14,6 +14,7 @@ from backend.schemas import (
     RestaurantRead,
     RoleRead,
     StaffEmployeesReferencePayload,
+    StaffUserListPublic,
     StaffUserPublic,
 )
 from backend.services.permissions import PermissionCode, can_view_rate, ensure_permissions, has_permission
@@ -128,6 +129,52 @@ def to_staff_public(
         restaurant_subdivision_id=subdivision_id,
         restaurant_subdivision_name=subdivision_name,
         restaurant_subdivision_is_multi=subdivision_is_multi,
+    )
+
+
+def to_staff_list_public(
+    user: User,
+    viewer: Optional[User] = None,
+    can_see_rate_override: Optional[bool] = None,
+) -> StaffUserListPublic:
+    if can_see_rate_override is not None:
+        can_see_rate = bool(can_see_rate_override)
+    else:
+        can_see_rate = can_view_rate(viewer, user) if viewer else True
+    restaurants = [
+        {
+            "id": r.id,
+            "name": (r.name or f"Restaurant #{r.id}"),
+        }
+        for r in (user.restaurants or [])
+        if r and r.id is not None
+    ]
+    return StaffUserListPublic(
+        id=user.id,
+        username=user.username,
+        first_name=user.first_name,
+        last_name=user.last_name,
+        middle_name=user.middle_name,
+        iiko_id=user.iiko_id,
+        iiko_code=user.iiko_code,
+        staff_code=user.staff_code,
+        phone_number=user.phone_number,
+        company_name=user.company.name if user.company else None,
+        role_id=user.role_id,
+        position_id=user.position_id,
+        position_name=user.position.name if user.position else None,
+        position_code=user.position.code if getattr(user, "position", None) else None,
+        gender=user.gender,
+        hire_date=user.hire_date,
+        fire_date=user.fire_date,
+        birth_date=user.birth_date,
+        fired=bool(user.fired),
+        is_formalized=bool(getattr(user, "is_formalized", False)),
+        is_cis_employee=bool(getattr(user, "is_cis_employee", False)),
+        restaurants=restaurants,
+        restaurant_ids=[item["id"] for item in restaurants],
+        workplace_restaurant_id=getattr(user, "workplace_restaurant_id", None),
+        rate_hidden=not can_see_rate,
     )
 
 
@@ -385,6 +432,7 @@ def list_staff_employee_items(
     hire_date_to: Optional[date] = None,
     fire_date_from: Optional[date] = None,
     fire_date_to: Optional[date] = None,
+    compact: bool = False,
     offset: int = 0,
     limit: int = 1000,
 ) -> tuple[list[StaffUserPublic], bool, Optional[int]]:
@@ -406,66 +454,90 @@ def list_staff_employee_items(
             target_level = -1
         return viewer_rate_level > target_level
 
-    query = db.query(User).options(
-        noload(User.permission_links),
-        noload(User.direct_permissions),
-        noload(User.medical_check_records),
-        noload(User.cis_document_records),
-        noload(User.training_events),
-        load_only(
-            User.id,
-            User.username,
-            User.first_name,
-            User.last_name,
-            User.middle_name,
-            User.iiko_id,
-            User.iiko_code,
-            User.staff_code,
-            User.phone_number,
-            User.email,
-            User.company_id,
-            User.role_id,
-            User.position_id,
-            User.gender,
-            User.rate,
-            User.hire_date,
-            User.fire_date,
-            User.birth_date,
-            User.photo_key,
-            User.fired,
-            User.is_cis_employee,
-            User.is_formalized,
-            User.confidential_data_consent,
-            User.workplace_restaurant_id,
-            User.individual_rate,
-            User.has_full_restaurant_access,
-            User.has_fingerprint,
-        ),
-        joinedload(User.role).load_only(Role.id, Role.name, Role.level),
-        joinedload(User.role).noload(Role.permission_links),
-        joinedload(User.role).noload(Role.permissions),
-        joinedload(User.company).load_only(Company.id, Company.name),
-        joinedload(User.position).load_only(
-            Position.id,
-            Position.name,
-            Position.code,
-            Position.rate,
-            Position.restaurant_subdivision_id,
-            Position.role_id,
-        ),
-        joinedload(User.position).noload(Position.permission_links),
-        joinedload(User.position).noload(Position.permissions),
-        joinedload(User.position).noload(Position.training_requirements),
-        joinedload(User.position).joinedload(Position.role).load_only(Role.id, Role.name, Role.level),
-        joinedload(User.position).joinedload(Position.role).noload(Role.permission_links),
-        joinedload(User.position).joinedload(Position.role).noload(Role.permissions),
-        joinedload(User.position).joinedload(Position.restaurant_subdivision).load_only(
-            RestaurantSubdivision.id,
-            RestaurantSubdivision.name,
-            RestaurantSubdivision.is_multi,
-        ),
-        selectinload(User.restaurants).load_only(Restaurant.id, Restaurant.name, Restaurant.department_code),
-    )
+    base_user_fields = [
+        User.id,
+        User.username,
+        User.first_name,
+        User.last_name,
+        User.middle_name,
+        User.iiko_id,
+        User.iiko_code,
+        User.staff_code,
+        User.phone_number,
+        User.company_id,
+        User.role_id,
+        User.position_id,
+        User.gender,
+        User.hire_date,
+        User.fire_date,
+        User.birth_date,
+        User.fired,
+        User.is_cis_employee,
+        User.is_formalized,
+        User.workplace_restaurant_id,
+    ]
+    if compact:
+        query_options = [
+            noload(User.permission_links),
+            noload(User.direct_permissions),
+            noload(User.medical_check_records),
+            noload(User.cis_document_records),
+            noload(User.training_events),
+            load_only(*base_user_fields),
+            joinedload(User.company).load_only(Company.id, Company.name),
+            joinedload(User.position).load_only(
+                Position.id,
+                Position.name,
+                Position.code,
+            ),
+            joinedload(User.position).noload(Position.permission_links),
+            joinedload(User.position).noload(Position.permissions),
+            joinedload(User.position).noload(Position.training_requirements),
+            selectinload(User.restaurants).load_only(Restaurant.id, Restaurant.name),
+        ]
+    else:
+        query_options = [
+            noload(User.permission_links),
+            noload(User.direct_permissions),
+            noload(User.medical_check_records),
+            noload(User.cis_document_records),
+            noload(User.training_events),
+            load_only(
+                *base_user_fields,
+                User.email,
+                User.rate,
+                User.photo_key,
+                User.confidential_data_consent,
+                User.individual_rate,
+                User.has_full_restaurant_access,
+                User.has_fingerprint,
+            ),
+            joinedload(User.role).load_only(Role.id, Role.name, Role.level),
+            joinedload(User.role).noload(Role.permission_links),
+            joinedload(User.role).noload(Role.permissions),
+            joinedload(User.company).load_only(Company.id, Company.name),
+            joinedload(User.position).load_only(
+                Position.id,
+                Position.name,
+                Position.code,
+                Position.rate,
+                Position.restaurant_subdivision_id,
+                Position.role_id,
+            ),
+            joinedload(User.position).noload(Position.permission_links),
+            joinedload(User.position).noload(Position.permissions),
+            joinedload(User.position).noload(Position.training_requirements),
+            joinedload(User.position).joinedload(Position.role).load_only(Role.id, Role.name, Role.level),
+            joinedload(User.position).joinedload(Position.role).noload(Role.permission_links),
+            joinedload(User.position).joinedload(Position.role).noload(Role.permissions),
+            joinedload(User.position).joinedload(Position.restaurant_subdivision).load_only(
+                RestaurantSubdivision.id,
+                RestaurantSubdivision.name,
+                RestaurantSubdivision.is_multi,
+            ),
+            selectinload(User.restaurants).load_only(Restaurant.id, Restaurant.name, Restaurant.department_code),
+        ]
+    query = db.query(User).options(*query_options)
     if only_fired:
         query = query.filter(User.fired == True)
     elif not include_fired:
@@ -525,8 +597,6 @@ def list_staff_employee_items(
     users = users_window[:limit]
     next_offset = (offset + len(users)) if has_more else None
 
-    items = [
-        to_staff_public(user, current_user, can_see_rate_override=_can_see_rate_for_target(user))
-        for user in users
-    ]
+    serializer = to_staff_list_public if compact else to_staff_public
+    items = [serializer(user, current_user, can_see_rate_override=_can_see_rate_for_target(user)) for user in users]
     return items, has_more, next_offset

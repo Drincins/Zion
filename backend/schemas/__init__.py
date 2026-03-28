@@ -51,9 +51,11 @@ from .iiko_sales import (
 from .staff import (
     StaffLoginRequest,
     StaffUserPublic,
+    StaffUserListPublic,
     StaffRestaurantPublic,
     StaffLoginResponse,
     StaffEmployeeListResponse,
+    StaffEmployeeListCompactResponse,
     StaffEmployeesReferencePayload,
     StaffEmployeesBootstrapResponse,
     StaffEmployeeDetailResponse,

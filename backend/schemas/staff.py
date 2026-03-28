@@ -73,6 +73,36 @@ class StaffUserPublic(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class StaffUserListPublic(BaseModel):
+    id: int
+    username: str
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
+    middle_name: Optional[str] = None
+    iiko_id: Optional[str] = None
+    iiko_code: Optional[str] = None
+    staff_code: Optional[str] = None
+    phone_number: Optional[str] = Field(default=None, pattern=PHONE_PATTERN)
+    company_name: Optional[str] = None
+    role_id: Optional[int] = None
+    position_id: Optional[int] = None
+    position_name: Optional[str] = None
+    position_code: Optional[str] = None
+    gender: Optional[Literal["male", "female"]] = None
+    hire_date: Optional[date] = None
+    fire_date: Optional[date] = None
+    birth_date: Optional[date] = None
+    fired: bool
+    is_cis_employee: bool = False
+    is_formalized: bool = False
+    restaurants: List[StaffRestaurantPublic] = Field(default_factory=list)
+    restaurant_ids: List[int] = Field(default_factory=list)
+    workplace_restaurant_id: Optional[int] = None
+    rate_hidden: bool = False
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 class StaffLoginResponse(BaseModel):
     access_token: Optional[str] = None
     token_type: str = "bearer"
@@ -81,6 +111,14 @@ class StaffLoginResponse(BaseModel):
 
 class StaffEmployeeListResponse(BaseModel):
     items: List[StaffUserPublic]
+    offset: int = 0
+    limit: int = 0
+    has_more: bool = False
+    next_offset: Optional[int] = None
+
+
+class StaffEmployeeListCompactResponse(BaseModel):
+    items: List[StaffUserListPublic]
     offset: int = 0
     limit: int = 0
     has_more: bool = False

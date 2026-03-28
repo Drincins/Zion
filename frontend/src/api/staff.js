@@ -29,8 +29,12 @@ export async function closeStaffAttendance(payload = {}) {
 }
 
 export async function fetchEmployees(params = {}, options = {}) {
-    const { data } = await api.get('/api/staff/employees', {
-        params,
+    const requestParams = { ...(params || {}) };
+    const useCompactEndpoint = Boolean(requestParams.compact);
+    delete requestParams.compact;
+    const endpoint = useCompactEndpoint ? '/api/staff/employees/compact' : '/api/staff/employees';
+    const { data } = await api.get(endpoint, {
+        params: requestParams,
         signal: options?.signal
     });
     return data;

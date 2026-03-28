@@ -10,6 +10,64 @@ from . import common as c
 router = APIRouter()
 
 
+@router.get(
+    "/compact",
+    response_model=c.StaffEmployeeListCompactResponse,
+    response_model_exclude_none=True,
+    response_model_exclude_defaults=True,
+)
+def list_staff_employees_compact(
+    q: Optional[str] = Query(None, description="Search by username/first_name/last_name/staff_code"),
+    include_fired: bool = Query(False),
+    only_fired: bool = Query(False),
+    only_formalized: bool = Query(False),
+    only_not_formalized: bool = Query(False),
+    only_cis: bool = Query(False),
+    only_not_cis: bool = Query(False),
+    position_ids: Optional[List[int]] = Query(None),
+    sort_by: Optional[str] = Query(None),
+    sort_direction: str = Query("asc"),
+    restaurant_id: Optional[int] = Query(None, ge=1),
+    hire_date_from: Optional[date] = Query(None),
+    hire_date_to: Optional[date] = Query(None),
+    fire_date_from: Optional[date] = Query(None),
+    fire_date_to: Optional[date] = Query(None),
+    offset: int = Query(0, ge=0),
+    limit: int = Query(1000, ge=1, le=1000),
+    db: c.Session = Depends(c.get_db),
+    current_user: c.User = Depends(c.get_current_user),
+) -> c.StaffEmployeeListCompactResponse:
+    items, has_more, next_offset = c._list_staff_employee_items(
+        db,
+        current_user,
+        q=q,
+        include_fired=include_fired,
+        only_fired=only_fired,
+        only_formalized=only_formalized,
+        only_not_formalized=only_not_formalized,
+        only_cis=only_cis,
+        only_not_cis=only_not_cis,
+        position_ids=position_ids,
+        sort_by=sort_by,
+        sort_direction=sort_direction,
+        restaurant_id=restaurant_id,
+        hire_date_from=hire_date_from,
+        hire_date_to=hire_date_to,
+        fire_date_from=fire_date_from,
+        fire_date_to=fire_date_to,
+        compact=True,
+        offset=offset,
+        limit=limit,
+    )
+    return c.StaffEmployeeListCompactResponse(
+        items=items,
+        offset=offset,
+        limit=limit,
+        has_more=has_more,
+        next_offset=next_offset,
+    )
+
+
 @router.get("/", response_model=c.StaffEmployeeListResponse)
 def list_staff_employees(
     q: Optional[str] = Query(None, description="Search by username/first_name/last_name/staff_code"),

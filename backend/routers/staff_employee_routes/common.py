@@ -30,6 +30,7 @@ from backend.schemas import (
     IikoSyncEmployeeSnapshot,
     PhotoUploadResponse,
     StaffEmployeeDetailResponse,
+    StaffEmployeeListCompactResponse,
     StaffEmployeeListResponse,
     StaffEmployeesBootstrapResponse,
     StaffUserPublic,

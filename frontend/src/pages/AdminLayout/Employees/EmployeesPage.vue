@@ -2279,6 +2279,7 @@ function buildEmployeeListBaseParams(limit = EMPLOYEES_PAGE_SIZE) {
         fire_date_to: fireDateTo.value || undefined,
         sort_by: useServerSort ? sortBy.value : undefined,
         sort_direction: useServerSort ? sortDirection.value : undefined,
+        compact: true,
         limit,
     };
 }
@@ -2355,8 +2356,10 @@ async function loadEmployees(options = {}) {
                         ),
                         fetchEmployeesBootstrap(
                             {
+                                include_restaurants: false,
                                 include_companies: false,
                                 include_roles: false,
+                                include_positions: false,
                                 include_items: false,
                             },
                             {
@@ -2392,8 +2395,10 @@ async function loadEmployees(options = {}) {
                 try {
                     bootstrapData = await fetchEmployeesBootstrap(
                         {
+                            include_restaurants: false,
                             include_companies: false,
                             include_roles: false,
+                            include_positions: false,
                             include_items: false,
                         },
                         {
@@ -4770,12 +4775,6 @@ watch(
     async (allowed) => {
         if (allowed) {
             await loadEmployees({ includeReferences: true });
-            if (!referencesLoadedFromBootstrap.value) {
-                void ensureEmployeeReferenceData({
-                    includeCompanies: false,
-                    includeRoles: false,
-                });
-            }
             if (modalOnly.value || route.query.employeeId) {
                 await openEmployeeFromQuery();
             }
@@ -4790,6 +4789,47 @@ watch(
         }
     },
     { immediate: true },
+);
+
+watch(
+    () => isFiltersOpen.value,
+    (open) => {
+        if (!open) {
+            return;
+        }
+        void ensureEmployeeReferenceData({
+            includeCompanies: false,
+            includeRoles: false,
+        });
+    },
+    { immediate: true },
+);
+
+watch(
+    () => isPayrollExportModalOpen.value,
+    (open) => {
+        if (!open) {
+            return;
+        }
+        void ensureEmployeeReferenceData({
+            includePositions: false,
+            includeRoles: false,
+        });
+    },
+);
+
+watch(
+    () => isTimesheetExportModalOpen.value,
+    (open) => {
+        if (!open) {
+            return;
+        }
+        void ensureEmployeeReferenceData({
+            includeCompanies: false,
+            includeRoles: false,
+            includePositions: false,
+        });
+    },
 );
 
 watch(

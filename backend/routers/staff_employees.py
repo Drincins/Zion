@@ -5,6 +5,7 @@ from backend.routers.staff_employee_routes import common as common_routes
 from backend.routers.staff_employee_routes.admin import router as admin_router
 from backend.routers.staff_employee_routes.detail import router as detail_router
 from backend.routers.staff_employee_routes.listing import (
+    list_staff_employees_compact as list_staff_employees_compact_handler,
     list_staff_employees as list_staff_employees_handler,
     router as listing_router,
 )
@@ -18,6 +19,15 @@ router.add_api_route(
     list_staff_employees_handler,
     methods=["GET"],
     response_model=common_routes.StaffEmployeeListResponse,
+    include_in_schema=False,
+)
+router.add_api_route(
+    "/compact",
+    list_staff_employees_compact_handler,
+    methods=["GET"],
+    response_model=common_routes.StaffEmployeeListCompactResponse,
+    response_model_exclude_none=True,
+    response_model_exclude_defaults=True,
     include_in_schema=False,
 )
 
