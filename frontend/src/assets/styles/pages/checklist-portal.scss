@@ -553,16 +553,38 @@
     gap: 10px;
 }
 
-.checklist-portal__modal-overlay {
-    position: fixed;
-    inset: 0;
-    background: rgba(25, 18, 12, 0.45);
-    display: flex;
-    align-items: center;
-    justify-content: center;
+.checklist-portal__modal-window {
     padding: 16px;
-    z-index: 50;
-    backdrop-filter: blur(8px);
+}
+
+.checklist-portal__modal-window .modal-window {
+    width: 100%;
+    max-width: none;
+    max-height: none;
+    border: none;
+    border-radius: 0;
+    padding: 0;
+    box-shadow: none;
+    background: transparent;
+    backdrop-filter: none;
+    overflow: visible;
+}
+
+.checklist-portal__modal-window .modal-header,
+.checklist-portal__modal-window .modal-footer {
+    display: none;
+}
+
+.checklist-portal__modal-window .modal-body {
+    margin: 0;
+    overflow: visible;
+    min-height: 0;
+    display: flex;
+    justify-content: center;
+}
+
+.checklist-portal__modal {
+    margin-inline: auto;
 }
 
 .checklist-portal__modal {

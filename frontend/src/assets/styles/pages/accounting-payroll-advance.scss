@@ -621,15 +621,32 @@
     font-weight: 500;
 }
 
-.advance-modal {
-    position: fixed;
-    inset: 0;
-    background: rgba(0, 0, 0, 0.45);
-    display: flex;
-    align-items: center;
-    justify-content: center;
+.advance-modal-window {
     padding: 16px;
-    z-index: 20;
+}
+
+.advance-modal-window :deep(.modal-window) {
+    width: auto;
+    max-width: none;
+    max-height: 92vh;
+    border: none;
+    border-radius: 0;
+    padding: 0;
+    box-shadow: none;
+    background: transparent;
+    backdrop-filter: none;
+    overflow: visible;
+}
+
+.advance-modal-window :deep(.modal-header),
+.advance-modal-window :deep(.modal-footer) {
+    display: none;
+}
+
+.advance-modal-window :deep(.modal-body) {
+    margin: 0;
+    overflow: visible;
+    min-height: 0;
 }
 
 .advance-modal__dialog {
@@ -821,8 +838,8 @@
     min-height: 0;
 }
 
-.advance-modal--top {
-    z-index: 30;
+.advance-modal-window--top {
+    z-index: 1010;
 }
 
 .advance-modal__title {

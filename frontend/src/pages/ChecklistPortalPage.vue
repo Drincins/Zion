@@ -349,7 +349,11 @@
             </section>
         </main>
 
-        <div v-if="runModalOpen" class="checklist-portal__modal-overlay">
+        <Modal
+            v-if="runModalOpen"
+            class="checklist-portal__modal-window"
+            @close="closeRunModal"
+        >
             <div class="checklist-portal__modal">
                 <div class="checklist-portal__modal-header">
                     <div>
@@ -455,7 +459,7 @@
                     </div>
                 </div>
             </div>
-        </div>
+        </Modal>
     </div>
 </template>
 
@@ -478,6 +482,7 @@ import {
     upsertChecklistPortalDraft,
 } from '@/api';
 import QuestionBlock from '@/components/checklists/ChecklistPortalQuestionBlock.vue';
+import Modal from '@/components/UI-components/Modal.vue';
 
 const step = ref('login');
 const runModalOpen = ref(false);

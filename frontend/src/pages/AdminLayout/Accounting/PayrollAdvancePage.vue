@@ -162,7 +162,11 @@
             </div>
         </section>
 
-        <div v-if="showStatementModal && currentStatement" class="advance-modal">
+        <Modal
+            v-if="showStatementModal && currentStatement"
+            class="advance-modal-window"
+            @close="closeStatementModal"
+        >
             <div class="advance-modal__dialog advance-modal__dialog--wide">
                 <div class="advance-modal__header">
                     <div>
@@ -584,9 +588,13 @@
                     </div>
                 </div>
             </div>
-        </div>
+        </Modal>
 
-        <div v-if="showConsolidatedModal" class="advance-modal">
+        <Modal
+            v-if="showConsolidatedModal"
+            class="advance-modal-window"
+            @close="closeConsolidatedModal"
+        >
             <div class="advance-modal__dialog advance-modal__dialog--wide advance-consolidated">
                 <div class="advance-modal__header">
                     <div>
@@ -647,9 +655,13 @@
                     </Button>
                 </div>
             </div>
-        </div>
+        </Modal>
 
-        <div v-if="showConsolidatedStatementModal && currentConsolidated" class="advance-modal">
+        <Modal
+            v-if="showConsolidatedStatementModal && currentConsolidated"
+            class="advance-modal-window"
+            @close="closeConsolidatedStatementModal"
+        >
             <div class="advance-modal__dialog advance-modal__dialog--wide advance-consolidated-card">
                 <div class="advance-modal__header">
                     <div>
@@ -844,9 +856,13 @@
                     </Button>
                 </div>
             </div>
-        </div>
+        </Modal>
 
-        <div v-if="showCreateModal" class="advance-modal">
+        <Modal
+            v-if="showCreateModal"
+            class="advance-modal-window"
+            @close="closeCreateModal"
+        >
             <div class="advance-modal__dialog">
                 <h3 class="advance-modal__title">Сформировать черновик</h3>
                 <p class="advance-modal__subtitle">Заполним параметры расчёта ведомости.</p>
@@ -917,9 +933,13 @@
                     <Button color="primary" :loading="isCreating" @click="submitCreate">Сформировать</Button>
                 </div>
             </div>
-        </div>
+        </Modal>
 
-        <div v-if="showPostModal" class="advance-modal advance-modal--top">
+        <Modal
+            v-if="showPostModal"
+            class="advance-modal-window advance-modal-window--top"
+            @close="closePostModal"
+        >
             <div class="advance-modal__dialog">
                 <h3 class="advance-modal__title">Записать ведомость</h3>
                 <p class="advance-modal__subtitle">Создадим массовое начисление по итоговым суммам.</p>
@@ -996,7 +1016,7 @@
                     <Button color="primary" :loading="postLoading" @click="handlePost">Записать</Button>
                 </div>
             </div>
-        </div>
+        </Modal>
 
         <EmployeesPage v-if="showEmployeeCardOverlay" modal-only class="advance-page__employee-overlay" />
     </div>
@@ -1032,6 +1052,7 @@ import {
 } from '@/api';
 import Button from '@/components/UI-components/Button.vue';
 import DateInput from '@/components/UI-components/DateInput.vue';
+import Modal from '@/components/UI-components/Modal.vue';
 import Select from '@/components/UI-components/Select.vue';
 import BaseIcon from '@/components/UI-components/BaseIcon.vue';
 import EmployeesPage from '@/pages/AdminLayout/Employees/EmployeesPage.vue';

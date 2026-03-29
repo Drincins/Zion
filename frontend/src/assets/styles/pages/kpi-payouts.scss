@@ -41,7 +41,11 @@
     align-items: center;
     justify-content: center;
     cursor: pointer;
-    transition: border-color 0.18s ease, background-color 0.18s ease, color 0.18s ease, transform 0.18s ease;
+    transition:
+        border-color 0.18s ease,
+        background-color 0.18s ease,
+        color 0.18s ease,
+        transform 0.18s ease;
 }
 
 .kpi-panel__icon-button svg {
@@ -195,7 +199,10 @@
 
 .kpi-history-table__row {
     cursor: pointer;
-    transition: transform 160ms ease, box-shadow 160ms ease, background-color 160ms ease;
+    transition:
+        transform 160ms ease,
+        box-shadow 160ms ease,
+        background-color 160ms ease;
 }
 
 .kpi-history-table__row:hover td {
@@ -219,7 +226,9 @@
     display: flex;
     flex-direction: column;
     gap: 8px;
-    transition: border-color 0.2s ease, transform 0.2s ease;
+    transition:
+        border-color 0.2s ease,
+        transform 0.2s ease;
 }
 
 .kpi-card:hover {
@@ -294,18 +303,11 @@
     color: var(--color-text-soft);
 }
 
-.kpi-modal {
-    position: fixed;
-    inset: 0;
-    background: rgba(0, 0, 0, 0.45);
-    display: flex;
-    align-items: center;
-    justify-content: center;
+.kpi-modal-window {
     padding: 16px;
-    z-index: 20;
 }
 
-.kpi-modal__dialog {
+.kpi-modal-window :deep(.modal-window) {
     width: min(520px, 100%);
     background: var(--color-surface);
     border: 1px solid var(--color-border);
@@ -317,13 +319,29 @@
     gap: 12px;
 }
 
-.kpi-modal__dialog--wide {
+.kpi-modal-window :deep(.modal-header) {
+    margin-bottom: 12px;
+    font-size: inherit;
+    font-weight: inherit;
+}
+
+.kpi-modal-window :deep(.modal-body) {
+    margin-bottom: 0;
+    overflow: visible;
+    min-height: 0;
+}
+
+.kpi-modal-window :deep(.modal-footer) {
+    display: none;
+}
+
+.kpi-modal-window--wide :deep(.modal-window) {
     width: min(1200px, 96vw);
     max-height: 90vh;
     overflow: hidden;
 }
 
-.kpi-modal__dialog--preview {
+.kpi-modal-window--preview :deep(.modal-window) {
     width: min(980px, 96vw);
     max-height: 90vh;
     overflow: auto;
@@ -353,7 +371,11 @@
     align-items: center;
     justify-content: center;
     cursor: pointer;
-    transition: border-color 0.18s ease, background-color 0.18s ease, color 0.18s ease, transform 0.18s ease;
+    transition:
+        border-color 0.18s ease,
+        background-color 0.18s ease,
+        color 0.18s ease,
+        transform 0.18s ease;
 }
 
 .kpi-modal__icon-button svg {
@@ -832,7 +854,11 @@
     align-items: center;
     justify-content: center;
     cursor: pointer;
-    transition: border-color 0.18s ease, background-color 0.18s ease, color 0.18s ease, transform 0.18s ease;
+    transition:
+        border-color 0.18s ease,
+        background-color 0.18s ease,
+        color 0.18s ease,
+        transform 0.18s ease;
 }
 
 .kpi-table__icon-button svg {
@@ -883,13 +909,13 @@
 @include kpiSkin.kpiPageSkin();
 
 .kpi-page {
-    .kpi-modal__dialog.kpi-modal__dialog--preview {
+    .kpi-modal-window--preview :deep(.modal-window) {
         width: min(980px, 96vw);
         max-height: 90vh;
         overflow: auto;
     }
 
-    .kpi-modal__dialog.kpi-modal__dialog--wide {
+    .kpi-modal-window--wide :deep(.modal-window) {
         width: min(1200px, 96vw);
         max-height: 90vh;
         overflow-y: auto;
