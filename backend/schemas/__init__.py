@@ -116,6 +116,9 @@ from .payroll import (
     PayrollAdvanceConsolidatedCreateRequest,
     PayrollAdvanceConsolidatedPublic,
     PayrollAdvanceConsolidatedListResponse,
+    PayrollAdvanceHistogramPositionPublic,
+    PayrollAdvanceHistogramSubdivisionPublic,
+    PayrollAdvanceConsolidatedHistogramResponse,
 )
 from .training import (
     TrainingEventTypeCreate,
