@@ -343,7 +343,12 @@
         </template>
     </Modal>
 
-    <Modal v-if="isPhotoPreviewOpen" class="employees-page__photo-modal-window" @close="closePhotoPreview">
+    <Modal
+        v-if="isPhotoPreviewOpen"
+        class="employees-page__photo-modal-window"
+        :disable-leave-animation="true"
+        @close="closePhotoPreview"
+    >
         <div class="employees-page__photo-modal">
             <img v-if="photoUrl" :src="photoUrl" alt="Фото сотрудника" />
         </div>

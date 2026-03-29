@@ -19,6 +19,10 @@
 <script setup>
 import { onBeforeUnmount, ref } from 'vue';
 
+const props = defineProps({
+    disableLeaveAnimation: { type: Boolean, default: false },
+});
+
 const emit = defineEmits(['close']);
 const backdropRef = ref(null);
 
@@ -35,6 +39,10 @@ onBeforeUnmount(() => {
 
     const backdropEl = backdropRef.value;
     if (!backdropEl || !document.body) {
+        return;
+    }
+
+    if (props.disableLeaveAnimation) {
         return;
     }
 
