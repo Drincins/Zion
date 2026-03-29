@@ -22,6 +22,12 @@ $black: #0e0e0e;
 $danger: #aa2d2a;
 
 :root {
+    --motion-fast: 160ms;
+    --motion-base: 220ms;
+    --motion-slow: 320ms;
+    --motion-ease-standard: cubic-bezier(0.2, 0, 0, 1);
+    --motion-ease-emphasized: cubic-bezier(0.22, 1, 0.36, 1);
+
     --color-background:
     radial-gradient(circle at 14% 68%, rgba(255, 106, 0, 0.09) 0, rgba(255, 255, 255, 0) 55%),
     radial-gradient(circle at 82% 10%, rgba(235, 185, 135, 0.22) 0, rgba(255, 255, 255, 0) 45%),

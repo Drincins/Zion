@@ -780,13 +780,28 @@ function updateTabIndicator() {
         return;
     }
 
-    const tabsRect = tabsRoot.getBoundingClientRect();
-    const tabRect = activeTabButton.getBoundingClientRect();
+    let x = 0;
+    let y = 0;
+    let node = activeTabButton;
+
+    while (node && node !== tabsRoot) {
+        x += node.offsetLeft || 0;
+        y += node.offsetTop || 0;
+        node = node.offsetParent;
+    }
+
+    if (node !== tabsRoot) {
+        const tabsRect = tabsRoot.getBoundingClientRect();
+        const tabRect = activeTabButton.getBoundingClientRect();
+        x = tabRect.left - tabsRect.left;
+        y = tabRect.top - tabsRect.top;
+    }
+
     tabIndicatorState.value = {
-        x: tabRect.left - tabsRect.left,
-        y: tabRect.top - tabsRect.top,
-        width: tabRect.width,
-        height: tabRect.height,
+        x,
+        y,
+        width: activeTabButton.offsetWidth || 0,
+        height: activeTabButton.offsetHeight || 0,
         visible: true,
     };
 }
