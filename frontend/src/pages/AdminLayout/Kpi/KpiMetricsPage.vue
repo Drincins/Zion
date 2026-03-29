@@ -62,7 +62,7 @@
             </div>
         </section>
 
-        <section v-if="contentView === 'metrics'" class="kpi-panel kpi-panel--list">
+        <section v-if="contentView === 'metrics'">
             <div v-if="metrics.length" class="kpi-metrics__table-wrap">
                 <table class="kpi-metrics__table">
                     <thead>

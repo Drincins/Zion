@@ -6,17 +6,6 @@
     isolation: isolate;
     padding-bottom: 10px;
     color: var(--color-text);
-    background:
-        radial-gradient(
-            980px 420px at 100% -6%,
-            color-mix(in srgb, var(--color-primary) 10%, transparent) 0%,
-            transparent 62%
-        ),
-        linear-gradient(
-            180deg,
-            color-mix(in srgb, var(--color-surface-200) 18%, transparent) 0%,
-            transparent 28%
-        );
     --inventory-panel-bg: linear-gradient(
         180deg,
         color-mix(in srgb, var(--color-surface) 96%, var(--color-surface-100) 4%) 0%,
@@ -54,14 +43,6 @@
     inset: 0;
     border-radius: inherit;
     pointer-events: none;
-    background:
-        linear-gradient(
-            120deg,
-            color-mix(in srgb, var(--color-primary) 4%, transparent) 0%,
-            transparent 18%,
-            transparent 82%,
-            color-mix(in srgb, var(--color-primary) 5%, transparent) 100%
-        );
     z-index: -1;
 }
 
