@@ -1,3 +1,10 @@
+@use '@/assets/styles/vars.scss' as *;
+
+.admin-training__create-panel {
+    transition: height $duration, opacity $duration, transform $duration;
+    will-change: height, opacity, transform;
+}
+
 .admin-training__form {
     display: flex;
     flex-direction: column;

@@ -1,3 +1,5 @@
+@use '@/assets/styles/vars.scss' as *;
+
 .employees-page__documents {
     display: flex;
     flex-direction: column;
@@ -72,7 +74,7 @@
     color: var(--color-text);
     font: inherit;
     cursor: pointer;
-    transition: border-color 0.2s ease, opacity 0.2s ease, transform 0.2s ease;
+    transition: border-color $duration, opacity $duration, transform $duration;
 }
 
 .employees-page__documents-toggle:hover {
@@ -82,7 +84,7 @@
 .employees-page__documents-toggle-icon {
     width: 14px;
     height: 14px;
-    transition: transform 0.2s ease;
+    transition: transform $duration;
 }
 
 .employees-page__documents-toggle-icon.is-open {
@@ -159,7 +161,7 @@
     background: transparent;
     color: var(--color-danger);
     cursor: pointer;
-    transition: opacity 0.2s ease, color 0.2s ease;
+    transition: opacity $duration, color $duration;
 }
 
 .employees-page__documents-icon-button:disabled {

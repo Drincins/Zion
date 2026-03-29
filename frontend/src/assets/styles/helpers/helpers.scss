@@ -1,3 +1,5 @@
+@use '@/assets/styles/vars.scss' as *;
+
 html,
 body {
     height: 100%;
@@ -7,8 +9,8 @@ body {
     scroll-behavior: var(--scroll-behavior);
     overflow-x: hidden;
     transition:
-        all 0.3s ease,
-        color 0.3s ease;
+        all $duration,
+        color $duration;
 
     * {
         box-sizing: border-box;
@@ -70,7 +72,7 @@ button {
 
 .link {
     color: var(--color-primary);
-    transition: color 0.3s;
+    transition: color $duration;
 
     &:hover {
         color: var(--color-text);

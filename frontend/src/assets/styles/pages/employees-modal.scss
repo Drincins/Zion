@@ -263,11 +263,11 @@
     box-shadow: none;
     border: none;
     transform-origin: center;
-    animation: photoModalIn 0.3s cubic-bezier(0.22, 1, 0.36, 1) both;
+    animation: photoModalIn $duration;
 }
 
 .employees-page__photo-modal-window {
-    animation: photoBackdropIn 0.2s ease both;
+    animation: photoBackdropIn $duration;
 }
 
 .employees-page__photo-modal-window :deep(.modal-header),

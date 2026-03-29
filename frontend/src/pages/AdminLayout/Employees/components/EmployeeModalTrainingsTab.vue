@@ -195,7 +195,7 @@ function updateEditingTrainingField(field, value) {
 
 .employees-page__trainings-row {
     cursor: pointer;
-    transition: background-color 0.2s ease;
+    transition: background-color $duration;
 }
 
 .employees-page__trainings-row--editing {
@@ -242,7 +242,7 @@ function updateEditingTrainingField(field, value) {
     background: transparent;
     cursor: pointer;
     color: var(--color-danger);
-    transition: background-color 0.2s ease, color 0.2s ease;
+    transition: background-color $duration, color $duration;
 }
 
 .employees-page__icon-button:disabled {

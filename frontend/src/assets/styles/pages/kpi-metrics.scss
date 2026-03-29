@@ -573,7 +573,7 @@
     border: 1px solid color-mix(in srgb, var(--color-primary) 18%, var(--color-border));
     border-radius: 14px;
     background: color-mix(in srgb, var(--color-surface) 84%, var(--color-surface-200) 16%);
-    transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+    transition: border-color $duration, box-shadow $duration, transform $duration;
 }
 
 .kpi-rule-row:hover {
@@ -891,7 +891,7 @@
     width: 100%;
     font: inherit;
     color: inherit;
-    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    transition: border-color $duration, box-shadow $duration;
     background: var(--color-surface-200);
     border: 1px solid var(--color-border);
     appearance: none;
@@ -981,7 +981,7 @@
     min-height: auto;
     height: auto;
     cursor: pointer;
-    transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+    transition: border-color $duration, box-shadow $duration, transform $duration;
 }
 
 .kpi-rule-card:hover {

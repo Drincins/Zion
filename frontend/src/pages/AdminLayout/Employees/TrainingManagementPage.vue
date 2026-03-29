@@ -17,39 +17,47 @@
             </div>
         </header>
 
-        <FiltersPanel
-            v-if="showCreateTrainingTypeForm && canManageTrainings"
-            :collapsible="false"
-            title="Новый тип тренинга"
+        <Transition
+            @enter="onCreateFormEnter"
+            @after-enter="onCreateFormAfterEnter"
+            @leave="onCreateFormLeave"
+            @after-leave="onCreateFormAfterLeave"
         >
-            <div class="admin-training__form">
-                <Input
-                    v-model="newTrainingTypeName"
-                    label="Название"
-                    placeholder='Например, "Вводный инструктаж"'
-                    @keyup.enter="handleCreateTrainingType"
-                />
-                <div class="admin-training__form-actions">
-                    <Button
-                        type="button"
-                        size="sm"
-                        :loading="creatingTrainingType"
-                        @click="handleCreateTrainingType"
-                    >
-                        Сохранить
-                    </Button>
-                    <Button
-                        type="button"
-                        color="ghost"
-                        size="sm"
-                        :disabled="creatingTrainingType"
-                        @click="cancelCreateTrainingType"
-                    >
-                        Отмена
-                    </Button>
-                </div>
+            <div v-if="showCreateTrainingTypeForm && canManageTrainings" class="admin-training__create-panel">
+                <FiltersPanel
+                    :collapsible="false"
+                    title="Новый тип тренинга"
+                >
+                    <div class="admin-training__form">
+                        <Input
+                            v-model="newTrainingTypeName"
+                            label="Название"
+                            placeholder='Например, "Вводный инструктаж"'
+                            @keyup.enter="handleCreateTrainingType"
+                        />
+                        <div class="admin-training__form-actions">
+                            <Button
+                                type="button"
+                                size="sm"
+                                :loading="creatingTrainingType"
+                                @click="handleCreateTrainingType"
+                            >
+                                Сохранить
+                            </Button>
+                            <Button
+                                type="button"
+                                color="ghost"
+                                size="sm"
+                                :disabled="creatingTrainingType"
+                                @click="cancelCreateTrainingType"
+                            >
+                                Отмена
+                            </Button>
+                        </div>
+                    </div>
+                </FiltersPanel>
             </div>
-        </FiltersPanel>
+        </Transition>
 
         <section class="admin-page__section">
             <Table v-if="trainingEventTypes.length">
@@ -152,6 +160,44 @@ const creatingTrainingType = ref(false);
 const editingTrainingType = reactive({ id: null, name: '' });
 const updatingTrainingType = ref(false);
 const deletingTrainingTypeId = ref(null);
+
+function onCreateFormEnter(el) {
+    el.style.overflow = 'hidden';
+    el.style.height = '0';
+    el.style.opacity = '0';
+    el.style.transform = 'translateY(-6px)';
+    requestAnimationFrame(() => {
+        el.style.height = `${el.scrollHeight}px`;
+        el.style.opacity = '1';
+        el.style.transform = 'translateY(0)';
+    });
+}
+
+function onCreateFormAfterEnter(el) {
+    el.style.height = '';
+    el.style.opacity = '';
+    el.style.transform = '';
+    el.style.overflow = '';
+}
+
+function onCreateFormLeave(el) {
+    el.style.overflow = 'hidden';
+    el.style.height = `${el.scrollHeight}px`;
+    el.style.opacity = '1';
+    el.style.transform = 'translateY(0)';
+    requestAnimationFrame(() => {
+        el.style.height = '0';
+        el.style.opacity = '0';
+        el.style.transform = 'translateY(-6px)';
+    });
+}
+
+function onCreateFormAfterLeave(el) {
+    el.style.height = '';
+    el.style.opacity = '';
+    el.style.transform = '';
+    el.style.overflow = '';
+}
 
 async function loadTrainingEventTypes() {
     trainingTypesLoading.value = true;

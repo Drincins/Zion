@@ -453,7 +453,7 @@ function resolveAccent(item) {
     align-items: center;
     gap: 10px;
     cursor: pointer;
-    transition: transform 0.2s ease, background-color 0.2s ease, border-color 0.2s ease;
+    transition: transform $duration, background-color $duration, border-color $duration;
 }
 
 .kb-items__card:hover {

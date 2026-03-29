@@ -19,27 +19,34 @@
                         <span class="birthday__badge">{{ birthdaysThisMonth.length }}</span>
                     </div>
                 </header>
-                <div v-if="isMonthExpanded" class="birthday__card-body">
-                    <div v-if="isLoading" class="birthday__state">Загрузка сотрудников...</div>
-                    <div v-else-if="loadError" class="birthday__state birthday__state--error">{{ loadError }}</div>
-                    <Table v-else-if="birthdaysThisMonth.length" class="birthday__table">
-                        <thead>
-                            <tr>
-                                <th>Сотрудник</th>
-                                <th>Должность</th>
-                                <th>Дата</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr v-for="item in birthdaysThisMonth" :key="item.id">
-                                <td>{{ item.name }}</td>
-                                <td>{{ item.position }}</td>
-                                <td>{{ item.formattedDate }}</td>
-                            </tr>
-                        </tbody>
-                    </Table>
-                    <p v-else class="birthday__state">В этом месяце пока нет именинников.</p>
-                </div>
+                <Transition
+                    @enter="onMonthCollapseEnter"
+                    @after-enter="onMonthCollapseAfterEnter"
+                    @leave="onMonthCollapseLeave"
+                    @after-leave="onMonthCollapseAfterLeave"
+                >
+                    <div v-if="isMonthExpanded" class="birthday__card-body birthday__card-body--collapsible">
+                        <div v-if="isLoading" class="birthday__state">Загрузка сотрудников...</div>
+                        <div v-else-if="loadError" class="birthday__state birthday__state--error">{{ loadError }}</div>
+                        <Table v-else-if="birthdaysThisMonth.length" class="birthday__table">
+                            <thead>
+                                <tr>
+                                    <th>Сотрудник</th>
+                                    <th>Должность</th>
+                                    <th>Дата</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr v-for="item in birthdaysThisMonth" :key="item.id">
+                                    <td>{{ item.name }}</td>
+                                    <td>{{ item.position }}</td>
+                                    <td>{{ item.formattedDate }}</td>
+                                </tr>
+                            </tbody>
+                        </Table>
+                        <p v-else class="birthday__state">В этом месяце пока нет именинников.</p>
+                    </div>
+                </Transition>
             </section>
 
             <section class="birthday__card">
@@ -151,6 +158,44 @@ onMounted(() => {
 
 function toggleMonthBirthdays() {
     isMonthExpanded.value = !isMonthExpanded.value;
+}
+
+function onMonthCollapseEnter(el) {
+    el.style.overflow = 'hidden';
+    el.style.height = '0';
+    el.style.opacity = '0';
+    el.style.transform = 'translateY(-6px)';
+    requestAnimationFrame(() => {
+        el.style.height = `${el.scrollHeight}px`;
+        el.style.opacity = '1';
+        el.style.transform = 'translateY(0)';
+    });
+}
+
+function onMonthCollapseAfterEnter(el) {
+    el.style.height = '';
+    el.style.opacity = '';
+    el.style.transform = '';
+    el.style.overflow = '';
+}
+
+function onMonthCollapseLeave(el) {
+    el.style.overflow = 'hidden';
+    el.style.height = `${el.scrollHeight}px`;
+    el.style.opacity = '1';
+    el.style.transform = 'translateY(0)';
+    requestAnimationFrame(() => {
+        el.style.height = '0';
+        el.style.opacity = '0';
+        el.style.transform = 'translateY(-6px)';
+    });
+}
+
+function onMonthCollapseAfterLeave(el) {
+    el.style.height = '';
+    el.style.opacity = '';
+    el.style.transform = '';
+    el.style.overflow = '';
 }
 
 function openEmployeeCard(item) {

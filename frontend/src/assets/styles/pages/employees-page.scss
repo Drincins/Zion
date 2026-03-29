@@ -436,7 +436,7 @@
     inset: 0;
     background-color: var(--color-border);
     border-radius: 999px;
-    transition: background-color 0.2s ease;
+    transition: background-color $duration;
     cursor: pointer;
 }
 
@@ -651,7 +651,7 @@
 
 .employees-page__export-toggle-icon {
     display: inline-flex;
-    transition: transform 0.2s ease;
+    transition: transform $duration;
 }
 
 .employees-page__export-toggle-icon.is-open {
@@ -756,7 +756,7 @@
     height: 20px;
     border-radius: 999px;
     background: var(--color-border);
-    transition: background-color 0.2s ease;
+    transition: background-color $duration;
     cursor: pointer;
 }
 
@@ -769,7 +769,7 @@
     height: 16px;
     border-radius: 50%;
     background: var(--color-primary);
-    transition: transform 0.2s ease;
+    transition: transform $duration;
 }
 
 .employees-page__iiko-field-toggle input:checked + .employees-page__iiko-field-toggle-slider {

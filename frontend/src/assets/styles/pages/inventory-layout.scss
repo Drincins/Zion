@@ -1,3 +1,5 @@
+@use '@/assets/styles/vars.scss' as *;
+
 .inventory-page {
     display: flex;
     flex-direction: column;
@@ -198,11 +200,11 @@
 
 .inventory-page :is(button, a, [role='button']) {
     transition:
-        border-color 0.2s ease,
-        background-color 0.2s ease,
-        color 0.2s ease,
-        box-shadow 0.2s ease,
-        transform 0.2s ease;
+        border-color $duration,
+        background-color $duration,
+        color $duration,
+        box-shadow $duration,
+        transform $duration;
 }
 
 .inventory-page :is(button, a, [role='button']):focus-visible {

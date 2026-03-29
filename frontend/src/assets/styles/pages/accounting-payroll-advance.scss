@@ -1,3 +1,5 @@
+@use '@/assets/styles/vars.scss' as *;
+
 .advance-page {
     display: flex;
     flex-direction: column;
@@ -202,7 +204,7 @@
     display: flex;
     flex-direction: column;
     gap: 8px;
-    transition: border-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+    transition: border-color $duration, transform $duration, box-shadow $duration;
     min-height: 150px;
     box-shadow: 0 8px 20px rgba(15, 23, 42, 0.06);
 }
@@ -927,7 +929,7 @@
     border-radius: 999px;
     background: color-mix(in srgb, var(--color-primary) 20%, transparent);
     border: 1px solid color-mix(in srgb, var(--color-primary) 52%, var(--color-border));
-    transition: background-color 0.2s ease, border-color 0.2s ease;
+    transition: background-color $duration, border-color $duration;
     position: relative;
 }
 
@@ -940,7 +942,7 @@
     height: 18px;
     border-radius: 50%;
     background: color-mix(in srgb, var(--color-primary) 90%, #000 10%);
-    transition: transform 0.2s ease, background-color 0.2s ease;
+    transition: transform $duration, background-color $duration;
 }
 
 .advance-kind-toggle.is-salary .advance-kind-toggle__slider {
@@ -1102,7 +1104,7 @@
             color-mix(in srgb, var(--color-surface) 96%, transparent) 100%
         );
     box-shadow: 0 6px 16px rgba(15, 23, 42, 0.06);
-    transition: border-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+    transition: border-color $duration, transform $duration, box-shadow $duration;
 }
 
 .advance-consolidated__item:hover {

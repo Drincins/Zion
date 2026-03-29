@@ -1,3 +1,5 @@
+@use '@/assets/styles/vars.scss' as *;
+
 .payroll-adjustment-modal__header {
     display: flex;
     flex-direction: column;
@@ -46,7 +48,7 @@
     font-size: 13px;
     font-weight: 500;
     cursor: pointer;
-    transition: background-color 0.2s ease, color 0.2s ease, opacity 0.2s ease;
+    transition: background-color $duration, color $duration, opacity $duration;
 }
 
 .payroll-adjustment-modal__type-toggle-button:hover {

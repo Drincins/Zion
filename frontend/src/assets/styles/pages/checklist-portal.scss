@@ -1,3 +1,5 @@
+@use '@/assets/styles/vars.scss' as *;
+
 .checklist-portal {
     --portal-ink: #1b1a17;
     --portal-ink-soft: #5f564f;
@@ -111,7 +113,7 @@
     font-size: 14px;
     font-weight: 600;
     box-shadow: 0 12px 20px rgba(196, 155, 115, 0.35);
-    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    transition: transform $duration, box-shadow $duration;
 }
 
 .checklist-portal__actions {
@@ -171,7 +173,7 @@
     display: grid;
     gap: 6px;
     box-shadow: 0 10px 18px rgba(35, 25, 15, 0.08);
-    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    transition: transform $duration, box-shadow $duration;
 }
 
 .checklist-portal__list-item:hover {
@@ -208,7 +210,7 @@
     border-radius: 14px;
     padding: 16px;
     text-align: left;
-    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    transition: transform $duration, box-shadow $duration;
 }
 
 .checklist-portal__mode-card.is-active {
@@ -351,7 +353,7 @@
     height: 100%;
     background: linear-gradient(90deg, #d4a373 0%, #b06d3c 100%);
     border-radius: 999px;
-    transition: width 0.3s ease;
+    transition: width $duration;
 }
 
 .checklist-portal__question {
@@ -403,7 +405,7 @@
     padding: 6px 14px;
     font-size: 13px;
     color: #7b5a3c;
-    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    transition: transform $duration, box-shadow $duration;
 }
 
 .checklist-portal__chip.is-yes {
@@ -476,7 +478,7 @@
     display: grid;
     place-items: center;
     font-size: 18px;
-    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    transition: transform $duration, box-shadow $duration;
 }
 
 .checklist-portal__icon-check {

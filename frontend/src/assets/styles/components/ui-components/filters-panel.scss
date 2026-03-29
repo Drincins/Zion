@@ -30,7 +30,7 @@
 
 .filters-panel__icon {
     display: inline-flex;
-    transition: transform 0.2s ease;
+    transition: transform $duration;
 }
 
 .filters-panel__icon.is-open {

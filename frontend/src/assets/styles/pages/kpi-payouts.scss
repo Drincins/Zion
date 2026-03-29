@@ -1,4 +1,5 @@
 @use '@/assets/styles/pages/kpi-employees-skin' as kpiSkin;
+@use '@/assets/styles/vars.scss' as *;
 
 .kpi-page {
     display: flex;
@@ -227,8 +228,8 @@
     flex-direction: column;
     gap: 8px;
     transition:
-        border-color 0.2s ease,
-        transform 0.2s ease;
+        border-color $duration,
+        transform $duration;
 }
 
 .kpi-card:hover {

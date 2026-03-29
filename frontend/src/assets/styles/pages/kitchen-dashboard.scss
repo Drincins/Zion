@@ -132,7 +132,7 @@
     flex-direction: column;
     gap: 10px;
     min-height: 196px;
-    transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+    transition: border-color $duration, box-shadow $duration, transform $duration;
 }
 
 .kitchen-dashboard__card:hover {

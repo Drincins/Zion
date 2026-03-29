@@ -1,3 +1,5 @@
+@use '@/assets/styles/vars.scss' as *;
+
 .kitchen-waiter-turnover-settings-page__filters {
     display: grid;
     gap: 12px;
@@ -108,7 +110,7 @@
     border-radius: 999px;
     cursor: pointer;
     font-size: 13px;
-    transition: all 0.2s ease;
+    transition: all $duration;
 }
 
 .kitchen-waiter-turnover-settings-page__tab.is-active {

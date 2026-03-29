@@ -1,3 +1,5 @@
+@use '@/assets/styles/vars.scss' as *;
+
 .kitchen-revenue-page__filters-panel {
     display: flex;
     flex-direction: column;
@@ -25,7 +27,7 @@
 
 .kitchen-revenue-page__filters-icon {
     display: inline-flex;
-    transition: transform 0.2s ease;
+    transition: transform $duration;
 }
 
 .kitchen-revenue-page__filters-icon.is-open {

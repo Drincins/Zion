@@ -1806,7 +1806,7 @@ function normalizeFolderId(value) {
         overflow: hidden;
         max-height: 420px;
         opacity: 1;
-        transition: max-height 0.24s ease, opacity 0.2s ease, margin 0.2s ease;
+        transition: max-height $duration, opacity $duration, margin $duration;
     }
 
     .knowledge-base-page__sidebar.is-mobile-collapsed .knowledge-base-page__sidebar-panel {

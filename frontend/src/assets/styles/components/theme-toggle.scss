@@ -1,3 +1,5 @@
+@use '@/assets/styles/vars.scss' as *;
+
 .theme-switch {
     position: relative;
     display: inline-block;
@@ -16,7 +18,7 @@
     inset: 0;
     background-color: var(--color-border);
     border-radius: 34px;
-    transition: background-color 0.3s;
+    transition: background-color $duration;
     display: flex;
     align-items: center;
     justify-content: space-between;
