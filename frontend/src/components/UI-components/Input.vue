@@ -1,10 +1,12 @@
 <template>
     <div class="input">
-        <label v-if="label" class="input-label">
+        <label v-if="label" class="input-label" :for="fieldId">
             {{ label }}
         </label>
         <input
             v-bind="attrs"
+            :id="fieldId"
+            :name="fieldName"
             class="input-field"
             :type="type"
             :value="modelValue"
@@ -15,7 +17,9 @@
 </template>
 
 <script setup>
-import { useAttrs } from 'vue';
+import { computed, useAttrs } from 'vue';
+
+defineOptions({ inheritAttrs: false });
 
 const props = defineProps({
     modelValue: {
@@ -38,6 +42,21 @@ const props = defineProps({
 
 const emit = defineEmits(['update:modelValue']);
 const attrs = useAttrs();
+const fallbackId = `input-${Math.random().toString(36).slice(2, 9)}`;
+const fieldId = computed(() => {
+    const currentId = attrs.id;
+    if (currentId !== undefined && currentId !== null && String(currentId).trim() !== '') {
+        return String(currentId);
+    }
+    return fallbackId;
+});
+const fieldName = computed(() => {
+    const currentName = attrs.name;
+    if (currentName !== undefined && currentName !== null && String(currentName).trim() !== '') {
+        return String(currentName);
+    }
+    return fieldId.value;
+});
 
 function onInput(event) {
     let value = event.target.value;

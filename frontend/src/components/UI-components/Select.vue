@@ -1,10 +1,10 @@
 <template>
     <div ref="root" class="input input-select">
-        <label v-if="label" class="input-label" :for="id">
+        <label v-if="label" class="input-label" :for="triggerId">
             {{ label }}
         </label>
         <button
-            :id="id"
+            :id="triggerId"
             type="button"
             v-bind="attrs"
             class="input-field input-field--select"
@@ -27,7 +27,7 @@
                     ref="list"
                     class="input-select__list"
                     role="listbox"
-                    :aria-labelledby="id || undefined"
+                    :aria-labelledby="triggerId"
                     :style="listStyle"
                 >
                     <li
@@ -36,11 +36,14 @@
                         role="presentation"
                     >
                         <input
+                            :id="searchId"
                             ref="searchInput"
                             v-model="searchValue"
+                            :name="searchName"
                             type="text"
                             class="input-select__search-input"
                             :placeholder="searchPlaceholder"
+                            :aria-label="searchAriaLabel"
                             @keydown.stop
                         >
                     </li>
@@ -91,8 +94,29 @@ const searchInput = ref(null);
 const isOpen = ref(false);
 const searchValue = ref('');
 
+const triggerUid = `select-trigger-${Math.random().toString(36).slice(2, 9)}`;
+const triggerId = computed(() => {
+    if (id && String(id).trim() !== '') {
+        return String(id);
+    }
+    return triggerUid;
+});
 const listUid = `select-listbox-${Math.random().toString(36).slice(2, 9)}`;
-const listId = computed(() => (id ? `${id}-listbox` : listUid));
+const listId = computed(() => {
+    const currentId = triggerId.value;
+    if (currentId) {
+        return `${currentId}-listbox`;
+    }
+    return listUid;
+});
+const searchId = computed(() => `${listId.value}-search`);
+const searchName = computed(() => searchId.value);
+const searchAriaLabel = computed(() => {
+    if (label && String(label).trim() !== '') {
+        return `${label}: search`;
+    }
+    return 'Search';
+});
 
 const selectedOption = computed(() =>
     options.find((option) => String(option.value) === String(modelValue)),
