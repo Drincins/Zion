@@ -13,7 +13,12 @@
             {{ title }}
         </p>
 
-        <div v-if="!collapsible || modelValue" class="filters-panel__content">
+        <Transition v-if="collapsible" name="filters-panel-collapse">
+            <div v-if="modelValue" class="filters-panel__content">
+                <slot />
+            </div>
+        </Transition>
+        <div v-else class="filters-panel__content">
             <slot />
         </div>
     </section>

@@ -91,11 +91,35 @@
 
 .employees-page__filters-icon {
     display: inline-flex;
-    transition: transform 0.2s ease;
+    transition: transform $duration;
 }
 
 .employees-page__filters-icon.is-open {
     transform: rotate(180deg);
+}
+
+.employees-filters-collapse-enter-active,
+.employees-filters-collapse-leave-active {
+    overflow: hidden;
+    transform-origin: top;
+    transition:
+        max-height $duration,
+        opacity $duration,
+        transform $duration;
+}
+
+.employees-filters-collapse-enter-from,
+.employees-filters-collapse-leave-to {
+    max-height: 0;
+    opacity: 0;
+    transform: translateY(-6px);
+}
+
+.employees-filters-collapse-enter-to,
+.employees-filters-collapse-leave-from {
+    max-height: 2000px;
+    opacity: 1;
+    transform: translateY(0);
 }
 
 .employees-page__filters-content {
@@ -205,11 +229,35 @@
 
 .employees-page__column-selector-icon {
     display: inline-flex;
-    transition: transform 0.2s ease;
+    transition: transform $duration;
 }
 
 .employees-page__column-selector-icon.is-open {
     transform: rotate(180deg);
+}
+
+.employees-columns-collapse-enter-active,
+.employees-columns-collapse-leave-active {
+    overflow: hidden;
+    transform-origin: top;
+    transition:
+        max-height $duration,
+        opacity $duration,
+        transform $duration;
+}
+
+.employees-columns-collapse-enter-from,
+.employees-columns-collapse-leave-to {
+    max-height: 0;
+    opacity: 0;
+    transform: translateY(-4px);
+}
+
+.employees-columns-collapse-enter-to,
+.employees-columns-collapse-leave-from {
+    max-height: 560px;
+    opacity: 1;
+    transform: translateY(0);
 }
 
 .employees-page__column-selector-grid {
@@ -886,6 +934,15 @@
 .employees-page__duplicate-item dd {
     margin: 0;
     font-weight: 500;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .employees-filters-collapse-enter-active,
+    .employees-filters-collapse-leave-active,
+    .employees-columns-collapse-enter-active,
+    .employees-columns-collapse-leave-active {
+        transition: none;
+    }
 }
 
 @media (max-width: $tablet) {

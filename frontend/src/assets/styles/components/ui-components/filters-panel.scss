@@ -1,3 +1,5 @@
+@use '@/assets/styles/vars.scss' as *;
+
 .filters-panel {
     display: flex;
     flex-direction: column;
@@ -41,6 +43,30 @@
     gap: 16px;
 }
 
+.filters-panel-collapse-enter-active,
+.filters-panel-collapse-leave-active {
+    overflow: hidden;
+    transform-origin: top;
+    transition:
+        max-height $duration,
+        opacity $duration,
+        transform $duration;
+}
+
+.filters-panel-collapse-enter-from,
+.filters-panel-collapse-leave-to {
+    max-height: 0;
+    opacity: 0;
+    transform: translateY(-6px);
+}
+
+.filters-panel-collapse-enter-to,
+.filters-panel-collapse-leave-from {
+    max-height: 2000px;
+    opacity: 1;
+    transform: translateY(0);
+}
+
 .filters-panel__controls {
     display: flex;
     flex-wrap: wrap;
@@ -50,4 +76,11 @@
 
 .filters-panel__controls--end {
     align-items: flex-end;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .filters-panel-collapse-enter-active,
+    .filters-panel-collapse-leave-active {
+        transition: none;
+    }
 }

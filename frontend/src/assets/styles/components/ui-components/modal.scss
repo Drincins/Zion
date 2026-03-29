@@ -51,14 +51,14 @@
 
 .modal-fade-enter-active,
 .modal-fade-leave-active {
-    transition: opacity var(--motion-base, 220ms) var(--motion-ease-standard, ease);
+    transition: opacity $duration;
 }
 
 .modal-fade-enter-active .modal-window,
 .modal-fade-leave-active .modal-window {
     transition:
-        transform var(--motion-slow, 320ms) var(--motion-ease-standard, ease),
-        opacity var(--motion-base, 220ms) var(--motion-ease-standard, ease);
+        transform $duration,
+        opacity $duration;
 }
 
 .modal-fade-enter-from,

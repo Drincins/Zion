@@ -86,6 +86,34 @@
                 </tr>
             </tbody>
         </Table>
+        <Table
+            v-else-if="isLoading"
+            class="employees-page__section-table employees-page__section-table--skeleton"
+            aria-hidden="true"
+        >
+            <thead>
+                <tr>
+                    <th
+                        v-for="(column, columnIndex) in orderedColumns"
+                        :key="`skeleton-header-${column.id}`"
+                        :class="stickyClassForIndex(columnIndex)"
+                    >
+                        {{ column.label }}
+                    </th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr v-for="row in 8" :key="`skeleton-row-${row}`">
+                    <td
+                        v-for="(column, columnIndex) in orderedColumns"
+                        :key="`skeleton-cell-${row}-${column.id}`"
+                        :class="stickyClassForIndex(columnIndex)"
+                    >
+                        <span class="employees-page__skeleton-line" :class="{ 'is-short': columnIndex > 3 }"></span>
+                    </td>
+                </tr>
+            </tbody>
+        </Table>
         <div v-else class="employees-page__empty">
             <p v-if="isLoading">Загружаем список сотрудников...</p>
             <p v-else>Сотрудники не найдены.</p>

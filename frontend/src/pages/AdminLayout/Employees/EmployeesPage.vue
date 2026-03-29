@@ -55,7 +55,8 @@
                     Фильтры
                     <span :class="['employees-page__filters-icon', { 'is-open': isFiltersOpen }]">▼</span>
                 </button>
-                <div v-if="isFiltersOpen" class="employees-page__filters-content">
+                <Transition name="employees-filters-collapse">
+                    <div v-if="isFiltersOpen" class="employees-page__filters-content">
                     <div class="employees-page__filters-controls">
                         <Input
                             :model-value="search"
@@ -171,17 +172,20 @@
                             Колонки в таблице
                             <span :class="['employees-page__column-selector-icon', { 'is-open': isColumnSelectorOpen }]">▼</span>
                         </button>
-                        <div v-if="isColumnSelectorOpen" class="employees-page__column-selector-grid">
-                            <Checkbox
-                                v-for="column in employeeColumnOptions"
-                                :key="column.id"
-                                :label="column.label"
-                                :model-value="selectedEmployeeColumns.includes(column.id)"
-                                @update:model-value="(checked) => handleEmployeeColumnChange(column.id, checked)"
-                            />
-                        </div>
+                        <Transition name="employees-columns-collapse">
+                            <div v-if="isColumnSelectorOpen" class="employees-page__column-selector-grid">
+                                <Checkbox
+                                    v-for="column in employeeColumnOptions"
+                                    :key="column.id"
+                                    :label="column.label"
+                                    :model-value="selectedEmployeeColumns.includes(column.id)"
+                                    @update:model-value="(checked) => handleEmployeeColumnChange(column.id, checked)"
+                                />
+                            </div>
+                        </Transition>
                     </div>
-                </div>
+                    </div>
+                </Transition>
             </div>
             <EmployeesTable
                 :employees="sortedEmployees"

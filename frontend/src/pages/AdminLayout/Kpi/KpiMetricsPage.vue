@@ -62,8 +62,34 @@
             </div>
         </section>
 
-        <section v-if="contentView === 'metrics'">
-            <div v-if="metrics.length" class="kpi-metrics__table-wrap">
+        <Transition name="kpi-view-switch" mode="out-in">
+            <section v-if="contentView === 'metrics'" key="metrics">
+                <div
+                    v-if="metricsLoading && !metrics.length"
+                    class="kpi-metrics__table-wrap kpi-metrics__table-wrap--skeleton"
+                    aria-hidden="true"
+                >
+                    <table class="kpi-metrics__table kpi-metrics__table--skeleton">
+                        <thead>
+                            <tr>
+                                <th>Показатель</th>
+                                <th>Группа</th>
+                                <th>Единица</th>
+                                <th>Рестораны</th>
+                                <th>Тип выплаты</th>
+                                <th>Тип удержания</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr v-for="row in 6" :key="`metrics-skeleton-${row}`">
+                                <td v-for="col in 6" :key="`metrics-skeleton-${row}-${col}`">
+                                    <span class="kpi-skeleton-line" :class="{ 'is-short': col > 3 }"></span>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div v-else-if="metrics.length" class="kpi-metrics__table-wrap">
                 <table class="kpi-metrics__table">
                     <thead>
                         <tr>
@@ -136,8 +162,33 @@
             </p>
         </section>
 
-        <section v-else class="kpi-panel kpi-panel--list">
-            <div v-if="visibleMetricGroups.length" class="kpi-metrics__table-wrap">
+            <section v-else key="groups" class="kpi-panel kpi-panel--list">
+                <div
+                    v-if="metricGroupsLoading && !visibleMetricGroups.length"
+                    class="kpi-metrics__table-wrap kpi-metrics__table-wrap--skeleton"
+                    aria-hidden="true"
+                >
+                    <table class="kpi-metrics__table kpi-metrics__table--skeleton">
+                        <thead>
+                            <tr>
+                                <th>Группа</th>
+                                <th>Состав</th>
+                                <th>Единица</th>
+                                <th>Цель группы</th>
+                                <th>Тип начисления</th>
+                                <th>Тип удержания</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr v-for="row in 6" :key="`groups-skeleton-${row}`">
+                                <td v-for="col in 6" :key="`groups-skeleton-${row}-${col}`">
+                                    <span class="kpi-skeleton-line" :class="{ 'is-short': col > 3 }"></span>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div v-else-if="visibleMetricGroups.length" class="kpi-metrics__table-wrap">
                 <table class="kpi-metrics__table">
                     <thead>
                         <tr>
@@ -208,7 +259,8 @@
             <p v-else class="kpi-list__empty">
                 {{ metricGroupStatusFilter === 'active' ? 'Действующих групп KPI пока нет.' : 'Архивных групп KPI пока нет.' }}
             </p>
-        </section>
+            </section>
+        </Transition>
 
         
         <Modal v-if="isModalOpen" class="kpi-metrics__modal" @close="closeModal">
