@@ -346,7 +346,7 @@
                                 class="kitchen-waiter-sales-page__waiter-link"
                                 @click="openWaiterDetails(row)"
                             >
-                                {{ row.waiter_name || '-' }}
+                                {{ waiterDisplayLabel(row) }}
                             </button>
                         </td>
                         <td>{{ row.waiter_name_iiko || '-' }}</td>
@@ -419,7 +419,7 @@
                 </thead>
                 <tbody>
                     <tr v-for="row in totalsByWaiter" :key="waiterTotalKey(row)">
-                        <td>{{ row.waiter_name || '-' }}</td>
+                        <td>{{ waiterDisplayLabel(row) }}</td>
                         <td class="kitchen-waiter-sales-page__mono">{{ row.waiter_iiko_id || '-' }}</td>
                         <td>{{ formatNumber(row.orders_count) }}</td>
                         <td>{{ formatNumber(row.guests_count) }}</td>
@@ -440,7 +440,7 @@
             <template #header>
                 <div class="kitchen-waiter-sales-page__modal-header">
                     <h3 class="kitchen-waiter-sales-page__modal-title">
-                        Детализация позиций: {{ waiterDetailsMeta?.waiter_name || waiterDetailsRow.waiter_name || '-' }}
+                        Детализация позиций: {{ waiterDisplayLabel(waiterDetailsMeta || waiterDetailsRow) }}
                     </h3>
                     <p class="kitchen-waiter-sales-page__modal-subtitle">
                         Ресторан:
@@ -557,6 +557,7 @@
 <script setup>
 import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue';
 import {
+    fetchAllEmployees,
     fetchKitchenRestaurants,
     fetchKitchenWaiterSalesOptions,
     fetchKitchenWaiterSalesPositions,
@@ -649,6 +650,7 @@ let waiterDetailsRequestSeq = 0;
 
 const restaurants = ref([]);
 const waiters = ref([]);
+const employeeDirectory = ref([]);
 const optionsPayload = ref({
     halls: [],
     groups: [],
@@ -734,6 +736,13 @@ const restaurantOptions = computed(() => [
     { value: '', label: 'Все рестораны' },
     ...(restaurants.value || []).map((item) => ({ value: String(item.id), label: item.name })),
 ]);
+const employeeDirectoryMap = computed(() =>
+    new Map(
+        (employeeDirectory.value || [])
+            .map((employee) => [Number(employee?.id), employee])
+            .filter(([id]) => Number.isFinite(id) && id > 0),
+    ),
+);
 
 const waiterOptions = computed(() => [
     { value: '', label: 'Все официанты' },
@@ -741,7 +750,7 @@ const waiterOptions = computed(() => [
         .filter((row) => row?.user_id !== null || row?.iiko_id || row?.iiko_code)
         .map((row) => ({
             value: waiterOptionValue(row),
-            label: row?.name || row?.iiko_code || row?.iiko_id || `#${row?.user_id ?? '-'}`,
+            label: waiterDisplayLabel(row),
         })),
 ]);
 const deletedModeOptions = computed(() => DELETED_MODE_OPTIONS);
@@ -874,6 +883,42 @@ function valueOrDash(value) {
         return '-';
     }
     return String(value);
+}
+
+function formatEmployeeName(employee) {
+    const parts = [employee?.last_name, employee?.first_name, employee?.middle_name]
+        .map((part) => (part || '').trim())
+        .filter(Boolean);
+    if (parts.length) {
+        return parts.join(' ');
+    }
+    return String(employee?.username || employee?.staff_code || employee?.id || '').trim();
+}
+
+function waiterDisplayLabel(row) {
+    const directName = String(
+        row?.waiter_name ??
+        row?.name ??
+        row?.user_name ??
+        '',
+    ).trim();
+    if (directName) {
+        return directName;
+    }
+    const employee = employeeDirectoryMap.value.get(Number(row?.waiter_user_id ?? row?.user_id));
+    if (employee) {
+        return formatEmployeeName(employee);
+    }
+    if (row?.waiter_iiko_code || row?.iiko_code) {
+        return String(row.waiter_iiko_code || row.iiko_code);
+    }
+    if (row?.waiter_iiko_id || row?.iiko_id) {
+        return String(row.waiter_iiko_id || row.iiko_id);
+    }
+    if (row?.waiter_user_id || row?.user_id) {
+        return `#${row.waiter_user_id ?? row.user_id}`;
+    }
+    return '-';
 }
 
 function waiterOptionValue(row) {
@@ -1133,6 +1178,15 @@ async function loadRestaurants() {
     restaurants.value = Array.isArray(data) ? data : [];
 }
 
+async function loadEmployeeDirectory() {
+    try {
+        const data = await fetchAllEmployees({ include_fired: true, limit: 250 });
+        employeeDirectory.value = Array.isArray(data?.items) ? data.items : Array.isArray(data) ? data : [];
+    } catch (error) {
+        console.warn('Не удалось загрузить справочник сотрудников для отчета официантов', error);
+    }
+}
+
 async function loadOptions() {
     if (!canViewSalesReport.value) {
         return;
@@ -1358,7 +1412,7 @@ onMounted(async () => {
         return;
     }
     try {
-        await loadRestaurants();
+        await Promise.all([loadRestaurants(), loadEmployeeDirectory()]);
         await loadOptions();
         await buildReport();
     } catch (error) {

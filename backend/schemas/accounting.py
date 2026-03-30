@@ -62,6 +62,7 @@ class AccountingInvoiceClosingDocumentRead(BaseModel):
     file_key: str
     file_url: Optional[str] = None
     uploaded_by_user_id: Optional[int] = None
+    uploaded_by_name: Optional[str] = None
     uploaded_at: datetime
     original_filename: Optional[str] = None
     content_type: Optional[str] = None
@@ -76,6 +77,7 @@ class AccountingInvoiceChangeRead(BaseModel):
     old_value: Optional[str] = None
     new_value: Optional[str] = None
     changed_by_user_id: Optional[int] = None
+    changed_by_name: Optional[str] = None
     changed_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
@@ -87,6 +89,7 @@ class AccountingInvoiceEventRead(BaseModel):
     event_type: str
     message: Optional[str] = None
     actor_user_id: Optional[int] = None
+    actor_name: Optional[str] = None
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
@@ -97,6 +100,7 @@ class AccountingInvoiceRead(AccountingInvoiceBase):
     created_at: datetime
     updated_at: datetime
     created_by_user_id: Optional[int] = None
+    created_by_name: Optional[str] = None
     invoice_file_key: str
     invoice_file_url: Optional[str] = None
     payment_order_file_url: Optional[str] = None

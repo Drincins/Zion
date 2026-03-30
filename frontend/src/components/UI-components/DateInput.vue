@@ -1,12 +1,13 @@
 <template>
     <div class="input input--date">
-        <label v-if="label" class="input-label">
+        <label v-if="label" class="input-label" :for="fieldId">
             {{ label }}
         </label>
         <div ref="root" class="input-control input-date">
             <input
                 v-bind="attrs"
                 :id="fieldId"
+                :name="fieldName"
                 class="input-field input-field--date"
                 type="text"
                 inputmode="numeric"
@@ -124,6 +125,8 @@ import { computed, onMounted, ref, useAttrs, watch } from 'vue';
 import { useFloatingPanel } from '@/composables/useFloatingPanel';
 import BaseIcon from './BaseIcon.vue';
 
+defineOptions({ inheritAttrs: false });
+
 const props = defineProps({
     modelValue: {
         type: [String, Number],
@@ -159,9 +162,29 @@ const isDateType = computed(() => props.type === 'date');
 const isMonthType = computed(() => props.type === 'month');
 const isDisabled = computed(() => attrs.disabled !== undefined && attrs.disabled !== false);
 const isReadOnly = computed(() => attrs.readonly !== undefined && attrs.readonly !== false);
-const fieldId = computed(() => attrs.id || undefined);
+const fieldUid = `date-input-${Math.random().toString(36).slice(2, 9)}`;
+const fieldId = computed(() => {
+    const currentId = attrs.id;
+    if (currentId !== undefined && currentId !== null && String(currentId).trim() !== '') {
+        return String(currentId);
+    }
+    return fieldUid;
+});
+const fieldName = computed(() => {
+    const currentName = attrs.name;
+    if (currentName !== undefined && currentName !== null && String(currentName).trim() !== '') {
+        return String(currentName);
+    }
+    return fieldId.value;
+});
 const panelUid = `date-panel-${Math.random().toString(36).slice(2, 9)}`;
-const panelId = computed(() => (fieldId.value ? `${fieldId.value}-panel` : panelUid));
+const panelId = computed(() => {
+    const currentId = fieldId.value;
+    if (!currentId) {
+        return panelUid;
+    }
+    return `${currentId}-panel`;
+});
 const selectedKey = computed(() => normalizeModelValue(props.modelValue));
 const activeYear = computed(() => activeMonth.value.getFullYear());
 const yearRangeStart = ref(getYearRangeStart(activeYear.value));

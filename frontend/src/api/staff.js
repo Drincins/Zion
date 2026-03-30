@@ -29,11 +29,70 @@ export async function closeStaffAttendance(payload = {}) {
 }
 
 export async function fetchEmployees(params = {}, options = {}) {
-    const { data } = await api.get('/api/staff/employees', {
-        params,
+    const requestParams = { ...(params || {}) };
+    const useCompactEndpoint = Boolean(requestParams.compact);
+    delete requestParams.compact;
+    const endpoint = useCompactEndpoint ? '/api/staff/employees/compact' : '/api/staff/employees';
+    const { data } = await api.get(endpoint, {
+        params: requestParams,
         signal: options?.signal
     });
     return data;
+}
+
+export async function fetchAllEmployees(params = {}, options = {}) {
+    const requestedLimit = Number(params?.limit);
+    const pageSize = Number.isFinite(requestedLimit) && requestedLimit > 0
+        ? Math.min(requestedLimit, 1000)
+        : 250;
+    const startOffsetRaw = Number(params?.offset);
+    const startOffset = Number.isFinite(startOffsetRaw) && startOffsetRaw >= 0 ? startOffsetRaw : 0;
+    const baseParams = {
+        ...params,
+        offset: startOffset,
+        limit: pageSize,
+    };
+
+    const firstPage = await fetchEmployees(baseParams, options);
+    const items = Array.isArray(firstPage?.items) ? [...firstPage.items] : [];
+    let hasMore = Boolean(firstPage?.has_more);
+    let nextOffsetRaw = Number(firstPage?.next_offset);
+    let nextOffset = Number.isFinite(nextOffsetRaw) && nextOffsetRaw >= 0
+        ? nextOffsetRaw
+        : startOffset + items.length;
+
+    while (hasMore) {
+        const pageData = await fetchEmployees(
+            {
+                ...baseParams,
+                offset: nextOffset,
+            },
+            options,
+        );
+        const pageItems = Array.isArray(pageData?.items) ? pageData.items : [];
+        if (!pageItems.length) {
+            break;
+        }
+        items.push(...pageItems);
+
+        hasMore = Boolean(pageData?.has_more);
+        nextOffsetRaw = Number(pageData?.next_offset);
+        const fallbackOffset = nextOffset + pageItems.length;
+        nextOffset = Number.isFinite(nextOffsetRaw) && nextOffsetRaw >= 0
+            ? nextOffsetRaw
+            : fallbackOffset;
+        if (nextOffset <= fallbackOffset - pageItems.length) {
+            break;
+        }
+    }
+
+    return {
+        items,
+        offset: startOffset,
+        limit: pageSize,
+        has_more: false,
+        next_offset: null,
+    };
 }
 
 export async function fetchEmployeesBootstrap(params = {}, options = {}) {
@@ -75,7 +134,7 @@ export async function fetchEmployeeChangeEvents(params = {}) {
 }
 
 export async function fetchEmployeeCard(userId) {
-    const { data } = await api.get(`/api/employees/${userId}/card`);
+    const { data } = await api.get(`/api/staff/employees/${userId}/card`);
     return data;
 }
 
@@ -125,31 +184,31 @@ export async function deleteWaiterTurnoverRule(ruleId, params = {}) {
 }
 
 export async function fetchEmployeeAttendances(userId, params = {}) {
-    const { data } = await api.get(`/api/employees/${userId}/attendances`, { params });
+    const { data } = await api.get(`/api/staff/employees/${userId}/attendances`, { params });
     return data;
 }
 
 export async function createEmployeeAttendance(userId, payload = {}) {
-    const { data } = await api.post(`/api/employees/${userId}/attendances`, payload);
+    const { data } = await api.post(`/api/staff/employees/${userId}/attendances`, payload);
     return data;
 }
 
 export async function updateEmployeeAttendance(userId, attendanceId, payload = {}) {
     const { data } = await api.patch(
-        `/api/employees/${userId}/attendances/${attendanceId}`,
+        `/api/staff/employees/${userId}/attendances/${attendanceId}`,
         payload
     );
     return data;
 }
 
 export async function deleteEmployeeAttendance(userId, attendanceId) {
-    const { data } = await api.delete(`/api/employees/${userId}/attendances/${attendanceId}`);
+    const { data } = await api.delete(`/api/staff/employees/${userId}/attendances/${attendanceId}`);
     return data;
 }
 
 export async function recalculateEmployeeNightMinutes(userId, payload = {}) {
     const { data } = await api.post(
-        `/api/employees/${userId}/attendances/recalculate-night`,
+        `/api/staff/employees/${userId}/attendances/recalculate-night`,
         payload
     );
     return data;

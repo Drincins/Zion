@@ -1,3 +1,5 @@
+@use '@/assets/styles/vars.scss' as *;
+
 .control-checklists-manage {
     display: flex;
     flex-direction: column;
@@ -93,7 +95,7 @@
     background: var(--color-surface);
     display: grid;
     gap: 14px;
-    transition: box-shadow 0.2s ease, border-color 0.2s ease;
+    transition: box-shadow $duration, border-color $duration;
 }
 
 .control-checklists-manage__section-card.is-highlighted {

@@ -58,6 +58,7 @@ class AccountingInvoice(Base):
         cascade="all, delete-orphan",
         lazy="selectin",
     )
+    created_by = relationship("User", foreign_keys=[created_by_user_id])
     changes: Mapped[list["AccountingInvoiceChange"]] = relationship(
         "AccountingInvoiceChange",
         back_populates="invoice",
@@ -83,6 +84,15 @@ class AccountingInvoice(Base):
     def __repr__(self) -> str:  # pragma: no cover - debug helper
         return f"<AccountingInvoice id={self.id} status={self.status!r} amount={self.amount}>"
 
+    @property
+    def created_by_name(self) -> str | None:
+        user = self.created_by
+        if not user:
+            return None
+        parts = [getattr(user, "last_name", None), getattr(user, "first_name", None), getattr(user, "middle_name", None)]
+        name = " ".join(part for part in parts if part)
+        return name or getattr(user, "username", None)
+
 
 class AccountingInvoiceClosingDocument(Base):
     __tablename__ = "accounting_invoice_closing_documents"
@@ -102,6 +112,16 @@ class AccountingInvoiceClosingDocument(Base):
     content_type: Mapped[str | None] = mapped_column(String(255), nullable=True)
 
     invoice: Mapped[AccountingInvoice] = relationship("AccountingInvoice", back_populates="closing_documents")
+    uploaded_by = relationship("User", foreign_keys=[uploaded_by_user_id])
+
+    @property
+    def uploaded_by_name(self) -> str | None:
+        user = self.uploaded_by
+        if not user:
+            return None
+        parts = [getattr(user, "last_name", None), getattr(user, "first_name", None), getattr(user, "middle_name", None)]
+        name = " ".join(part for part in parts if part)
+        return name or getattr(user, "username", None)
 
 
 class AccountingInvoiceChange(Base):
@@ -122,6 +142,16 @@ class AccountingInvoiceChange(Base):
     )
 
     invoice: Mapped[AccountingInvoice] = relationship("AccountingInvoice", back_populates="changes")
+    changed_by = relationship("User", foreign_keys=[changed_by_user_id])
+
+    @property
+    def changed_by_name(self) -> str | None:
+        user = self.changed_by
+        if not user:
+            return None
+        parts = [getattr(user, "last_name", None), getattr(user, "first_name", None), getattr(user, "middle_name", None)]
+        name = " ".join(part for part in parts if part)
+        return name or getattr(user, "username", None)
 
 
 class AccountingInvoiceEvent(Base):
@@ -141,6 +171,16 @@ class AccountingInvoiceEvent(Base):
     )
 
     invoice: Mapped[AccountingInvoice] = relationship("AccountingInvoice", back_populates="events")
+    actor = relationship("User", foreign_keys=[actor_user_id])
+
+    @property
+    def actor_name(self) -> str | None:
+        user = self.actor
+        if not user:
+            return None
+        parts = [getattr(user, "last_name", None), getattr(user, "first_name", None), getattr(user, "middle_name", None)]
+        name = " ".join(part for part in parts if part)
+        return name or getattr(user, "username", None)
 
 
 class AccountingCounterparty(Base):

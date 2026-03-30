@@ -1,6 +1,6 @@
 import { computed, reactive, ref, watch } from 'vue';
 import { useToast } from 'vue-toastification';
-import { createPayrollAdjustmentsBulk, fetchEmployees } from '@/api';
+import { createPayrollAdjustmentsBulk, fetchAllEmployees, fetchEmployees } from '@/api';
 import { useDebounce } from '@/composables/useDebounce';
 import { useMultiSelect } from '@/composables/useMultiSelect';
 
@@ -193,7 +193,14 @@ export function useEmployeeBulkAdjust({
     });
 
     function bulkResultItemLabel(item) {
+        const directName = String(item?.full_name || '').trim();
         const staffCode = (item?.staff_code || '').trim();
+        if (directName && staffCode) {
+            return `${directName} (${staffCode})`;
+        }
+        if (directName) {
+            return directName;
+        }
         if (!staffCode) {
             return '—';
         }
@@ -375,7 +382,7 @@ export function useEmployeeBulkAdjust({
         }
 
         bulkSearchLoading.value = true;
-        fetchEmployees({ include_fired: true, limit: 1000 })
+        fetchAllEmployees({ include_fired: true })
             .then((data) => {
                 const list = Array.isArray(data?.items) ? data.items : Array.isArray(data) ? data : [];
                 applyList(list);
@@ -504,6 +511,7 @@ export function useEmployeeBulkAdjust({
             if (!staffCode) {
                 localErrors.push({
                     staff_code: '',
+                    full_name: row.name || '',
                     reason: `${row.name || 'Сотрудник'}: нет табельного кода`,
                 });
                 row.resultStatus = 'error';
@@ -514,7 +522,7 @@ export function useEmployeeBulkAdjust({
             const amountSource = bulkCommonAmountEnabled.value ? commonAmountValue : row.amount;
             const amountNum = Number.parseFloat(String(amountSource).replace(',', '.'));
             if (!Number.isFinite(amountNum)) {
-                localErrors.push({ staff_code: staffCode, reason: 'Некорректная сумма' });
+                localErrors.push({ staff_code: staffCode, full_name: row.name || '', reason: 'Некорректная сумма' });
                 row.resultStatus = 'error';
                 row.resultReason = 'Некорректная сумма';
                 continue;
@@ -523,7 +531,7 @@ export function useEmployeeBulkAdjust({
             const rowRestaurantId = Number(row.workplaceId);
             const targetRestaurantId = hasFormRestaurant ? formRestaurantId : rowRestaurantId;
             if (!Number.isFinite(targetRestaurantId)) {
-                localErrors.push({ staff_code: staffCode, reason: 'Не указан ресторан' });
+                localErrors.push({ staff_code: staffCode, full_name: row.name || '', reason: 'Не указан ресторан' });
                 row.resultStatus = 'error';
                 row.resultReason = 'Не указан ресторан';
                 continue;
@@ -541,6 +549,14 @@ export function useEmployeeBulkAdjust({
             bulkAdjustResult.errors = localErrors;
             toast.error('Нет строк для отправки: заполните суммы и отметьте сотрудников');
             return;
+        }
+
+        const rowByStaffCode = new Map();
+        for (const row of bulkAdjustEmployees.value) {
+            const staffCode = (row?.staffCode || '').trim();
+            if (staffCode) {
+                rowByStaffCode.set(staffCode, row);
+            }
         }
 
         bulkAdjustLoading.value = true;
@@ -578,7 +594,13 @@ export function useEmployeeBulkAdjust({
                         error?.message ||
                         'Не удалось выполнить операцию';
                     for (const row of rows) {
-                        allErrors.push({ staff_code: row.staff_code || '', reason: message });
+                        const staffCode = String(row?.staff_code || '').trim();
+                        const sourceRow = rowByStaffCode.get?.(staffCode);
+                        allErrors.push({
+                            staff_code: staffCode,
+                            full_name: sourceRow?.name || '',
+                            reason: message,
+                        });
                     }
                 }
             }
@@ -586,14 +608,6 @@ export function useEmployeeBulkAdjust({
             bulkAdjustResult.createdCount = createdTotal;
             bulkAdjustResult.skipped = allSkipped;
             bulkAdjustResult.errors = allErrors;
-
-            const rowByStaffCode = new Map();
-            for (const row of bulkAdjustEmployees.value) {
-                const staffCode = (row?.staffCode || '').trim();
-                if (staffCode) {
-                    rowByStaffCode.set(staffCode, row);
-                }
-            }
 
             const skippedCodes = new Set();
             const errorCodes = new Set();

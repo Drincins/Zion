@@ -183,15 +183,22 @@ def list_employee_change_events(
         query = query.filter(EmployeeChangeEvent.created_at >= datetime.combine(start, time.min))
     if end:
         query = query.filter(EmployeeChangeEvent.created_at <= datetime.combine(end, time.max))
-    items = (
+    events_window = (
         query.order_by(EmployeeChangeEvent.created_at.desc(), EmployeeChangeEvent.id.desc())
         .offset(offset)
-        .limit(limit)
+        .limit(limit + 1)
         .all()
     )
+    has_more = len(events_window) > limit
+    items = events_window[:limit]
+    next_offset = offset + len(items) if has_more else None
     items = _mask_sensitive_changes(items, current_user, db)
     return EmployeeChangeEventListResponse(
-        items=[EmployeeChangeEventRead.model_validate(item) for item in items]
+        items=[EmployeeChangeEventRead.model_validate(item) for item in items],
+        offset=offset,
+        limit=limit,
+        has_more=has_more,
+        next_offset=next_offset,
     )
 
 

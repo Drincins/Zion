@@ -94,6 +94,7 @@
                         Смены
                     </button>
                     <button
+                        v-if="canViewTrainings"
                         :ref="setModalTabRef('trainings')"
                         type="button"
                         :class="[
@@ -208,7 +209,8 @@
                 @open-attendance="emit('open-attendance', $event)"
             />
             <EmployeeModalTrainingsTab
-                v-else-if="activeTab === 'trainings'"
+                v-else-if="activeTab === 'trainings' && canViewTrainings"
+                :can-manage-trainings="canManageTrainings"
                 :creating-training-record="creatingTrainingRecord"
                 :training-types-loading="trainingTypesLoading"
                 :training-type-options="trainingTypeOptions"
@@ -298,12 +300,15 @@
                 :can-view-employee-changes="canViewEmployeeChanges"
                 :employee-change-events="employeeChangeEvents"
                 :employee-change-events-loading="employeeChangeEventsLoading"
+                :employee-change-events-loading-more="employeeChangeEventsLoadingMore"
                 :employee-change-events-error="employeeChangeEventsError"
+                :employee-change-events-has-more="employeeChangeEventsHasMore"
                 :format-change-date="formatChangeDate"
                 :format-change-field="formatChangeField"
                 :format-change-value="formatChangeValue"
                 :format-change-author="formatChangeAuthor"
                 :format-change-comment="formatChangeComment"
+                @load-more="emit('load-more-employee-change-events')"
             />
             <div v-else class="employees-page__modal-section">
                 <EmployeeFinanceTab
@@ -338,7 +343,12 @@
         </template>
     </Modal>
 
-    <Modal v-if="isPhotoPreviewOpen" class="employees-page__photo-modal-window" @close="closePhotoPreview">
+    <Modal
+        v-if="isPhotoPreviewOpen"
+        class="employees-page__photo-modal-window"
+        :disable-leave-animation="true"
+        @close="closePhotoPreview"
+    >
         <div class="employees-page__photo-modal">
             <img v-if="photoUrl" :src="photoUrl" alt="Фото сотрудника" />
         </div>
@@ -346,18 +356,19 @@
 </template>
 
 <script setup>
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, toRefs, watch } from 'vue';
+import { computed, defineAsyncComponent, nextTick, onBeforeUnmount, onMounted, ref, toRefs, watch } from 'vue';
 import Button from '@/components/UI-components/Button.vue';
 import Modal from '@/components/UI-components/Modal.vue';
-import EmployeeModalChangesTab from './EmployeeModalChangesTab.vue';
 import EmployeeModalInfoTab from './EmployeeModalInfoTab.vue';
 import EmployeeModalShiftsTab from './EmployeeModalShiftsTab.vue';
-import EmployeeModalTrainingsTab from './EmployeeModalTrainingsTab.vue';
-import EmployeeDocumentsTab from './EmployeeDocumentsTab.vue';
-import EmployeeFinanceTab from './EmployeeFinanceTab.vue';
-import EmployeePermissionsTab from './EmployeePermissionsTab.vue';
 import { formatChangeField, formatChangeValue } from '@/utils/changeEvents';
 import { normalizeMojibakeText } from '@/utils/textEncoding';
+
+const EmployeeModalChangesTab = defineAsyncComponent(() => import('./EmployeeModalChangesTab.vue'));
+const EmployeeModalTrainingsTab = defineAsyncComponent(() => import('./EmployeeModalTrainingsTab.vue'));
+const EmployeeDocumentsTab = defineAsyncComponent(() => import('./EmployeeDocumentsTab.vue'));
+const EmployeeFinanceTab = defineAsyncComponent(() => import('./EmployeeFinanceTab.vue'));
+const EmployeePermissionsTab = defineAsyncComponent(() => import('./EmployeePermissionsTab.vue'));
 
 const props = defineProps({
     isOpen: { type: Boolean, default: false },
@@ -382,6 +393,8 @@ const props = defineProps({
     attendanceDateFrom: { type: String, default: '' },
     attendanceDateTo: { type: String, default: '' },
     recalculatingNightMinutes: { type: Boolean, default: false },
+    canViewTrainings: { type: Boolean, default: false },
+    canManageTrainings: { type: Boolean, default: false },
     employeeTrainings: { type: Array, default: () => [] },
     trainingsLoading: { type: Boolean, default: false },
     trainingTypeOptions: { type: Array, default: () => [] },
@@ -390,6 +403,9 @@ const props = defineProps({
     editingTrainingRecord: { type: Object, default: () => ({}) },
     updatingTrainingRecord: { type: Boolean, default: false },
     deletingTrainingRecordId: { type: [Number, String], default: null },
+    trainingRequirements: { type: Array, default: () => [] },
+    trainingRequirementsLoading: { type: Boolean, default: false },
+    updatingTrainingRequirementId: { type: [Number, String], default: null },
     canViewDocuments: { type: Boolean, default: false },
     canViewMedicalChecks: { type: Boolean, default: false },
     canViewCisDocuments: { type: Boolean, default: false },
@@ -442,7 +458,9 @@ const props = defineProps({
     syncingEmployeeToIiko: { type: Boolean, default: false },
     employeeChangeEvents: { type: Array, default: () => [] },
     employeeChangeEventsLoading: { type: Boolean, default: false },
+    employeeChangeEventsLoadingMore: { type: Boolean, default: false },
     employeeChangeEventsError: { type: String, default: '' },
+    employeeChangeEventsHasMore: { type: Boolean, default: false },
     canViewEmployeeChanges: { type: Boolean, default: false },
     canRestoreEmployees: { type: Boolean, default: false },
     restoringEmployee: { type: Boolean, default: false },
@@ -471,6 +489,7 @@ const emit = defineEmits([
     'update-training',
     'update-edit-training-field',
     'delete-training',
+    'toggle-training-requirement',
     'start-create-medical',
     'start-create-medical-bulk',
     'start-edit-medical',
@@ -492,6 +511,7 @@ const emit = defineEmits([
     'toggle-user-permission',
     'update:delete-from-iiko',
     'sync-employee-to-iiko',
+    'load-more-employee-change-events',
 ]);
 
 const {
@@ -517,6 +537,8 @@ const {
     attendanceDateFrom,
     attendanceDateTo,
     recalculatingNightMinutes,
+    canViewTrainings,
+    canManageTrainings,
     employeeTrainings,
     trainingsLoading,
     trainingTypeOptions,
@@ -575,7 +597,9 @@ const {
     syncingEmployeeToIiko,
     employeeChangeEvents,
     employeeChangeEventsLoading,
+    employeeChangeEventsLoadingMore,
     employeeChangeEventsError,
+    employeeChangeEventsHasMore,
     canViewEmployeeChanges,
     canRestoreEmployees,
     restoringEmployee,
@@ -765,13 +789,28 @@ function updateTabIndicator() {
         return;
     }
 
-    const tabsRect = tabsRoot.getBoundingClientRect();
-    const tabRect = activeTabButton.getBoundingClientRect();
+    let x = 0;
+    let y = 0;
+    let node = activeTabButton;
+
+    while (node && node !== tabsRoot) {
+        x += node.offsetLeft || 0;
+        y += node.offsetTop || 0;
+        node = node.offsetParent;
+    }
+
+    if (node !== tabsRoot) {
+        const tabsRect = tabsRoot.getBoundingClientRect();
+        const tabRect = activeTabButton.getBoundingClientRect();
+        x = tabRect.left - tabsRect.left;
+        y = tabRect.top - tabsRect.top;
+    }
+
     tabIndicatorState.value = {
-        x: tabRect.left - tabsRect.left,
-        y: tabRect.top - tabsRect.top,
-        width: tabRect.width,
-        height: tabRect.height,
+        x,
+        y,
+        width: activeTabButton.offsetWidth || 0,
+        height: activeTabButton.offsetHeight || 0,
         visible: true,
     };
 }

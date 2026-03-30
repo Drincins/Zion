@@ -1,3 +1,5 @@
+@use '@/assets/styles/vars.scss' as *;
+
 .labor-fund {
     display: flex;
     flex-direction: column;
@@ -118,7 +120,7 @@
     align-items: center;
     justify-content: center;
     cursor: pointer;
-    transition: border-color 0.2s ease, transform 0.2s ease, background-color 0.2s ease;
+    transition: border-color $duration, transform $duration, background-color $duration;
 }
 
 .labor-fund__collapse-trigger:hover {
@@ -129,7 +131,7 @@
 .labor-fund__collapse-icon {
     font-size: 11px;
     line-height: 1;
-    transition: transform 0.2s ease;
+    transition: transform $duration;
 }
 
 .labor-fund__collapse-icon.is-open {
@@ -282,7 +284,7 @@
     padding: 8px 12px;
     cursor: pointer;
     text-align: left;
-    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    transition: border-color $duration, box-shadow $duration;
 }
 
 .labor-fund__filter-picker-trigger:disabled {
@@ -310,7 +312,7 @@
 .labor-fund__filter-picker-icon {
     font-size: 11px;
     line-height: 1;
-    transition: transform 0.2s ease;
+    transition: transform $duration;
 }
 
 .labor-fund__filter-picker-icon.is-open {
@@ -672,7 +674,7 @@
     cursor: pointer;
     stroke: color-mix(in srgb, var(--color-surface) 70%, var(--color-border));
     stroke-width: 1;
-    transition: filter 0.2s ease, stroke-width 0.2s ease;
+    transition: filter $duration, stroke-width $duration;
 }
 
 .labor-fund__pie-segment:hover,
@@ -879,7 +881,7 @@
 
 .labor-fund__expand-icon {
     display: inline-block;
-    transition: transform 0.2s ease;
+    transition: transform $duration;
 }
 
 .labor-fund__expand-icon--open {

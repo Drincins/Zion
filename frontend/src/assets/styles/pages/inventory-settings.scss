@@ -3,6 +3,40 @@
     gap: 18px;
 }
 
+.inventory-settings__tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+
+.inventory-settings__tab {
+    border: 1px solid color-mix(in srgb, var(--color-border) 76%, transparent);
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--color-surface-raised, var(--color-surface)) 88%, transparent);
+    color: var(--color-text-secondary, var(--color-text-soft));
+    cursor: pointer;
+    font: inherit;
+    font-weight: 700;
+    padding: 11px 18px;
+    transition:
+        border-color 0.18s ease,
+        background-color 0.18s ease,
+        color 0.18s ease,
+        transform 0.18s ease;
+}
+
+.inventory-settings__tab:hover {
+    border-color: color-mix(in srgb, var(--color-primary, #c89b63) 38%, transparent);
+    color: var(--color-text);
+    transform: translateY(-1px);
+}
+
+.inventory-settings__tab.is-active {
+    border-color: color-mix(in srgb, var(--color-primary, #c89b63) 60%, transparent);
+    background: color-mix(in srgb, var(--color-primary, #c89b63) 18%, transparent);
+    color: var(--color-primary, #c89b63);
+}
+
 .inventory-settings__section {
     display: grid;
     gap: 16px;

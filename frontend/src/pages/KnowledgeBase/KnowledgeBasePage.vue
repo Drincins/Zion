@@ -213,6 +213,7 @@
 
 <script setup>
 import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 import { useToast } from 'vue-toastification';
 import {
     createKnowledgeBaseFolder,
@@ -257,6 +258,8 @@ import KnowledgeBaseHistoryModal from './components/KnowledgeBaseHistoryModal.vu
 
 const toast = useToast();
 const userStore = useUserStore();
+const router = useRouter();
+const route = useRoute();
 
 const loadingItems = ref(false);
 const treeLoading = ref(false);
@@ -338,6 +341,10 @@ let treeRequestSequence = 0;
 let itemsRequestSequence = 0;
 let documentRequestSequence = 0;
 const ITEMS_PAGE_LIMIT = 120;
+const LINK_QUERY_FOLDER_KEY = 'folder';
+const LINK_QUERY_DOCUMENT_KEY = 'document';
+const syncingDeepLinkQuery = ref(false);
+const applyingDeepLinkQuery = ref(false);
 
 const canManage = computed(() => userStore.hasAnyPermission('knowledge_base.section'));
 const canUpload = computed(() => userStore.hasAnyPermission('knowledge_base.section'));
@@ -407,6 +414,7 @@ const contextMenuItems = computed(() => {
     }
 
     entries.push({ key: 'open', label: 'Открыть' });
+    entries.push({ key: 'copy-link', label: 'Copy link' });
     if (isDocument && item.document_type === 'file') {
         entries.push({ key: 'download', label: 'Скачать' });
     }
@@ -438,6 +446,16 @@ watch([searchQuery, itemKind, documentType], () => {
     debouncedReloadItems();
 });
 
+watch(
+    () => [route.query?.[LINK_QUERY_FOLDER_KEY], route.query?.[LINK_QUERY_DOCUMENT_KEY]],
+    () => {
+        if (syncingDeepLinkQuery.value) {
+            return;
+        }
+        void applyDeepLinkFromRoute();
+    },
+);
+
 onBeforeUnmount(() => {
     abortRequest(treeRequestController);
     abortRequest(itemsRequestController);
@@ -448,6 +466,7 @@ onMounted(async () => {
     await Promise.all([loadBootstrap(), loadAccessOptions()]);
     await loadTree();
     await loadItems();
+    await applyDeepLinkFromRoute();
 });
 
 function abortRequest(controllerRef) {
@@ -483,6 +502,102 @@ function deleteSetValue(setRef, key) {
     const next = new Set(setRef.value || []);
     next.delete(key);
     setRef.value = next;
+}
+
+function resolveQueryId(rawValue) {
+    const value = Array.isArray(rawValue) ? rawValue[0] : rawValue;
+    return normalizeFolderId(value);
+}
+
+function getDeepLinkStateFromRoute() {
+    return {
+        folderId: resolveQueryId(route.query?.[LINK_QUERY_FOLDER_KEY]),
+        documentId: resolveQueryId(route.query?.[LINK_QUERY_DOCUMENT_KEY]),
+    };
+}
+
+function buildDeepLinkQuery({ folderId = null, documentId = null } = {}) {
+    const nextQuery = { ...(route.query || {}) };
+    delete nextQuery[LINK_QUERY_FOLDER_KEY];
+    delete nextQuery[LINK_QUERY_DOCUMENT_KEY];
+    if (folderId !== null) {
+        nextQuery[LINK_QUERY_FOLDER_KEY] = String(folderId);
+    }
+    if (documentId !== null) {
+        nextQuery[LINK_QUERY_DOCUMENT_KEY] = String(documentId);
+    }
+    return nextQuery;
+}
+
+async function syncDeepLinkQuery({ folderId = activeFolderId.value, documentId = null } = {}) {
+    if (applyingDeepLinkQuery.value) {
+        return;
+    }
+    const normalizedFolderId = normalizeFolderId(folderId);
+    const normalizedDocumentId = normalizeFolderId(documentId);
+    const currentState = getDeepLinkStateFromRoute();
+    if (currentState.folderId === normalizedFolderId && currentState.documentId === normalizedDocumentId) {
+        return;
+    }
+    syncingDeepLinkQuery.value = true;
+    try {
+        await router.replace({
+            path: route.path,
+            query: buildDeepLinkQuery({
+                folderId: normalizedFolderId,
+                documentId: normalizedDocumentId,
+            }),
+        });
+    } finally {
+        syncingDeepLinkQuery.value = false;
+    }
+}
+
+async function applyDeepLinkFromRoute() {
+    if (applyingDeepLinkQuery.value) {
+        return;
+    }
+    applyingDeepLinkQuery.value = true;
+    try {
+        const { folderId, documentId } = getDeepLinkStateFromRoute();
+
+        if (documentId !== null) {
+            if (folderId !== null && Number(folderId) !== Number(activeFolderId.value)) {
+                await openFolder(folderId, { syncRoute: false });
+            }
+            const openedDocument = await openDocumentById(documentId, false, {
+                syncRoute: false,
+                openParentFolder: folderId === null,
+            });
+            if (openedDocument) {
+                previewVisible.value = true;
+            }
+            return;
+        }
+
+        if (folderId !== null) {
+            if (Number(folderId) !== Number(activeFolderId.value)) {
+                await openFolder(folderId, { syncRoute: false });
+            } else {
+                ensureFolderPathExpanded(folderId);
+                await Promise.all([
+                    loadItems({ append: false }),
+                    ensureTreeDocumentsLoaded(folderId),
+                ]);
+            }
+            selectedItem.value = null;
+            activeDocument.value = null;
+            previewVisible.value = false;
+            previewFullscreen.value = false;
+            return;
+        }
+
+        if (activeFolderId.value !== null || activeDocument.value) {
+            await openFolder(null, { syncRoute: false });
+        }
+    } finally {
+        applyingDeepLinkQuery.value = false;
+    }
 }
 
 async function loadBootstrap() {
@@ -731,7 +846,8 @@ function selectItem(item) {
     }
 }
 
-async function openFolder(folderId) {
+async function openFolder(folderId, options = {}) {
+    const syncRoute = options?.syncRoute !== false;
     activeFolderId.value = normalizeFolderId(folderId);
     selectedItem.value = null;
     activeDocument.value = null;
@@ -742,6 +858,12 @@ async function openFolder(folderId) {
         loadItems({ append: false }),
         ensureTreeDocumentsLoaded(activeFolderId.value),
     ]);
+    if (syncRoute) {
+        await syncDeepLinkQuery({
+            folderId: activeFolderId.value,
+            documentId: null,
+        });
+    }
 }
 
 async function openFolderFromItem(item) {
@@ -760,21 +882,49 @@ async function openDocumentFromItem(item) {
     previewVisible.value = true;
 }
 
-async function openDocumentById(documentId, registerOpen = false) {
+async function openDocumentById(documentId, registerOpen = false, options = {}) {
     if (!documentId) {
-        return;
+        return null;
     }
+    const syncRoute = options?.syncRoute !== false;
+    const openParentFolder = Boolean(options?.openParentFolder);
     const requestId = ++documentRequestSequence;
     const controller = startRequest(documentRequestController);
     documentLoading.value = true;
+    let openedDocument = null;
     try {
         const documentData = registerOpen
             ? await openKnowledgeBaseDocument(documentId, { signal: controller.signal })
             : await fetchKnowledgeBaseDocument(documentId, { signal: controller.signal });
         if (requestId !== documentRequestSequence) {
-            return;
+            return null;
+        }
+        const documentFolderId = normalizeFolderId(documentData?.folder_id);
+        if (openParentFolder && Number(documentFolderId) !== Number(activeFolderId.value)) {
+            await openFolder(documentFolderId, { syncRoute: false });
+        } else if (documentFolderId !== null) {
+            ensureFolderPathExpanded(documentFolderId);
+            await ensureTreeDocumentsLoaded(documentFolderId);
         }
         activeDocument.value = documentData;
+        const selectedDocument = items.value.find(
+            (entry) => entry.item_type === 'document' && Number(entry.id) === Number(documentData.id),
+        );
+        selectedItem.value = selectedDocument || {
+            id: documentData.id,
+            item_type: 'document',
+            name: documentData.name,
+            folder_id: documentData.folder_id,
+            document_type: documentData.document_type,
+            preview_type: documentData.preview_type,
+        };
+        if (syncRoute) {
+            await syncDeepLinkQuery({
+                folderId: documentFolderId,
+                documentId: normalizeFolderId(documentData?.id),
+            });
+        }
+        openedDocument = documentData;
     } catch (error) {
         if (!isCanceledRequest(error)) {
             toast.error(extractApiErrorMessage(error, 'Не удалось открыть документ'));
@@ -787,6 +937,7 @@ async function openDocumentById(documentId, registerOpen = false) {
             documentRequestController.value = null;
         }
     }
+    return openedDocument;
 }
 
 async function createFolder(payload) {
@@ -1024,6 +1175,91 @@ function closePreview() {
     previewFullscreen.value = false;
     abortRequest(documentRequestController);
     documentLoading.value = false;
+    void syncDeepLinkQuery({
+        folderId: activeFolderId.value,
+        documentId: null,
+    });
+}
+
+function resolveItemFolderId(item) {
+    if (!item) {
+        return normalizeFolderId(activeFolderId.value);
+    }
+    if (item.item_type === 'folder') {
+        return normalizeFolderId(item.id);
+    }
+    const itemFolderId = normalizeFolderId(item.folder_id);
+    if (itemFolderId !== null) {
+        return itemFolderId;
+    }
+    if (activeDocument.value && Number(activeDocument.value.id) === Number(item.id)) {
+        return normalizeFolderId(activeDocument.value.folder_id);
+    }
+    return null;
+}
+
+function buildItemShareLink(item) {
+    if (!item) {
+        return '';
+    }
+    const folderId = resolveItemFolderId(item);
+    const documentId = item.item_type === 'document' ? normalizeFolderId(item.id) : null;
+    const resolved = router.resolve({
+        path: route.path || '/knowledge-base',
+        query: buildDeepLinkQuery({
+            folderId,
+            documentId,
+        }),
+    });
+    if (typeof window === 'undefined' || !window.location?.origin) {
+        return resolved.href || '';
+    }
+    return new URL(resolved.href, window.location.origin).toString();
+}
+
+async function writeTextToClipboard(value) {
+    const text = String(value || '');
+    if (!text) {
+        return false;
+    }
+    if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(text);
+        return true;
+    }
+    if (typeof document === 'undefined') {
+        return false;
+    }
+    const textarea = document.createElement('textarea');
+    textarea.value = text;
+    textarea.setAttribute('readonly', 'true');
+    textarea.style.position = 'fixed';
+    textarea.style.top = '-1000px';
+    textarea.style.left = '-1000px';
+    document.body.appendChild(textarea);
+    textarea.select();
+    const copied = document.execCommand('copy');
+    document.body.removeChild(textarea);
+    return copied;
+}
+
+async function copyItemLink(item) {
+    if (!item) {
+        return;
+    }
+    const link = buildItemShareLink(item);
+    if (!link) {
+        toast.error('Link could not be created');
+        return;
+    }
+    try {
+        const copied = await writeTextToClipboard(link);
+        if (!copied) {
+            throw new Error('Clipboard not available');
+        }
+        toast.success('Link copied');
+    } catch {
+        toast.error('Failed to copy link');
+    }
 }
 
 function openDeleteModalForSelected(targetItem = null) {
@@ -1088,6 +1324,9 @@ async function onContextMenuAction(action) {
                 await openDocumentById(item.id, true);
                 previewVisible.value = true;
             }
+            break;
+        case 'copy-link':
+            await copyItemLink(item);
             break;
         case 'rename':
             pendingItem.value = item;
@@ -1567,7 +1806,7 @@ function normalizeFolderId(value) {
         overflow: hidden;
         max-height: 420px;
         opacity: 1;
-        transition: max-height 0.24s ease, opacity 0.2s ease, margin 0.2s ease;
+        transition: max-height $duration, opacity $duration, margin $duration;
     }
 
     .knowledge-base-page__sidebar.is-mobile-collapsed .knowledge-base-page__sidebar-panel {

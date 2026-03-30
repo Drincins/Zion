@@ -2,24 +2,27 @@
 from __future__ import annotations
 
 import logging
-from urllib.parse import urlparse
-import os
 from datetime import date, datetime, timedelta
 from typing import Optional, List
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
-from backend.services.s3 import generate_presigned_url
-from sqlalchemy.orm import Session, joinedload, selectinload, load_only, noload
-from sqlalchemy import and_, or_, func
+from sqlalchemy.orm import Session, joinedload
+from sqlalchemy import and_, or_
 
 from backend.bd.database import get_db
-from backend.bd.models import User, Attendance, Position, Role, user_restaurants, MedicalCheckRecord, CisDocumentRecord
+from backend.bd.models import User, Attendance, Position
 from backend.schemas import (
 		EmployeeListItem, EmployeeListResponse, EmployeeCardPublic,
 				AttendancePublic, AttendanceRangeResponse,
 								AttendanceManualCreate, AttendanceManualUpdate, AttendanceRecalculateNightRequest,
-								MedicalCheckTypeRead, MedicalCheckRecordPublic,
-								CisDocumentTypeRead, CisDocumentRecordPublic,
+)
+from backend.services.employee_card_queries import (
+		can_view_cis_documents as _can_view_cis_documents,
+		can_view_medical_documents as _can_view_medical_documents,
+		check_employee_card_permissions as _check_permissions,
+		ensure_staff_view as _ensure_staff_view,
+		list_employee_items as _list_employee_items,
+		load_employee_card as _load_employee_card,
 )
 
 logger = logging.getLogger(__name__)
@@ -34,14 +37,12 @@ from backend.services.employee_changes import log_employee_changes
 
 # --- используем вашу зависимость, если она есть ---
 try:
-	from backend.utils import get_current_user, get_user_restaurant_ids, users_share_restaurant, today_local
+	from backend.utils import get_current_user, users_share_restaurant, today_local
 	from backend.services.permissions import (
 		PermissionCode,
-		ensure_permissions,
-		has_permission,
-		can_manage_user,
-		ensure_can_manage_user,
 		can_view_rate,
+		has_permission,
+		ensure_can_manage_user,
 	)
 except Exception as exc:
 	raise RuntimeError("Failed to import shared auth dependencies in employees card router") from exc
@@ -58,156 +59,6 @@ def _month_bounds(d: date) -> tuple[date, date]:
 	else:
 		end = date(d.year, d.month + 1, 1) - timedelta(days=1)
 	return start, end
-
-def _to_list_item(u: User) -> EmployeeListItem:
-	return EmployeeListItem(
-		id=u.id,
-		username=u.username,
-		first_name=u.first_name,
-		last_name=u.last_name,
-		staff_code=u.staff_code,
-		gender=u.gender,
-		role_id=u.role_id,
-		role_name=(u.role.name if u.role else None),
-		position_id=u.position_id,
-		position_name=(u.position.name if u.position else None),
-		position_rate=float(u.position.rate) if u.position and u.position.rate is not None else None,
-		fired=bool(u.fired),
-	)
-
-def _medical_record_to_public(record: MedicalCheckRecord) -> MedicalCheckRecordPublic:
-	# Build the schema explicitly to avoid missing relationship attributes during validation.
-        return MedicalCheckRecordPublic(
-                id=record.id,
-                user_id=record.user_id,
-                medical_check_type=MedicalCheckTypeRead.model_validate(record.check_type),
-                passed_at=record.passed_at,
-                next_due_at=record.next_due_at,
-                status=record.status,
-                comment=record.comment,
-        )
-
-def _cis_record_to_public(record: CisDocumentRecord) -> CisDocumentRecordPublic:
-	return CisDocumentRecordPublic(
-                id=record.id,
-                user_id=record.user_id,
-                cis_document_type=CisDocumentTypeRead.model_validate(record.document_type),
-                number=record.number,
-                issued_at=record.issued_at,
-                expires_at=record.expires_at,
-                status=record.status,
-                issuer=record.issuer,
-                comment=record.comment,
-                attachment_url=_resolve_attachment_url(record.attachment_url),
-        )
-
-
-def _resolve_attachment_url(value: str | None) -> str | None:
-        if not value:
-                return None
-        parsed = urlparse(value)
-        if parsed.scheme in {"http", "https"}:
-                return value
-        try:
-                return generate_presigned_url(value)
-        except Exception:  # noqa: BLE001
-                logger.warning("Failed to generate attachment URL for employee card", exc_info=True)
-                return value
-
-
-def _can_view_medical_documents(viewer: Optional[User]) -> bool:
-    if viewer is None:
-        return True
-    return any(
-        has_permission(viewer, permission)
-        for permission in (
-            PermissionCode.MEDICAL_CHECKS_VIEW,
-            PermissionCode.MEDICAL_CHECKS_MANAGE,
-            PermissionCode.STAFF_MANAGE_ALL,
-            PermissionCode.SYSTEM_ADMIN,
-        )
-    )
-
-
-def _can_view_cis_documents(viewer: Optional[User]) -> bool:
-    if viewer is None:
-        return True
-    return any(
-        has_permission(viewer, permission)
-        for permission in (
-            PermissionCode.CIS_DOCUMENTS_VIEW,
-            PermissionCode.CIS_DOCUMENTS_MANAGE,
-            PermissionCode.STAFF_MANAGE_ALL,
-            PermissionCode.SYSTEM_ADMIN,
-        )
-    )
-
-
-def _to_card(
-    u: User,
-    viewer: Optional[User] = None,
-    *,
-    include_medical_checks: bool = True,
-    include_cis_documents: bool = True,
-) -> EmployeeCardPublic:
-    can_see_rate = can_view_rate(viewer, u) if viewer else True
-    medical_records = []
-    cis_docs = []
-    if include_medical_checks:
-        medical_records = sorted(
-            u.medical_check_records or [],
-            key=lambda record: record.passed_at or date.min,
-            reverse=True,
-        )
-    if include_cis_documents:
-        cis_docs = sorted(
-            u.cis_document_records or [],
-            key=lambda record: record.issued_at or date.min,
-            reverse=True,
-        )
-    photo_url = None
-    if u.photo_key:
-        try:
-            photo_url = generate_presigned_url(u.photo_key)
-        except Exception:
-            logger.warning("Failed to build photo URL for user %s", u.id, exc_info=True)
-            photo_url = None
-
-    return EmployeeCardPublic(
-        id=u.id,
-        username=u.username,
-        first_name=u.first_name,
-        last_name=u.last_name,
-        middle_name=u.middle_name,
-        iiko_code=u.iiko_code,
-        iiko_id=u.iiko_id,
-        company_id=(u.company.id if u.company else None),
-        company_name=(u.company.name if u.company else None),
-        role_id=u.role_id,
-        role_name=(u.role.name if u.role else None),
-        position_id=u.position_id,
-        position_name=(u.position.name if u.position else None),
-        rate=float(u.rate) if can_see_rate and u.rate is not None else None,
-        hire_date=u.hire_date,
-        fire_date=u.fire_date,
-        fired=bool(u.fired),
-        staff_code=u.staff_code,
-        gender=u.gender,
-        phone_number=u.phone_number,
-        email=u.email,
-        birth_date=u.birth_date,
-        photo_key=u.photo_key,
-        photo_url=photo_url,
-        is_cis_employee=bool(getattr(u, "is_cis_employee", False)),
-        confidential_data_consent=bool(getattr(u, "confidential_data_consent", False)),
-        is_formalized=bool(getattr(u, "is_formalized", False)),
-        workplace_restaurant_id=getattr(u, "workplace_restaurant_id", None),
-        individual_rate=float(u.individual_rate) if can_see_rate and u.individual_rate is not None else None,
-        medical_checks=[_medical_record_to_public(record) for record in medical_records],
-        cis_documents=[_cis_record_to_public(record) for record in cis_docs],
-        has_fingerprint=bool(getattr(u, "has_fingerprint", False)),
-        rate_hidden=not can_see_rate,
-    )
 
 def _attendance_to_public(
 		a: Attendance,
@@ -334,16 +185,6 @@ def _find_attendance_overlap(
 			return attendance
 	return None
 
-def _ensure_staff_view(user: User) -> None:
-	ensure_permissions(
-		user,
-		PermissionCode.STAFF_VIEW_SENSITIVE,
-		PermissionCode.STAFF_MANAGE_SUBORDINATES,
-		PermissionCode.STAFF_MANAGE_ALL,
-		PermissionCode.STAFF_EMPLOYEES_VIEW,
-		PermissionCode.EMPLOYEES_CARD_VIEW,
-	)
-
 def _ensure_can_edit_user(db: Session, viewer: User, target: User) -> None:
 	if viewer.id == target.id:
 		if has_permission(viewer, PermissionCode.STAFF_MANAGE_ALL):
@@ -374,29 +215,6 @@ def _ensure_can_edit_user(db: Session, viewer: User, target: User) -> None:
 		detail="Access denied: insufficient permissions to modify employee card",
 	)
 
-def _check_permissions(db: Session, viewer: User, target_user_id: int) -> User:
-	target = (
-		db.query(User)
-		  .options(
-			  joinedload(User.position).joinedload(Position.payment_format),
-			  joinedload(User.position).joinedload(Position.restaurant_subdivision),
-		  )
-		  .filter(User.id == target_user_id)
-		  .first()
-	)
-	if not target:
-		raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
-	if viewer.id == target.id:
-		return target
-	_ensure_staff_view(viewer)
-	if has_permission(viewer, PermissionCode.STAFF_MANAGE_ALL):
-		return target
-	if has_permission(viewer, PermissionCode.STAFF_MANAGE_SUBORDINATES) and can_manage_user(viewer, target):
-		return target
-	if users_share_restaurant(db, viewer, target.id):
-		return target
-	raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
-
 # -------------------------
 # 1) Список сотрудников (для выпадающего списка)
 # -------------------------
@@ -408,68 +226,13 @@ def list_employees(
 	db: Session = Depends(get_db),
 	current_user: User = Depends(get_current_user),
 ):
-	_ensure_staff_view(current_user)
-	qry = (
-		db.query(User)
-		  .options(
-			  noload(User.permission_links),
-			  noload(User.direct_permissions),
-			  noload(User.medical_check_records),
-			  noload(User.cis_document_records),
-			  load_only(
-				  User.id,
-				  User.username,
-				  User.first_name,
-				  User.last_name,
-				  User.staff_code,
-				  User.gender,
-				  User.role_id,
-				  User.position_id,
-				  User.fired,
-			  ),
-			  joinedload(User.role).load_only(Role.id, Role.name),
-			  joinedload(User.role).noload(Role.permission_links),
-			  joinedload(User.role).noload(Role.permissions),
-			  joinedload(User.position)
-			      .load_only(Position.id, Position.name, Position.rate),
-			  joinedload(User.position).noload(Position.permission_links),
-			  joinedload(User.position).noload(Position.permissions),
-			  joinedload(User.position).noload(Position.training_requirements),
-		  )
+	items = _list_employee_items(
+		db,
+		current_user,
+		q=q,
+		include_fired=include_fired,
+		limit=limit,
 	)
-	if not include_fired:
-		qry = qry.filter(User.fired == False)
-	if q:
-		like = f"%{q.lower()}%"
-		qry = qry.filter(or_(
-			func.lower(User.username).like(like),
-			func.lower(func.coalesce(User.first_name, "")).like(like),
-			func.lower(func.coalesce(User.last_name, "")).like(like),
-			func.lower(func.coalesce(User.staff_code, "")).like(like),
-		))
-
-	allowed_restaurants = get_user_restaurant_ids(db, current_user)
-	if allowed_restaurants is not None:
-		if allowed_restaurants:
-			shared_user_ids = (
-				db.query(user_restaurants.c.user_id)
-				  .filter(user_restaurants.c.restaurant_id.in_(allowed_restaurants))
-			)
-			qry = qry.filter(or_(User.id == current_user.id, User.id.in_(shared_user_ids)))
-		else:
-			qry = qry.filter(User.id == current_user.id)
-	users = (
-		qry
-		  .order_by(
-			func.lower(User.last_name).nullslast(),
-			func.lower(User.first_name).nullslast(),
-			User.id.asc(),
-		  )
-		  .limit(limit)
-		  .all()
-	)
-
-	items: List[EmployeeListItem] = [_to_list_item(u) for u in users]
 	return EmployeeListResponse(items=items)
 
 # -------------------------
@@ -481,38 +244,12 @@ def get_employee_card(
 	db: Session = Depends(get_db),
 	current_user: User = Depends(get_current_user),
 ):
-	_ = _check_permissions(db, current_user, user_id)
+	_check_permissions(db, current_user, user_id)
 	include_medical_checks = _can_view_medical_documents(current_user)
 	include_cis_documents = _can_view_cis_documents(current_user)
-	options = [
-		joinedload(User.company),
-		joinedload(User.role),
-		joinedload(User.position).joinedload(Position.payment_format),
-		joinedload(User.position).joinedload(Position.restaurant_subdivision),
-	]
-	if include_medical_checks:
-		options.append(
-			selectinload(User.medical_check_records).selectinload(MedicalCheckRecord.check_type)
-		)
-	else:
-		options.append(noload(User.medical_check_records))
-	if include_cis_documents:
-		options.append(
-			selectinload(User.cis_document_records).selectinload(CisDocumentRecord.document_type)
-		)
-	else:
-		options.append(noload(User.cis_document_records))
-
-	u = (
-		db.query(User)
-		  .options(*options)
-		  .filter(User.id == user_id)
-		  .first()
-	)
-	if not u:
-		raise HTTPException(status_code=404, detail="User not found")
-	return _to_card(
-		u,
+	return _load_employee_card(
+		db,
+		user_id,
 		current_user,
 		include_medical_checks=include_medical_checks,
 		include_cis_documents=include_cis_documents,

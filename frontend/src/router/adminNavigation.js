@@ -205,12 +205,13 @@ export function getAdminRouteMeta(key, extraMeta = {}) {
     };
 }
 
-function createMenuItem({ key, label, to, accessKey, openInNew = false }) {
+function createMenuItem({ key, label, to, accessKey, openInNew = false, activePrefixes = [] }) {
     return {
         key,
         label,
         to,
         openInNew,
+        activePrefixes,
         ...getAdminRouteMeta(accessKey),
     };
 }
@@ -274,6 +275,7 @@ export const SIDEBAR_MENU_GROUPS = [
                 label: 'Настройки',
                 to: { name: 'inventory-settings' },
                 accessKey: 'inventory-settings',
+                activePrefixes: ['/admin/inventory/settings', '/admin/inventory/groups'],
             }),
         ],
     },

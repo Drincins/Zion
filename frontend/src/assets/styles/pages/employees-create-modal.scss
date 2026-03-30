@@ -1,3 +1,5 @@
+@use '@/assets/styles/vars.scss' as *;
+
 .employees-create-modal :deep(.modal-window) {
     max-width: 1180px;
     max-height: 90vh;
@@ -98,7 +100,7 @@
 }
 
 .employees-create-modal__multiselect-icon {
-    transition: transform 0.2s ease;
+    transition: transform $duration;
 }
 
 .employees-create-modal__multiselect-icon.is-open {

@@ -16,6 +16,8 @@ export function useEmployeeTrainings({
     activeEmployee,
     employeeCard,
     formatDateInput,
+    canViewTrainings,
+    canManageTrainings,
 }) {
     const toast = useToast();
 
@@ -50,6 +52,10 @@ export function useEmployeeTrainings({
     );
 
     async function loadTrainingEventTypes() {
+        if (!canViewTrainings?.value) {
+            trainingEventTypes.value = [];
+            return;
+        }
         trainingTypesLoading.value = true;
         try {
             const data = await fetchTrainingEventTypes();
@@ -71,6 +77,10 @@ export function useEmployeeTrainings({
     }
 
     async function loadEmployeeTrainings() {
+        if (!canViewTrainings?.value) {
+            employeeTrainings.value = [];
+            return;
+        }
         if (!activeEmployee.value) {
             return;
         }
@@ -114,6 +124,10 @@ export function useEmployeeTrainings({
     }
 
     async function loadTrainingRequirements() {
+        if (!canViewTrainings?.value) {
+            trainingRequirementSuggestions.value = [];
+            return;
+        }
         const positionId = activeEmployee.value?.position_id || employeeCard.value?.position_id;
         if (!positionId) {
             trainingRequirementSuggestions.value = [];
@@ -140,6 +154,9 @@ export function useEmployeeTrainings({
     }
 
     async function toggleTrainingRequirement(eventTypeId, required) {
+        if (!canManageTrainings?.value) {
+            return;
+        }
         const positionId = activeEmployee.value?.position_id || employeeCard.value?.position_id;
         if (!positionId) {
             toast.error('Не удалось выполнить операцию');
@@ -175,6 +192,9 @@ export function useEmployeeTrainings({
     }
 
     function openTrainingAssignmentModal() {
+        if (!canManageTrainings?.value) {
+            return;
+        }
         isTrainingAssignmentModalOpen.value = true;
     }
 
@@ -183,6 +203,9 @@ export function useEmployeeTrainings({
     }
 
     async function handleCreateTrainingRecord(formValues = trainingForm) {
+        if (!canManageTrainings?.value) {
+            return;
+        }
         if (!activeEmployee.value) {
             return;
         }
@@ -228,6 +251,9 @@ export function useEmployeeTrainings({
     }
 
     function startEditTrainingRecord(record) {
+        if (!canManageTrainings?.value) {
+            return;
+        }
         closeTrainingAssignmentModal();
         editingTrainingRecord.id = record.id;
         editingTrainingRecord.eventTypeId = record.event_type_id ? String(record.event_type_id) : null;
@@ -244,6 +270,9 @@ export function useEmployeeTrainings({
     }
 
     async function handleUpdateTrainingRecord() {
+        if (!canManageTrainings?.value) {
+            return;
+        }
         if (!editingTrainingRecord.id) {
             return;
         }
@@ -275,6 +304,9 @@ export function useEmployeeTrainings({
     }
 
     async function handleDeleteTrainingRecord(recordId) {
+        if (!canManageTrainings?.value) {
+            return;
+        }
         if (!recordId) {
             return;
         }

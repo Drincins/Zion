@@ -1,3 +1,5 @@
+@use '@/assets/styles/vars.scss' as *;
+
 .kitchen-waiter-sales-page__filters-panel {
     display: flex;
     flex-direction: column;
@@ -25,7 +27,7 @@
 
 .kitchen-waiter-sales-page__filters-icon {
     display: inline-flex;
-    transition: transform 0.2s ease;
+    transition: transform $duration;
 }
 
 .kitchen-waiter-sales-page__filters-icon.is-open {
@@ -219,7 +221,7 @@
 
 .kitchen-waiter-sales-page__sort-icon {
     color: var(--color-text);
-    transition: color 0.2s ease;
+    transition: color $duration;
 }
 
 .kitchen-waiter-sales-page__sort-icon--active {

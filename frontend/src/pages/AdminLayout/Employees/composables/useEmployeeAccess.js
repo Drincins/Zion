@@ -24,7 +24,9 @@ import {
     STAFF_VIEW_WITH_SYSTEM_PERMISSIONS,
     SYSTEM_ADMIN_PERMISSION,
     STAFF_EMPLOYEES_EXPORT_PERMISSION,
-    TIMESHEET_EXPORT_PERMISSION
+    TIMESHEET_EXPORT_PERMISSION,
+    TRAININGS_MANAGE_PERMISSIONS,
+    TRAININGS_VIEW_PERMISSIONS,
 } from '@/accessPolicy';
 
 const RESTRICTED_CREDENTIAL_ROLES = new Set([
@@ -138,6 +140,24 @@ export function useEmployeeAccess(userStore) {
         }
     );
 
+    const canViewTrainings = computed(() => {
+        const set = userStore.permissionSet;
+        return (
+            TRAININGS_VIEW_PERMISSIONS.some((code) => set.has(code)) ||
+            userStore.hasGlobalAccess ||
+            set.has(SYSTEM_ADMIN_PERMISSION)
+        );
+    });
+
+    const canManageTrainings = computed(() => {
+        const set = userStore.permissionSet;
+        return (
+            TRAININGS_MANAGE_PERMISSIONS.some((code) => set.has(code)) ||
+            userStore.hasGlobalAccess ||
+            set.has(SYSTEM_ADMIN_PERMISSION)
+        );
+    });
+
     const canViewDocuments = computed(() =>
         userStore.hasAnyPermission(...STAFF_DOCUMENTS_VIEW_PERMISSIONS)
     );
@@ -191,6 +211,8 @@ export function useEmployeeAccess(userStore) {
         canBulkPayrollAdjust,
         canExportTimesheet,
         canDownloadEmployeesList,
+        canViewTrainings,
+        canManageTrainings,
         canViewDocuments,
         canViewMedicalChecks,
         canViewCisDocuments,

@@ -16,6 +16,7 @@ from sqlalchemy import (
     String,
     Table,
     UniqueConstraint,
+    func,
     text,
 )
 from sqlalchemy.orm import relationship
@@ -325,6 +326,13 @@ class User(Base):
         cascade="all, delete-orphan",
         lazy="selectin",
     )
+    theme_preference = relationship(
+        "UserThemePreference",
+        back_populates="user",
+        uselist=False,
+        cascade="all, delete-orphan",
+        lazy="selectin",
+    )
 
     @property
     def has_global_access(self) -> bool:
@@ -339,6 +347,23 @@ class User(Base):
         from backend.services.permissions import get_user_permission_codes
 
         return sorted(get_user_permission_codes(self))
+
+
+class UserThemePreference(Base):
+    __tablename__ = "user_theme_preferences"
+
+    __table_args__ = (
+        UniqueConstraint("user_id", name="uq_user_theme_preferences_user_id"),
+    )
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    theme_key = Column(String(32), nullable=False, default="dark", server_default="dark")
+    interface_theme_key = Column(String(32), nullable=False, default="classic", server_default="classic")
+    created_at = Column(DateTime(timezone=True), nullable=False, server_default=text("now()"))
+    updated_at = Column(DateTime(timezone=True), nullable=False, server_default=text("now()"), onupdate=func.now())
+
+    user = relationship("User", back_populates="theme_preference")
 
 
 class AuthSession(Base):

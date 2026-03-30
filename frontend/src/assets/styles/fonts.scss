@@ -1,9 +1,8 @@
 @font-face {
     font-family: 'LT Remark';
     src:
-        url('../fonts/LT-Remark-Bold.woff2') format('woff2'),
-        url('../fonts/LT-Remark-Bold.woff') format('woff'),
-        url('../fonts/LT-Remark-Bold.ttf') format('truetype');
+        local('LT Remark Bold'),
+        local('LT-Remark-Bold');
     font-weight: 700;
     font-style: normal;
     font-display: swap;
@@ -21,6 +20,6 @@
 }
 
 :root {
-    --font-primary: 'LT Remark', 'Arial', sans-serif;
+    --font-primary: 'LT Remark', 'Source Sans', 'Arial', sans-serif;
     --font-secondary: 'Source Sans', 'Arial', sans-serif;
 }

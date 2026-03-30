@@ -1,6 +1,11 @@
 <template>
     <label class="theme-switch">
-        <input type="checkbox" :checked="theme === 'dark'" @change="toggleTheme" />
+        <input
+            type="checkbox"
+            :checked="mode === 'dark'"
+            :disabled="themeStore.isSaving"
+            @change="toggleTheme"
+        />
         <span class="slider">
             <span class="icon sun" aria-hidden="true">
                 <svg
@@ -36,30 +41,23 @@
 </template>
 
 <script setup>
-import { ref, onMounted, watch } from 'vue';
+import { computed } from 'vue';
+import { useThemeStore } from '@/stores/theme';
+import { useUserStore } from '@/stores/user';
 
-const theme = ref('light');
+const themeStore = useThemeStore();
+const userStore = useUserStore();
 
-function applyTheme(newTheme) {
-    document.documentElement.classList.remove('light', 'dark');
-    document.documentElement.classList.add(newTheme);
-    localStorage.setItem('theme', newTheme);
+const mode = computed(() => themeStore.mode);
+
+async function toggleTheme() {
+    const nextMode = mode.value === 'light' ? 'dark' : 'light';
+    if (!userStore.isAuthenticated) {
+        themeStore.applyMode(nextMode);
+        return;
+    }
+    await themeStore.saveMode(nextMode);
 }
-
-function toggleTheme() {
-    theme.value = theme.value === 'light' ? 'dark' : 'light';
-}
-
-onMounted(() => {
-    const saved = localStorage.getItem('theme');
-    theme.value =
-        saved || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
-    applyTheme(theme.value);
-});
-
-watch(theme, (newTheme) => {
-    applyTheme(newTheme);
-});
 </script>
 
 <style lang="scss">

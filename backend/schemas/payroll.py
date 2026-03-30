@@ -122,12 +122,14 @@ class PayrollAdjustmentBulkCreate(BaseModel):
 class PayrollAdjustmentBulkResultItem(BaseModel):
     staff_code: str
     user_id: Optional[int] = None
+    full_name: Optional[str] = None
     reason: str
 
 
 class PayrollAdjustmentBulkStatusItem(BaseModel):
     staff_code: str
     user_id: Optional[int] = None
+    full_name: Optional[str] = None
     status: Literal["created", "skipped", "error"]
     reason: Optional[str] = None
 
@@ -283,6 +285,11 @@ class PayrollAdvanceStatementPublic(BaseModel):
 
 class PayrollAdvanceListResponse(BaseModel):
     items: List[PayrollAdvanceStatementPublic]
+    total: int = 0
+    offset: int = 0
+    limit: int = 0
+    next_offset: Optional[int] = None
+    has_more: bool = False
 
 
 class PayrollAdvanceStatementTotalsPublic(BaseModel):
@@ -331,3 +338,33 @@ class PayrollAdvanceConsolidatedPublic(BaseModel):
 
 class PayrollAdvanceConsolidatedListResponse(BaseModel):
     items: List[PayrollAdvanceConsolidatedPublic]
+    total: int = 0
+    offset: int = 0
+    limit: int = 0
+    next_offset: Optional[int] = None
+    has_more: bool = False
+
+
+class PayrollAdvanceHistogramPositionPublic(BaseModel):
+    position_name: str
+    hours: float = 0
+    night_hours: float = 0
+    accrual_amount: float = 0
+    deduction_amount: float = 0
+    total_cost: float = 0
+    row_count: int = 0
+
+
+class PayrollAdvanceHistogramSubdivisionPublic(BaseModel):
+    subdivision_name: str
+    hours: float = 0
+    night_hours: float = 0
+    accrual_amount: float = 0
+    deduction_amount: float = 0
+    total_cost: float = 0
+    row_count: int = 0
+    positions: List[PayrollAdvanceHistogramPositionPublic] = Field(default_factory=list)
+
+
+class PayrollAdvanceConsolidatedHistogramResponse(BaseModel):
+    items: List[PayrollAdvanceHistogramSubdivisionPublic] = Field(default_factory=list)

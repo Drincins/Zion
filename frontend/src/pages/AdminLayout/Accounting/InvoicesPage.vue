@@ -16,50 +16,57 @@
                 Фильтры
                 <span :class="['invoices-page__filters-icon', { 'is-open': isFiltersOpen }]">▼</span>
             </button>
-            <div v-if="isFiltersOpen" class="invoices-page__filters-card">
-                <div class="invoices-page__status-tabs">
-                    <button
-                        v-for="tab in statusTabs"
-                        :key="tab.value"
-                        type="button"
-                        :class="['invoices-page__status-tab', { active: filters.status === tab.value }]"
-                        @click="setStatus(tab.value)"
-                    >
-                        {{ tab.label }}
-                    </button>
-                </div>
-                <div class="invoices-page__filters-grid">
-                    <Input v-model="filters.search" label="Поиск по контрагенту/назначению" placeholder="Поиск..." />
-                    <Select
-                        v-model="filters.fromRestaurantId"
-                        label="С какого ресторана"
-                        :options="restaurantOptions"
-                        placeholder="Все"
-                    />
-                    <Select
-                        v-model="filters.forRestaurantId"
-                        label="За какой ресторан платим"
-                        :options="restaurantOptionsAll"
-                        placeholder="Все"
-                    />
-                    <div class="invoices-page__filter-inline">
-                        <span class="invoices-page__filter-date">
-                            от <DateInput v-model="filters.dateFrom" />
-                        </span>
-                        <span class="invoices-page__filter-date">
-                            до <DateInput v-model="filters.dateTo" />
-                        </span>
-                        <Checkbox
-                            :model-value="filters.includeInExpenses"
-                            label="Можно учесть в расходах"
-                            @update:model-value="(v) => (filters.includeInExpenses = v)"
+            <Transition
+                @enter="onFiltersCollapseEnter"
+                @after-enter="onFiltersCollapseAfterEnter"
+                @leave="onFiltersCollapseLeave"
+                @after-leave="onFiltersCollapseAfterLeave"
+            >
+                <div v-if="isFiltersOpen" class="invoices-page__filters-card invoices-page__filters-card--collapsible">
+                    <div class="invoices-page__status-tabs">
+                        <button
+                            v-for="tab in statusTabs"
+                            :key="tab.value"
+                            type="button"
+                            :class="['invoices-page__status-tab', { active: filters.status === tab.value }]"
+                            @click="setStatus(tab.value)"
+                        >
+                            {{ tab.label }}
+                        </button>
+                    </div>
+                    <div class="invoices-page__filters-grid">
+                        <Input v-model="filters.search" label="Поиск по контрагенту/назначению" placeholder="Поиск..." />
+                        <Select
+                            v-model="filters.fromRestaurantId"
+                            label="С какого ресторана"
+                            :options="restaurantOptions"
+                            placeholder="Все"
                         />
-                    </div>
-                    <div class="invoices-page__button">
-                        <Button color="ghost" size="sm" :loading="loading" @click="loadInvoices">Обновить</Button>
+                        <Select
+                            v-model="filters.forRestaurantId"
+                            label="За какой ресторан платим"
+                            :options="restaurantOptionsAll"
+                            placeholder="Все"
+                        />
+                        <div class="invoices-page__filter-inline">
+                            <span class="invoices-page__filter-date">
+                                от <DateInput v-model="filters.dateFrom" />
+                            </span>
+                            <span class="invoices-page__filter-date">
+                                до <DateInput v-model="filters.dateTo" />
+                            </span>
+                            <Checkbox
+                                :model-value="filters.includeInExpenses"
+                                label="Можно учесть в расходах"
+                                @update:model-value="(v) => (filters.includeInExpenses = v)"
+                            />
+                        </div>
+                        <div class="invoices-page__button">
+                            <Button color="ghost" size="sm" :loading="loading" @click="loadInvoices">Обновить</Button>
+                        </div>
                     </div>
                 </div>
-            </div>
+            </Transition>
         </section>
 
         <section class="invoices-page__card">
@@ -99,7 +106,7 @@
                         >
                             <td>{{ formatDate(invoice.sent_at) }}</td>
                             <td>{{ formatDate(invoice.invoice_date) }}</td>
-                            <td>{{ formatUser(invoice.created_by_user_id) }}</td>
+                            <td>{{ formatUser(invoice.created_by_user_id, invoice.created_by_name) }}</td>
                             <td>{{ formatRestaurant(invoice.from_restaurant_id) }}</td>
                             <td>{{ formatRestaurant(invoice.for_restaurant_id) }}</td>
                             <td>{{ formatAmount(invoice.amount) }}</td>
@@ -332,7 +339,7 @@
                                     <td>{{ change.old_value || '-' }}</td>
                                     <td>{{ change.new_value || '-' }}</td>
                                     <td>{{ formatDateTime(change.changed_at) }}</td>
-                                    <td>{{ formatUser(change.changed_by_user_id) }}</td>
+                                    <td>{{ formatUser(change.changed_by_user_id, change.changed_by_name) }}</td>
                                 </tr>
                             </tbody>
                         </Table>
@@ -356,7 +363,7 @@
                                 <td>{{ event.event_type }}</td>
                                 <td>{{ event.message || '-' }}</td>
                                 <td>{{ formatDateTime(event.created_at) }}</td>
-                                <td>{{ formatUser(event.actor_user_id) }}</td>
+                                <td>{{ formatUser(event.actor_user_id, event.actor_name) }}</td>
                             </tr>
                         </tbody>
                     </Table>
@@ -396,7 +403,7 @@ import {
     fetchAccountingInvoiceChanges,
     fetchAccountingInvoiceEvents,
     fetchAccountingInvoices,
-    fetchEmployees,
+    fetchAllEmployees,
     fetchRestaurants,
     updateAccountingInvoice,
     updateAccountingInvoiceStatus,
@@ -552,6 +559,44 @@ const staffMap = computed(() => {
     return map;
 });
 
+function onFiltersCollapseEnter(el) {
+    el.style.overflow = 'hidden';
+    el.style.height = '0';
+    el.style.opacity = '0';
+    el.style.transform = 'translateY(-6px)';
+    requestAnimationFrame(() => {
+        el.style.height = `${el.scrollHeight}px`;
+        el.style.opacity = '1';
+        el.style.transform = 'translateY(0)';
+    });
+}
+
+function onFiltersCollapseAfterEnter(el) {
+    el.style.height = '';
+    el.style.opacity = '';
+    el.style.transform = '';
+    el.style.overflow = '';
+}
+
+function onFiltersCollapseLeave(el) {
+    el.style.overflow = 'hidden';
+    el.style.height = `${el.scrollHeight}px`;
+    el.style.opacity = '1';
+    el.style.transform = 'translateY(0)';
+    requestAnimationFrame(() => {
+        el.style.height = '0';
+        el.style.opacity = '0';
+        el.style.transform = 'translateY(-6px)';
+    });
+}
+
+function onFiltersCollapseAfterLeave(el) {
+    el.style.height = '';
+    el.style.opacity = '';
+    el.style.transform = '';
+    el.style.overflow = '';
+}
+
 function setStatus(value) {
     filters.status = value;
     loadInvoices();
@@ -583,7 +628,8 @@ function formatAmount(value) {
     });
 }
 
-function formatUser(userId) {
+function formatUser(userId, userName = '') {
+    if (userName) return userName;
     if (!userId) return '—';
     if (Number(userId) === Number(userStore.id)) {
         return currentUserName.value;
@@ -634,7 +680,7 @@ function closeFilePreview() {
 
 async function loadStaff() {
     try {
-        const data = await fetchEmployees({ include_fired: true, limit: 1000 });
+        const data = await fetchAllEmployees({ include_fired: true });
         staff.value = Array.isArray(data?.items) ? data.items : Array.isArray(data) ? data : [];
     } catch (error) {
         console.error(error);

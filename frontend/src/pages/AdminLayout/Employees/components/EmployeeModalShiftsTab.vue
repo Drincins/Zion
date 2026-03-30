@@ -226,7 +226,7 @@ const emit = defineEmits([
     color: var(--color-text-soft);
     font-weight: 600;
     cursor: pointer;
-    transition: background-color 0.2s ease, color 0.2s ease;
+    transition: background-color $duration, color $duration;
 }
 
 .employees-page__att-view-toggle-button:hover {

@@ -62,8 +62,34 @@
             </div>
         </section>
 
-        <section v-if="contentView === 'metrics'" class="kpi-panel kpi-panel--list">
-            <div v-if="metrics.length" class="kpi-metrics__table-wrap">
+        <Transition name="kpi-view-switch" mode="out-in">
+            <section v-if="contentView === 'metrics'" key="metrics">
+                <div
+                    v-if="metricsLoading && !metrics.length"
+                    class="kpi-metrics__table-wrap kpi-metrics__table-wrap--skeleton"
+                    aria-hidden="true"
+                >
+                    <table class="kpi-metrics__table kpi-metrics__table--skeleton">
+                        <thead>
+                            <tr>
+                                <th>Показатель</th>
+                                <th>Группа</th>
+                                <th>Единица</th>
+                                <th>Рестораны</th>
+                                <th>Тип выплаты</th>
+                                <th>Тип удержания</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr v-for="row in 6" :key="`metrics-skeleton-${row}`">
+                                <td v-for="col in 6" :key="`metrics-skeleton-${row}-${col}`">
+                                    <span class="kpi-skeleton-line" :class="{ 'is-short': col > 3 }"></span>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div v-else-if="metrics.length" class="kpi-metrics__table-wrap">
                 <table class="kpi-metrics__table">
                     <thead>
                         <tr>
@@ -136,8 +162,33 @@
             </p>
         </section>
 
-        <section v-else class="kpi-panel kpi-panel--list">
-            <div v-if="visibleMetricGroups.length" class="kpi-metrics__table-wrap">
+            <section v-else key="groups" class="kpi-panel kpi-panel--list">
+                <div
+                    v-if="metricGroupsLoading && !visibleMetricGroups.length"
+                    class="kpi-metrics__table-wrap kpi-metrics__table-wrap--skeleton"
+                    aria-hidden="true"
+                >
+                    <table class="kpi-metrics__table kpi-metrics__table--skeleton">
+                        <thead>
+                            <tr>
+                                <th>Группа</th>
+                                <th>Состав</th>
+                                <th>Единица</th>
+                                <th>Цель группы</th>
+                                <th>Тип начисления</th>
+                                <th>Тип удержания</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr v-for="row in 6" :key="`groups-skeleton-${row}`">
+                                <td v-for="col in 6" :key="`groups-skeleton-${row}-${col}`">
+                                    <span class="kpi-skeleton-line" :class="{ 'is-short': col > 3 }"></span>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div v-else-if="visibleMetricGroups.length" class="kpi-metrics__table-wrap">
                 <table class="kpi-metrics__table">
                     <thead>
                         <tr>
@@ -208,7 +259,8 @@
             <p v-else class="kpi-list__empty">
                 {{ metricGroupStatusFilter === 'active' ? 'Действующих групп KPI пока нет.' : 'Архивных групп KPI пока нет.' }}
             </p>
-        </section>
+            </section>
+        </Transition>
 
         
         <Modal v-if="isModalOpen" class="kpi-metrics__modal" @close="closeModal">
@@ -434,7 +486,7 @@
                                         <span class="kpi-rule-row__chip">{{ subdivisionLabel(rule.position_id) }}</span>
                                         <span class="kpi-rule-row__chip">{{ positionLabel(rule.position_id) }}</span>
                                         <span v-if="rule.employee_id" class="kpi-rule-row__chip">
-                                            Сотрудник ID {{ rule.employee_id }}
+                                            Сотрудник: {{ employeeLabel(rule.employee_id) }}
                                         </span>
                                     </div>
                                 </div>
@@ -1145,7 +1197,7 @@
                                         <span class="kpi-rule-row__chip">{{ ruleRestaurantLabel(rule) }}</span>
                                         <span class="kpi-rule-row__chip">{{ subdivisionLabel(rule.position_id) }}</span>
                                         <span class="kpi-rule-row__chip">{{ positionLabel(rule.position_id) }}</span>
-                                        <span v-if="rule.employee_id" class="kpi-rule-row__chip">Сотрудник ID {{ rule.employee_id }}</span>
+                                        <span v-if="rule.employee_id" class="kpi-rule-row__chip">Сотрудник: {{ employeeLabel(rule.employee_id) }}</span>
                                     </div>
                                 </div>
 
@@ -1406,6 +1458,7 @@ import {
     deleteKpiRule,
     deleteKpiMetric,
     fetchAccessPositions,
+    fetchAllEmployees,
     fetchEmployees,
     fetchKpiMetricGroups,
     fetchKpiMetricGroupPlanFacts,
@@ -1496,6 +1549,7 @@ const subdivisions = ref([]);
 const employeeSearch = ref('');
 const employeeSearchResults = ref([]);
 const employeeSearchLoading = ref(false);
+const employeeDirectory = ref([]);
 const ruleOptionsLoaded = ref(false);
 const ruleActionRows = ref([]);
 const isMetricRestaurantSelectOpen = ref(false);
@@ -1745,16 +1799,44 @@ const positionOptions = computed(() => {
     );
     return filtered.map((pos) => ({ value: Number(pos.id), label: pos.name }));
 });
+const employeeDirectoryMap = computed(() => {
+    const map = new Map();
+    employeeDirectory.value.forEach((employee) => {
+        const id = Number(employee?.id);
+        if (Number.isFinite(id)) {
+            map.set(id, employee);
+        }
+    });
+    return map;
+});
 const employeeOptions = computed(() => {
-    const options = employeeSearchResults.value.map((employee) => ({
-        value: employee.id,
-        label: formatFullName(employee),
-    }));
+    const options = [];
+    const seen = new Set();
+    const pushEmployee = (employee) => {
+        const id = Number(employee?.id);
+        if (!Number.isFinite(id) || seen.has(id)) {
+            return;
+        }
+        seen.add(id);
+        options.push({
+            value: id,
+            label: formatFullName(employee),
+        });
+    };
+    employeeSearchResults.value.forEach(pushEmployee);
     if (
         ruleForm.value.employeeId &&
-        !options.find((item) => Number(item.value) === Number(ruleForm.value.employeeId))
+        !seen.has(Number(ruleForm.value.employeeId))
     ) {
-        options.unshift({ value: ruleForm.value.employeeId, label: `ID ${ruleForm.value.employeeId}` });
+        const selectedEmployee = employeeDirectoryMap.value.get(Number(ruleForm.value.employeeId));
+        if (selectedEmployee) {
+            options.unshift({
+                value: Number(selectedEmployee.id),
+                label: formatFullName(selectedEmployee),
+            });
+        } else {
+            options.unshift({ value: ruleForm.value.employeeId, label: `ID ${ruleForm.value.employeeId}` });
+        }
     }
     return options;
 });
@@ -2209,6 +2291,14 @@ function formatFullName(employee) {
     if (!employee) return '—';
     const parts = [employee.last_name, employee.first_name, employee.middle_name].filter(Boolean);
     return parts.length ? parts.join(' ') : employee.username || `ID ${employee.id}`;
+}
+
+function employeeLabel(employeeId) {
+    if (!employeeId) {
+        return '—';
+    }
+    const employee = employeeDirectoryMap.value.get(Number(employeeId));
+    return employee ? formatFullName(employee) : `ID ${employeeId}`;
 }
 
 function subdivisionLabel(positionId) {
@@ -3197,12 +3287,14 @@ async function loadAdjustmentTypes() {
 async function loadRuleOptions() {
     if (ruleOptionsLoaded.value) return;
     try {
-        const [positionsData, subdivisionsData] = await Promise.all([
+        const [positionsData, subdivisionsData, employeesData] = await Promise.all([
             fetchAccessPositions(),
             fetchRestaurantSubdivisions(),
+            fetchAllEmployees({ include_fired: true, limit: 250 }),
         ]);
         positions.value = Array.isArray(positionsData) ? positionsData : positionsData?.items || [];
         subdivisions.value = Array.isArray(subdivisionsData) ? subdivisionsData : [];
+        employeeDirectory.value = Array.isArray(employeesData?.items) ? employeesData.items : employeesData || [];
         ruleOptionsLoaded.value = true;
     } catch (error) {
         toast.error('Не удалось загрузить справочники для правил');

@@ -375,7 +375,7 @@ import {
     fetchStaffAttendancesMonth,
     openStaffAttendance,
     fetchRestaurants,
-    fetchEmployees,
+    fetchAllEmployees,
     fetchEmployeeCard,
     fetchStaffPositions,
     fetchStaffWaiterTurnoverMetric,
@@ -1152,7 +1152,7 @@ async function fetchEmployeeBirthdays() {
     birthdaysError.value = '';
 
     try {
-        const { items } = await fetchEmployees({ limit: 500 });
+        const { items } = await fetchAllEmployees({ limit: 250 });
         employees.value = items ?? [];
     } catch (error) {
         employees.value = [];

@@ -1,3 +1,5 @@
+@use '@/assets/styles/vars.scss' as *;
+
 .control-checklists {
     display: flex;
     flex-direction: column;
@@ -256,7 +258,7 @@
 
 .control-checklists__panel-toggle-icon {
     display: inline-flex;
-    transition: transform 0.2s ease;
+    transition: transform $duration;
 }
 
 .control-checklists__panel-toggle-icon.is-open {
@@ -1007,7 +1009,7 @@
         color-mix(in srgb, var(--color-primary) 70%, var(--color-surface) 30%) 0%,
         var(--color-primary) 100%
     );
-    transition: height 0.2s ease;
+    transition: height $duration;
 }
 
 .control-checklists__bar-label {

@@ -159,7 +159,7 @@
                             <tbody>
                                 <template v-for="row in selectedTypeLimits" :key="row.id">
                                     <tr>
-                                        <td>{{ row.user_name || `#${row.user_id}` }}</td>
+                                        <td>{{ limitUserLabel(row) }}</td>
                                         <td>
                                             <Select
                                                 v-model="limitDrafts[row.id].period_type"
@@ -489,6 +489,13 @@ const restaurantOptions = computed(() => [
 const userOptions = computed(() =>
     (users.value || []).map((item) => ({ value: String(item.id), label: userDisplayName(item) })),
 );
+const userMap = computed(() =>
+    new Map(
+        (users.value || [])
+            .map((user) => [Number(user?.id), user])
+            .filter(([id]) => Number.isFinite(id) && id > 0),
+    ),
+);
 const periodOptions = computed(() => PERIOD_OPTIONS);
 const categoryEditOptions = computed(() => [
     { value: EMPTY_CATEGORY, label: 'Не задано' },
@@ -622,6 +629,18 @@ function userDisplayName(user) {
         return parts.join(' ');
     }
     return user?.username || `#${user?.id}`;
+}
+
+function limitUserLabel(row) {
+    const directName = String(row?.user_name || '').trim();
+    if (directName) {
+        return directName;
+    }
+    const employee = userMap.value.get(Number(row?.user_id));
+    if (employee) {
+        return userDisplayName(employee);
+    }
+    return row?.user_id ? `#${row.user_id}` : '—';
 }
 
 function getTypeStat(typeId, fieldName) {

@@ -9,7 +9,7 @@ function createEmptyTimesheetOptions() {
     return { restaurants: [], subdivisions: [], positions: [] };
 }
 
-export function useEmployeeTimesheetExport({ formatDateInput }) {
+export function useEmployeeTimesheetExport({ formatDateInput, canExportTimesheet }) {
     const toast = useToast();
     const { toggleMultiValue, keepAllowedValues } = useMultiSelect();
 
@@ -110,6 +110,10 @@ export function useEmployeeTimesheetExport({ formatDateInput }) {
     }
 
     async function loadTimesheetOptions() {
+        if (!canExportTimesheet?.value) {
+            timesheetOptions.value = createEmptyTimesheetOptions();
+            return;
+        }
         timesheetOptionsLoading.value = true;
         try {
             const data = await fetchTimesheetOptions();
@@ -125,6 +129,9 @@ export function useEmployeeTimesheetExport({ formatDateInput }) {
     }
 
     async function openTimesheetExportModal() {
+        if (!canExportTimesheet?.value) {
+            return;
+        }
         resetTimesheetExportForm();
         isTimesheetSubdivisionPanelOpen.value = true;
         isTimesheetPositionPanelOpen.value = true;
@@ -174,6 +181,9 @@ export function useEmployeeTimesheetExport({ formatDateInput }) {
     }
 
     async function handleExportTimesheet() {
+        if (!canExportTimesheet?.value) {
+            return;
+        }
         if (!timesheetExportForm.restaurantId) {
             toast.error('Укажите ресторан');
             return;

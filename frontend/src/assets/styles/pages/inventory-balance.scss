@@ -58,7 +58,7 @@
     background: color-mix(in srgb, var(--inventory-control-bg) 94%, var(--color-surface) 6%);
     color: var(--color-text);
     text-decoration: none;
-    transition: border-color 0.2s ease, color 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease;
+    transition: border-color $duration, color $duration, background-color $duration, box-shadow $duration;
     box-shadow: 0 12px 20px -18px rgba(15, 12, 9, 0.65);
 }
 
@@ -166,7 +166,7 @@
     color: var(--color-text);
     font-size: 15px;
     cursor: pointer;
-    transition: background-color 0.2s ease, border-color 0.2s ease;
+    transition: background-color $duration, border-color $duration;
     min-height: 52px;
     border-left: 3px solid transparent;
 }
@@ -238,7 +238,7 @@
             color-mix(in srgb, var(--color-surface) 88%, var(--inventory-accent-soft) 12%) 100%
         );
     cursor: pointer;
-    transition: background-color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+    transition: background-color $duration, border-color $duration, box-shadow $duration, transform $duration;
     box-shadow: 0 14px 24px -26px rgba(15, 12, 9, 0.7);
 }
 
@@ -318,7 +318,7 @@
     align-items: center;
     justify-content: center;
     cursor: pointer;
-    transition: color 0.2s ease, border-color 0.2s ease, background-color 0.2s ease;
+    transition: color $duration, border-color $duration, background-color $duration;
 }
 
 .inventory-balance__icon-btn svg {
@@ -517,7 +517,7 @@
     font-size: 13px;
     font-weight: 600;
     cursor: pointer;
-    transition: border-color 0.2s ease, background-color 0.2s ease, color 0.2s ease;
+    transition: border-color $duration, background-color $duration, color $duration;
 }
 
 .inventory-balance__detail-tab:hover:not(:disabled) {
@@ -683,7 +683,7 @@
     background: color-mix(in srgb, var(--color-surface) 94%, var(--inventory-accent-soft) 6%);
     text-align: left;
     cursor: pointer;
-    transition: border-color 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+    transition: border-color $duration, background-color $duration, box-shadow $duration, transform $duration;
 }
 
 .inventory-balance__instance-item:hover {
@@ -867,7 +867,7 @@
     font-weight: 600;
     line-height: 1;
     cursor: pointer;
-    transition: border-color 0.2s ease, color 0.2s ease, background-color 0.2s ease;
+    transition: border-color $duration, color $duration, background-color $duration;
 }
 
 .inventory-balance__operation-type-btn:hover {

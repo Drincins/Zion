@@ -1,70 +1,55 @@
-запустить весь проект фронт + бэк (команду запускать в корне проекта)
-docker-compose up --build
+# Zion
+Внутреннее web-приложение на `FastAPI + PostgreSQL + Vue 3 (Vite)`.
 
-на Сервере
 
+## Что в проекте
+- backend: `FastAPI` (порт `8000`)
+- db: `PostgreSQL 16` в Docker (`db`)
+- frontend: `Vue 3 + Vite` (`frontend/`)
+
+
+## Обновление на сервере
+```bash
+git pull
 docker compose up -d --build
+```
 
-Инструкция Актуализации БД
-Перед выполнением команд убедитесь, что работаете из папки, где лежит `docker-compose.yml` проекта (например, `/opt/Zion`). Если нужно запускать команды из другого места, добавьте флаг `-f /полный/путь/docker-compose.yml` ко всем командам `docker compose ...`, иначе появится ошибка `no configuration file provided`.
 
-1) Зайти на сервер и перейти в корень проекта (`cd /opt/Zion`).
-2) Убедиться, что контейнер базы запущен (или поднять его):
-docker compose up -d db
-3) Проверить, что сервис доступен и контейнер создан (контейнер будет называться вроде `zion-db-1`):
-docker compose ps db
-4) Сохранить дамп (используется имя сервиса, поэтому не нужно помнить имя контейнера):
-docker compose exec db pg_dump -U zion_user -d zion > db.sql
-5) Проверить размер:
-ls -lh db.sql
-6) Скачать файл на локальный ПК:
-Зайти на сервер в opt/zion/db.sql
-7) На локалке — полностью удалить старую БД:
-docker compose down -v
-8) Закинуть файл db.sql в папку проекта
-9) Поднять только postgres:
-docker compose up -d db
-10) Скопировать дамп в контейнер (опять же по имени сервиса):
-docker compose cp db.sql db:/db.sql
-11) Восстановить дамп В БАЗУ:
-Войти в контейнер:
-docker compose exec -it db bash
-12) Применить дамп:
-psql -U zion_user -d zion -f /db.sql
+## Быстрый старт (локально)
+Все команды выполнять из корня проекта, где лежит `docker-compose.yml`.
 
-## Frontend (npm)
+### Вариант 1: поднять все в Docker
+```bash
+docker compose up --build
+```
+Приложение будет доступно на `http://127.0.0.1:8000` или `http://localhost:8000`.
+Важно: в этом режиме frontend собран статически, без Vite hot reload.
 
-Для фронтенда используется только `npm` (lockfile: `frontend/package-lock.json`).
-`yarn` для этого проекта не поддерживается.
+### Вариант 2: разработка frontend с hot reload
+Терминал 1:
+```bash
+docker compose up -d db backend
+```
 
-Локальный запуск и проверка сборки:
-
+Терминал 2:
 ```bash
 cd frontend
 npm ci
-npm run lint
-npm run build
 npm run dev
 ```
+Открыть: `http://127.0.0.1:5173` или `http://localhost:5173`.
+Изменения во `frontend/src` применяются сразу, без перезапуска.
 
-## Схема БД (только Alembic)
 
-Создание схемы в runtime через `create_all` отключено. Схема управляется только миграциями Alembic.
-
-При старте backend выполняется:
-
-```bash
-alembic upgrade head
-```
-
-Если восстановили дамп, в котором уже есть актуальная схема, но нет таблицы `alembic_version`, один раз выполните `stamp` перед обычным запуском:
-
-```bash
-docker compose run --rm backend alembic stamp head
-```
-
-## Python-зависимости (lock-стратегия)
-
-- `requirements.in` и `requirements-dev.in` — верхнеуровневые списки зависимостей.
-- `requirements.txt` и `requirements-dev.txt` — зафиксированные версии для установки в CI/production.
-- Обновление зависимостей делаем только через PR с синхронным изменением `*.in` и соответствующих lock-файлов.
+## Обновить локальную БД из дампа сервера
+1. На сервере перейти в каталог проекта, например `cd /opt/Zion`.
+2. Убедиться, что БД запущена: `docker compose up -d db`.
+3. Сделать дамп: `docker compose exec db pg_dump -U zion_user -d zion > db.sql`.
+4. Скопировать `db.sql` на локальный ПК в корень проекта.
+5. На локалке — полностью удалить старую БД `docker compose down -v`
+6. Закинуть файл db.sql в папку проекта
+7. Поднять только postgres `docker compose up -d db`
+8. Скопировать дамп в контейнер `docker compose cp db.sql db:/db.sql`
+9. Восстановить дамп В БАЗУ:
+Войти в контейнер `docker compose exec -it db bash`
+10. Применить дамп `psql -U zion_user -d zion -f /db.sql`

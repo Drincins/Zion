@@ -1,3 +1,5 @@
+@use '@/assets/styles/vars.scss' as *;
+
 .catalog-tree {
     border: 1px solid color-mix(in srgb, var(--inventory-panel-border) 82%, transparent);
     border-radius: 18px;
@@ -41,7 +43,7 @@
     gap: 10px;
     padding: 13px 16px;
     border-top: 1px solid color-mix(in srgb, var(--inventory-panel-border) 72%, transparent);
-    transition: background-color 0.2s ease;
+    transition: background-color $duration;
 }
 
 .catalog-tree__row--l1 {

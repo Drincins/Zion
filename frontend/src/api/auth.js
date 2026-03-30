@@ -21,6 +21,16 @@ export async function fetchCurrentSessionUser() {
     return data;
 }
 
+export async function fetchThemePreference() {
+    const { data } = await api.get('/api/auth/theme');
+    return data;
+}
+
+export async function updateThemePreference(payload) {
+    const { data } = await api.put('/api/auth/theme', payload);
+    return data;
+}
+
 export async function loginStaffByCode(staffCode, options = {}) {
     const payload = { staff_code: staffCode };
     if (options.authMethod) {

@@ -33,17 +33,19 @@
                     <span v-if="!isCollapsed" class="sidebar-menu__group-label">{{ group.label }}</span>
                     <BaseIcon v-if="!isCollapsed && !group.directTo" name="Arrow" class="sidebar-menu__group-arrow" />
                 </button>
-                <ul v-if="!isCollapsed && !group.directTo && isGroupOpen(group.key)" class="sidebar-menu__sublist">
-                    <li
-                        v-for="item in group.items"
-                        :key="item.key"
-                        class="sidebar-menu__sublist-item"
-                        :class="{ active: isItemActive(item) }"
-                        @click="navigateTo(item)"
-                    >
-                        {{ item.label }}
-                    </li>
-                </ul>
+                <Transition name="sidebar-sublist">
+                    <ul v-if="!isCollapsed && !group.directTo && isGroupOpen(group.key)" class="sidebar-menu__sublist">
+                        <li
+                            v-for="item in group.items"
+                            :key="item.key"
+                            class="sidebar-menu__sublist-item"
+                            :class="{ active: isItemActive(item) }"
+                            @click="navigateTo(item)"
+                        >
+                            {{ item.label }}
+                        </li>
+                    </ul>
+                </Transition>
             </li>
         </ul>
         <button class="sidebar-menu__collapse-button" @click="toggleCollapse">
@@ -117,6 +119,11 @@ const resolveItemPath = (item) => {
 };
 
 const routeMatchesItemPath = (item) => {
+    const activePrefixes = Array.isArray(item?.activePrefixes) ? item.activePrefixes : [];
+    const matchesActivePrefix = activePrefixes.some((prefix) => route.path === prefix || route.path.startsWith(`${prefix}/`));
+    if (matchesActivePrefix) {
+        return true;
+    }
     const itemPath = resolveItemPath(item);
     if (!itemPath) {
         return false;

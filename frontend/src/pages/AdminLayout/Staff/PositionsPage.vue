@@ -1,6 +1,6 @@
 <template>
     <div class="user-info">
-        <section id="positions" class="user-info__card user-info__positions-card">
+        <section id="positions" class="user-info__positions-card">
             <div class="user-info__positions-header">
                 <h3 class="h3 user-info__card-title">Должности</h3>
                 <Button

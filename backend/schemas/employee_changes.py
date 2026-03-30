@@ -45,3 +45,7 @@ class EmployeeChangeEventUpdate(BaseModel):
 
 class EmployeeChangeEventListResponse(BaseModel):
     items: List[EmployeeChangeEventRead]
+    offset: int = 0
+    limit: int = 0
+    has_more: bool = False
+    next_offset: Optional[int] = None

@@ -5,8 +5,8 @@ import { KNOWLEDGE_BASE_VIEW_PERMISSIONS } from '@/accessPolicy';
 import { isSuperAdminRole } from '@/utils/roles';
 
 const routes = [
-    { path: '/', name: 'user-login', component: () => import('@/pages/LoginUser.vue') },
-    { path: '/login', name: 'login', component: () => import('@/pages/LoginPage.vue') },
+    { path: '/', name: 'user-login', component: () => import('@/pages/LoginUser.vue'), meta: { public: true } },
+    { path: '/login', name: 'login', component: () => import('@/pages/LoginPage.vue'), meta: { public: true } },
     { path: '/time-tracking', name: 'time-tracking', component: () => import('@/pages/TimeTracking.vue') },
     {
         path: '/checklists/portal',
@@ -383,8 +383,21 @@ function resolveAccessDeniedRedirect(to) {
     return { path: '/admin' };
 }
 
+function resolveAuthenticationRedirect(to) {
+    const query = to.fullPath && to.fullPath !== '/' ? { redirect: to.fullPath } : undefined;
+    if (to.path.startsWith('/admin')) {
+        return { name: 'login', query };
+    }
+    return { name: 'user-login', query };
+}
+
 router.beforeEach((to) => {
     const userStore = useUserStore();
+    const isPublicRoute = to.matched.some((record) => record.meta?.public === true);
+
+    if (!isPublicRoute && !userStore.isAuthenticated) {
+        return resolveAuthenticationRedirect(to);
+    }
 
     if (to.matched.some((record) => record.meta?.requiresSuperAdmin)) {
         if (!isSuperAdminRole(userStore.roleName)) {
