@@ -88,6 +88,7 @@ class StaffUserListPublic(BaseModel):
     position_id: Optional[int] = None
     position_name: Optional[str] = None
     position_code: Optional[str] = None
+    position_rate: Optional[float] = None
     gender: Optional[Literal["male", "female"]] = None
     hire_date: Optional[date] = None
     fire_date: Optional[date] = None

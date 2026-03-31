@@ -164,6 +164,9 @@ def to_staff_list_public(
         position_id=user.position_id,
         position_name=user.position.name if user.position else None,
         position_code=user.position.code if getattr(user, "position", None) else None,
+        position_rate=float(user.position.rate)
+        if can_see_rate and getattr(user, "position", None) and user.position.rate is not None
+        else None,
         gender=user.gender,
         hire_date=user.hire_date,
         fire_date=user.fire_date,
@@ -230,11 +233,32 @@ def _can_load_position_references(user: User) -> bool:
             PermissionCode.POSITIONS_MANAGE,
             PermissionCode.POSITIONS_EDIT,
             PermissionCode.POSITIONS_RATE_MANAGE,
+            PermissionCode.STAFF_MANAGE_ALL,
+            PermissionCode.STAFF_MANAGE_SUBORDINATES,
+            PermissionCode.STAFF_EMPLOYEES_VIEW,
+            PermissionCode.STAFF_EMPLOYEES_MANAGE,
+            PermissionCode.EMPLOYEES_CARD_VIEW,
+            PermissionCode.EMPLOYEES_CARD_MANAGE,
         )
     )
 
 
-def _position_hierarchy_payload(position: Position) -> PositionHierarchyNode:
+def _can_view_position_rates(user: Optional[User]) -> bool:
+    if not user:
+        return False
+    level = role_level_for_rate(user)
+    return any(
+        has_permission(user, code)
+        for code in (
+            PermissionCode.SYSTEM_ADMIN,
+            PermissionCode.STAFF_RATE_MANAGE,
+            PermissionCode.STAFF_RATE_VIEW_ALL,
+            PermissionCode.POSITIONS_RATE_MANAGE,
+        )
+    ) or (level is not None and level >= _RATE_FULL_ACCESS_LEVEL)
+
+
+def _position_hierarchy_payload(position: Position, *, include_rate: bool = True) -> PositionHierarchyNode:
     return PositionHierarchyNode(
         id=position.id,
         name=position.name,
@@ -243,7 +267,7 @@ def _position_hierarchy_payload(position: Position) -> PositionHierarchyNode:
         role_name=position.role.name if position.role else None,
         parent_id=position.parent_id,
         hierarchy_level=position.hierarchy_level,
-        rate=position.rate,
+        rate=position.rate if include_rate else None,
         payment_format_id=position.payment_format_id,
         payment_format_name=position.payment_format.name if position.payment_format else None,
         hours_per_shift=position.hours_per_shift,
@@ -308,6 +332,7 @@ def load_staff_references(
             roles_payload = [RoleRead.model_validate(item) for item in roles]
 
         if can_load_positions:
+            include_position_rates = _can_view_position_rates(current_user)
             positions = (
                 db.query(Position)
                 .options(
@@ -321,7 +346,10 @@ def load_staff_references(
                 .order_by(Position.hierarchy_level.asc(), func.lower(Position.name).nullslast(), Position.id.asc())
                 .all()
             )
-            positions_payload = [_position_hierarchy_payload(item) for item in positions]
+            positions_payload = [
+                _position_hierarchy_payload(item, include_rate=include_position_rates)
+                for item in positions
+            ]
 
         return StaffEmployeesReferencePayload(
             restaurants=restaurants_payload,

@@ -40,22 +40,6 @@ def list_timesheet_options(
             .options(c.joinedload(c.Position.restaurant_subdivision))
             .order_by(c.Position.name.asc())
         )
-        if allowed_workplaces is not None:
-            if allowed_workplaces:
-                accessible_position_ids = (
-                    db.query(c.User.position_id)
-                    .filter(
-                        c.User.position_id.isnot(None),
-                        c.or_(
-                            c.User.id == current_user.id,
-                            c.User.workplace_restaurant_id.in_(allowed_workplaces),
-                        ),
-                    )
-                    .distinct()
-                )
-                positions_query = positions_query.filter(c.Position.id.in_(accessible_position_ids))
-            else:
-                positions_query = positions_query.filter(False)
         positions = positions_query.all()
 
         subdivision_ids = sorted(

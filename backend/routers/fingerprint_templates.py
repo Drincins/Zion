@@ -309,7 +309,10 @@ def get_staff_info(
     staff_code: str = Query(..., min_length=1),
     db: Session = Depends(get_db),
 ) -> dict:
-    _ensure_token(request, required=True)
+    # Staff lookup is part of the enrollment bootstrap flow in ZionScan.
+    # Keep the legacy behavior: if a sync token is configured, require it;
+    # otherwise allow lookup so existing agent setups without a token keep working.
+    _ensure_token(request)
 
     staff_code = staff_code.strip()
     if not staff_code:

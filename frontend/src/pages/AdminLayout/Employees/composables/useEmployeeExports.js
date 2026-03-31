@@ -8,6 +8,7 @@ export function useEmployeeExports({
     canExportPayroll,
     canDownloadEmployeesList,
     getSortedEmployees,
+    resolveEmployeesForExport,
     employeeColumnOptions,
     selectedEmployeeColumns,
 }) {
@@ -53,7 +54,10 @@ export function useEmployeeExports({
             return;
         }
 
-        const list = Array.isArray(getSortedEmployees?.()) ? getSortedEmployees() : [];
+        const resolvedList = typeof resolveEmployeesForExport === 'function'
+            ? await resolveEmployeesForExport()
+            : getSortedEmployees?.();
+        const list = Array.isArray(resolvedList) ? resolvedList : [];
         if (!list.length) {
             toast.error('Нет сотрудников для выгрузки');
             return;
