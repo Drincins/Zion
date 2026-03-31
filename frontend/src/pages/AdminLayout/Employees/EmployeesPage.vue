@@ -1304,9 +1304,9 @@ import {
     fetchEmployeeChangeEvents,
     fetchEmployeeDetail,
     fetchEmployeeIikoSyncPreview,
+    fetchAllEmployees,
     fetchEmployees,
     fetchEmployeesBootstrap,
-    fetchAccessPositions,
     uploadEmployeePhoto,
     updateStaffEmployee,
     deleteStaffEmployee,
@@ -1718,8 +1718,11 @@ const positions = ref([]);
 const positionsLoadedFromAccess = ref(false);
 const restaurants = ref([]);
 const roles = ref([]);
+const employeeDirectory = ref([]);
+const employeeDirectoryLoaded = ref(false);
 const referencesLoadedFromBootstrap = ref(false);
 let isEmployeesBootstrapAvailable = true;
+let employeeDirectoryPromise = null;
 
 const companyOptions = computed(() =>
     companies.value
@@ -1917,8 +1920,12 @@ const payrollRestaurantOptions = computed(() => {
 });
 
 const responsibleOptions = computed(() => {
+    const sourceEmployees =
+        employeeDirectoryLoaded.value && Array.isArray(employeeDirectory.value) && employeeDirectory.value.length
+            ? employeeDirectory.value
+            : employees.value;
     const options = new Map();
-    for (const employee of employees.value) {
+    for (const employee of sourceEmployees) {
         if (employee?.id) {
             options.set(employee.id, {
                 value: String(employee.id),
@@ -2235,8 +2242,9 @@ function syncEmployeeEditRateWithPosition() {
     employeeEditForm.rate = String(position.rate);
 }
 
-function applyBootstrapReferences(references) {
+function applyBootstrapReferences(references, options = {}) {
     const data = references && typeof references === 'object' ? references : {};
+    const includePositions = options?.includePositions !== false;
 
     if (canLoadRestaurants.value && Array.isArray(data.restaurants)) {
         restaurants.value = data.restaurants;
@@ -2247,7 +2255,7 @@ function applyBootstrapReferences(references) {
     if (canLoadRoles.value && Array.isArray(data.roles)) {
         roles.value = data.roles;
     }
-    if (canLoadPositions.value && Array.isArray(data.positions)) {
+    if (includePositions && canLoadPositions.value && Array.isArray(data.positions)) {
         positions.value = data.positions;
         positionsLoadedFromAccess.value = true;
     }
@@ -2286,6 +2294,59 @@ function buildEmployeeListBaseParams(limit = EMPLOYEES_PAGE_SIZE) {
         compact: true,
         limit,
     };
+}
+
+async function ensureEmployeeDirectory() {
+    if (!canViewEmployees.value) {
+        employeeDirectory.value = [];
+        employeeDirectoryLoaded.value = false;
+        return [];
+    }
+    if (employeeDirectoryLoaded.value) {
+        return employeeDirectory.value;
+    }
+    if (employeeDirectoryPromise) {
+        return await employeeDirectoryPromise;
+    }
+
+    employeeDirectoryPromise = (async () => {
+        const data = await fetchAllEmployees({
+            include_fired: true,
+            compact: true,
+            sort_by: 'full_name',
+            sort_direction: 'asc',
+            limit: 250,
+        });
+        const items = Array.isArray(data?.items) ? data.items : [];
+        employeeDirectory.value = items;
+        employeeDirectoryLoaded.value = true;
+        return items;
+    })();
+
+    try {
+        return await employeeDirectoryPromise;
+    } catch (error) {
+        employeeDirectoryLoaded.value = false;
+        const detail = error?.response?.data?.detail;
+        toast.error(detail || 'Не удалось выполнить операцию');
+        console.error(error);
+        return [];
+    } finally {
+        employeeDirectoryPromise = null;
+    }
+}
+
+function invalidateEmployeeDirectory() {
+    employeeDirectory.value = [];
+    employeeDirectoryLoaded.value = false;
+    employeeDirectoryPromise = null;
+}
+
+async function resolveEmployeesForCurrentExport() {
+    const params = buildEmployeeListBaseParams(250);
+    const data = await fetchAllEmployees(params);
+    const items = Array.isArray(data?.items) ? data.items : [];
+    return sortEmployeesList(items);
 }
 
 async function loadEmployees(options = {}) {
@@ -2429,7 +2490,7 @@ async function loadEmployees(options = {}) {
 
             const references = bootstrapData?.references ?? data?.references;
             if (!append && references) {
-                applyBootstrapReferences(references);
+                applyBootstrapReferences(references, { includePositions: false });
                 employeesLastBootstrapKey = requestKey;
                 employeesLastBootstrapAt = Date.now();
             }
@@ -2618,10 +2679,9 @@ function applyPhoneInput(target, value) {
 
 const collator = new Intl.Collator('ru', { numeric: true, sensitivity: 'base' });
 
-const sortedEmployees = computed(() => {
-    const baseList = Array.isArray(employees.value) ? employees.value : [];
-    if (!baseList.length || !sortBy.value) {
-        return baseList;
+function sortEmployeesList(baseList = []) {
+    if (!Array.isArray(baseList) || !baseList.length || !sortBy.value) {
+        return Array.isArray(baseList) ? baseList : [];
     }
     if (isServerSortableEmployeeField(sortBy.value)) {
         return baseList;
@@ -2654,7 +2714,9 @@ const sortedEmployees = computed(() => {
 
         return collator.compare(String(aValue), String(bValue)) * direction;
     });
-});
+}
+
+const sortedEmployees = computed(() => sortEmployeesList(employees.value));
 
 const {
     isPayrollExportModalOpen,
@@ -2669,6 +2731,7 @@ const {
     canExportPayroll,
     canDownloadEmployeesList,
     getSortedEmployees: () => sortedEmployees.value,
+    resolveEmployeesForExport: resolveEmployeesForCurrentExport,
     employeeColumnOptions,
     selectedEmployeeColumns,
 });
@@ -2739,7 +2802,11 @@ function formatResponsible(responsibleId, responsibleName) {
     if (activeEmployee.value?.id === responsibleId) {
         return formatFullName(activeEmployee.value);
     }
-    const inList = employees.value.find((employee) => employee.id === responsibleId);
+    const sourceEmployees =
+        employeeDirectoryLoaded.value && Array.isArray(employeeDirectory.value) && employeeDirectory.value.length
+            ? employeeDirectory.value
+            : employees.value;
+    const inList = sourceEmployees.find((employee) => employee.id === responsibleId);
     if (inList) {
         return formatFullName(inList);
     }
@@ -3886,8 +3953,15 @@ async function loadPositions() {
         return;
     }
     try {
-        const data = await fetchAccessPositions();
-        positions.value = Array.isArray(data) ? data : [];
+        const data = await fetchEmployeesBootstrap({
+            include_restaurants: false,
+            include_companies: false,
+            include_roles: false,
+            include_positions: true,
+            include_items: false,
+        });
+        const items = Array.isArray(data?.references?.positions) ? data.references.positions : [];
+        positions.value = items;
         positionsLoadedFromAccess.value = true;
     } catch (error) {
         const detail = error?.response?.data?.detail;
@@ -4143,6 +4217,7 @@ async function handleUpdateEmployee() {
 
         toast.success('Данные сотрудника обновлены');
         cancelEditMode();
+        invalidateEmployeeDirectory();
         if (canViewEmployees.value) {
             await loadEmployees();
             const refreshed = employees.value.find((employee) => employee.id === updatedCard.id);
@@ -4209,6 +4284,7 @@ async function submitDeleteEmployee() {
         toast.success('Сотрудник удалён');
         closeDeleteCommentModal();
         closeEmployeeModal();
+        invalidateEmployeeDirectory();
         await loadEmployees();
     } catch (error) {
         const detail = error?.response?.data?.detail;
@@ -4230,6 +4306,7 @@ async function handleRestoreEmployee() {
             employeeCard.value = updatedCard;
         }
         toast.success('Сотрудник восстановлен');
+        invalidateEmployeeDirectory();
         if (canViewEmployees.value) {
             await loadEmployees();
             const refreshed = employees.value.find((employee) => employee.id === activeEmployee.value.id);
@@ -4457,6 +4534,7 @@ async function handleCreateEmployee(options = {}) {
             toast.warning(createdUser.iiko_sync_error);
         }
         closeCreateModal();
+        invalidateEmployeeDirectory();
         await loadEmployees();
     } catch (error) {
         const detail = error?.response?.data?.detail;
@@ -4784,6 +4862,8 @@ watch(
             }
         } else {
             employees.value = [];
+            employeeDirectory.value = [];
+            employeeDirectoryLoaded.value = false;
             positions.value = [];
             positionsLoadedFromAccess.value = false;
             referencesLoadedFromBootstrap.value = false;
@@ -4815,10 +4895,31 @@ watch(
         if (!open) {
             return;
         }
+        void ensureEmployeeDirectory();
         void ensureEmployeeReferenceData({
             includePositions: false,
             includeRoles: false,
         });
+    },
+);
+
+watch(
+    () => isPayrollAdjustmentFormVisible.value,
+    (open) => {
+        if (!open) {
+            return;
+        }
+        void ensureEmployeeDirectory();
+    },
+);
+
+watch(
+    () => editingPayrollAdjustment.id,
+    (id) => {
+        if (!id) {
+            return;
+        }
+        void ensureEmployeeDirectory();
     },
 );
 

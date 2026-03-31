@@ -375,12 +375,6 @@ export function useEmployeeBulkAdjust({
             closeBulkFillModal();
         };
 
-        const fromLocal = (employees.value || []).filter((employee) => matchesFilters(employee));
-        if (fromLocal.length) {
-            applyList(fromLocal);
-            return;
-        }
-
         bulkSearchLoading.value = true;
         fetchAllEmployees({ include_fired: true })
             .then((data) => {
