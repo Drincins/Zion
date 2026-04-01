@@ -2052,7 +2052,6 @@ const {
     toggleBulkSubdivisionPanel,
     handleBulkAdjust,
 } = useEmployeeBulkAdjust({
-    employees,
     restaurantOptions,
     timesheetOptions,
     formatDateInput,
