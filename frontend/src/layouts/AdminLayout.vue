@@ -42,11 +42,6 @@
                 <section class="content" :aria-busy="isRouteLoading ? 'true' : undefined">
                     <router-view />
                 </section>
-                <Transition name="admin-layout-loader">
-                    <div v-if="isRouteLoading" class="main-loading-overlay" role="status" aria-live="polite">
-                        <span class="main-loading-overlay__spinner" aria-hidden="true" />
-                    </div>
-                </Transition>
             </div>
         </template>
     </div>

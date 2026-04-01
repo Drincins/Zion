@@ -4,3 +4,44 @@
     right: 16px;
     z-index: 40;
 }
+
+.app-loading-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 1600;
+    pointer-events: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100dvh;
+    background: color-mix(in srgb, var(--color-surface) 58%, transparent);
+    backdrop-filter: blur(1px);
+}
+
+.app-loading-overlay__spinner {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    border: 5px solid color-mix(in srgb, var(--color-primary) 26%, var(--color-border));
+    border-top-color: color-mix(in srgb, var(--color-primary) 86%, var(--color-text));
+    animation: appLoaderSpin 0.8s linear infinite;
+}
+
+.app-loader-enter-active,
+.app-loader-leave-active {
+    transition: opacity 0.2s ease;
+}
+
+.app-loader-enter-from,
+.app-loader-leave-to {
+    opacity: 0;
+}
+
+@keyframes appLoaderSpin {
+    from {
+        transform: rotate(0deg);
+    }
+    to {
+        transform: rotate(360deg);
+    }
+}
