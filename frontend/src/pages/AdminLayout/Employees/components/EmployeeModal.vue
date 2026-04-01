@@ -1,5 +1,5 @@
 <template>
-    <Modal v-if="isOpen" @close="emit('close')">
+    <Modal v-if="isOpen" :z-index="modalZIndex" @close="emit('close')">
         <template #header>
             <div class="employees-page__modal-header">
                 <section ref="photoCardRef" class="employees-page__photo-card">
@@ -346,6 +346,7 @@
     <Modal
         v-if="isPhotoPreviewOpen"
         class="employees-page__photo-modal-window"
+        :z-index="photoPreviewModalZIndex"
         :disable-leave-animation="true"
         @close="closePhotoPreview"
     >
@@ -372,6 +373,7 @@ const EmployeePermissionsTab = defineAsyncComponent(() => import('./EmployeePerm
 
 const props = defineProps({
     isOpen: { type: Boolean, default: false },
+    modalZIndex: { type: [Number, String], default: 1000 },
     activeEmployee: { type: Object, default: null },
     activeTab: { type: String, default: 'info' },
     canManageEmployees: { type: Boolean, default: false },
@@ -516,6 +518,7 @@ const emit = defineEmits([
 
 const {
     isOpen,
+    modalZIndex,
     activeEmployee,
     activeTab,
     canManageEmployees,
@@ -624,6 +627,14 @@ const showFormalizedDocuments = computed(() => {
         activeEmployee.value?.isFormalized ??
         activeEmployee.value?.formalized;
     return Boolean(activeFlag);
+});
+
+const photoPreviewModalZIndex = computed(() => {
+    const baseZIndex = Number(modalZIndex.value);
+    if (!Number.isFinite(baseZIndex)) {
+        return 1001;
+    }
+    return baseZIndex + 1;
 });
 
 const fileInput = ref(null);

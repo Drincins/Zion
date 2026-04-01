@@ -35,6 +35,7 @@
 .main {
     flex: 1;
     min-width: 0;
+    position: relative;
     display: flex;
     flex-direction: column;
 }
@@ -159,5 +160,54 @@
 
     .content {
         padding-top: 34px;
+    }
+}
+
+.main-loading-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 1600;
+    pointer-events: none;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    min-height: 100dvh;
+    background: color-mix(in srgb, var(--color-surface) 58%, transparent);
+    backdrop-filter: blur(1px);
+}
+
+.main-loading-overlay__spinner {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    border: 5px solid color-mix(in srgb, var(--color-primary) 26%, var(--color-border));
+    border-top-color: color-mix(in srgb, var(--color-primary) 86%, var(--color-text));
+    animation: adminLayoutLoaderSpin 0.8s linear infinite;
+}
+
+.main-loading-overlay__label {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--color-text-soft);
+}
+
+.admin-layout-loader-enter-active,
+.admin-layout-loader-leave-active {
+    transition: opacity $duration;
+}
+
+.admin-layout-loader-enter-from,
+.admin-layout-loader-leave-to {
+    opacity: 0;
+}
+
+@keyframes adminLayoutLoaderSpin {
+    from {
+        transform: rotate(0deg);
+    }
+    to {
+        transform: rotate(360deg);
     }
 }

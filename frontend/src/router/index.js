@@ -1,5 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router';
 import { useUserStore } from '@/stores/user';
+import { beginRouteLoading, endRouteLoading, resetRouteLoading } from '@/stores/routeLoading';
 import { getAdminRouteMeta } from '@/router/adminNavigation';
 import { KNOWLEDGE_BASE_VIEW_PERMISSIONS } from '@/accessPolicy';
 import { isSuperAdminRole } from '@/utils/roles';
@@ -392,6 +393,7 @@ function resolveAuthenticationRedirect(to) {
 }
 
 router.beforeEach((to) => {
+    beginRouteLoading();
     const userStore = useUserStore();
     const isPublicRoute = to.matched.some((record) => record.meta?.public === true);
 
@@ -417,6 +419,14 @@ router.beforeEach((to) => {
     }
 
     return true;
+});
+
+router.afterEach(() => {
+    endRouteLoading();
+});
+
+router.onError(() => {
+    resetRouteLoading();
 });
 
 export default router;

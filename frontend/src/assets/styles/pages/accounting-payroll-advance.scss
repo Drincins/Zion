@@ -10,7 +10,8 @@
 
 .advance-page__employee-overlay {
     position: relative;
-    z-index: 1100;
+    z-index: 1500;
+    --modal-z-index: 1500;
 }
 
 .advance-page__header {
@@ -659,7 +660,7 @@
             var(--advance-accent-soft) 0%,
             transparent 62%
         ),
-        color-mix(in srgb, var(--color-surface) 94%, transparent);
+        color-mix(in srgb, var(--color-surface) 12%, transparent);
     border: 1px solid var(--advance-accent-border);
     border-radius: 14px;
     padding: 16px;

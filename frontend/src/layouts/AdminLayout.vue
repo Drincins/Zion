@@ -39,9 +39,14 @@
                 />
             </div>
             <div class="main">
-                <section class="content">
+                <section class="content" :aria-busy="isRouteLoading ? 'true' : undefined">
                     <router-view />
                 </section>
+                <Transition name="admin-layout-loader">
+                    <div v-if="isRouteLoading" class="main-loading-overlay" role="status" aria-live="polite">
+                        <span class="main-loading-overlay__spinner" aria-hidden="true" />
+                    </div>
+                </Transition>
             </div>
         </template>
     </div>
@@ -53,9 +58,11 @@ import { useRoute, useRouter } from 'vue-router';
 import Sidebar from '@/components/Sidebar.vue';
 import Button from '@/components/UI-components/Button.vue';
 import { useUserStore } from '@/stores/user';
+import { useRouteLoadingState } from '@/stores/routeLoading';
 const router = useRouter();
 const route = useRoute();
 const userStore = useUserStore();
+const isRouteLoading = useRouteLoadingState();
 const isFired = computed(() => userStore.isFired);
 
 const isMobile = ref(false);

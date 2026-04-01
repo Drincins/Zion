@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { beginApiLoading, endApiLoading } from '@/stores/routeLoading';
 
 // Base URL is resolved at runtime:
 // 1) use Vite env value if it is not localhost/127.*;
@@ -13,6 +14,52 @@ export const api = axios.create({
     baseURL: runtimeServerUrl,
     withCredentials: true,
 });
+
+function shouldTrackGlobalLoading(config) {
+    if (!config) {
+        return false;
+    }
+    if (config.skipGlobalLoading === true) {
+        return false;
+    }
+    if (config.meta?.skipGlobalLoading === true) {
+        return false;
+    }
+    return true;
+}
+
+function finishGlobalLoadingForConfig(config) {
+    if (!config?.__globalLoadingTracked) {
+        return;
+    }
+    config.__globalLoadingTracked = false;
+    endApiLoading();
+}
+
+api.interceptors.request.use(
+    (config) => {
+        if (shouldTrackGlobalLoading(config)) {
+            config.__globalLoadingTracked = true;
+            beginApiLoading();
+        }
+        return config;
+    },
+    (error) => {
+        finishGlobalLoadingForConfig(error?.config);
+        return Promise.reject(error);
+    },
+);
+
+api.interceptors.response.use(
+    (response) => {
+        finishGlobalLoadingForConfig(response?.config);
+        return response;
+    },
+    (error) => {
+        finishGlobalLoadingForConfig(error?.config);
+        return Promise.reject(error);
+    },
+);
 
 const API_CACHE_PREFIX = `zion-api-cache:v1:${runtimeServerUrl}:`;
 const apiMemoryCache = new Map();

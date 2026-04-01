@@ -165,6 +165,7 @@
         <Modal
             v-if="showStatementModal && currentStatement"
             class="advance-modal-window"
+            :z-index="ADVANCE_MODAL_Z_INDEX"
             @close="closeStatementModal"
         >
             <div class="advance-modal__dialog advance-modal__dialog--wide">
@@ -593,6 +594,7 @@
         <Modal
             v-if="showConsolidatedModal"
             class="advance-modal-window"
+            :z-index="ADVANCE_MODAL_Z_INDEX"
             @close="closeConsolidatedModal"
         >
             <div class="advance-modal__dialog advance-modal__dialog--wide advance-consolidated">
@@ -660,6 +662,7 @@
         <Modal
             v-if="showConsolidatedStatementModal && currentConsolidated"
             class="advance-modal-window"
+            :z-index="ADVANCE_MODAL_Z_INDEX"
             @close="closeConsolidatedStatementModal"
         >
             <div class="advance-modal__dialog advance-modal__dialog--wide advance-consolidated-card">
@@ -861,6 +864,7 @@
         <Modal
             v-if="showCreateModal"
             class="advance-modal-window"
+            :z-index="ADVANCE_MODAL_Z_INDEX"
             @close="closeCreateModal"
         >
             <div class="advance-modal__dialog">
@@ -938,6 +942,7 @@
         <Modal
             v-if="showPostModal"
             class="advance-modal-window advance-modal-window--top"
+            :z-index="ADVANCE_TOP_MODAL_Z_INDEX"
             @close="closePostModal"
         >
             <div class="advance-modal__dialog">
@@ -1018,7 +1023,12 @@
             </div>
         </Modal>
 
-        <EmployeesPage v-if="showEmployeeCardOverlay" modal-only class="advance-page__employee-overlay" />
+        <EmployeesPage
+            v-if="showEmployeeCardOverlay"
+            modal-only
+            class="advance-page__employee-overlay"
+            :modal-z-index="ADVANCE_EMPLOYEE_MODAL_Z_INDEX"
+        />
     </div>
 </template>
 
@@ -1072,6 +1082,9 @@ const toast = useToast();
 const userStore = useUserStore();
 const route = useRoute();
 const router = useRouter();
+const ADVANCE_MODAL_Z_INDEX = 1200;
+const ADVANCE_TOP_MODAL_Z_INDEX = 1210;
+const ADVANCE_EMPLOYEE_MODAL_Z_INDEX = 1500;
 
 const statements = ref([]);
 const consolidatedStatements = ref([]);
