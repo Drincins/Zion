@@ -33,8 +33,10 @@ export async function fetchEmployees(params = {}, options = {}) {
     const useCompactEndpoint = Boolean(requestParams.compact);
     delete requestParams.compact;
     const endpoint = useCompactEndpoint ? '/api/staff/employees/compact' : '/api/staff/employees';
-    const { data } = await api.get(endpoint, {
-        params: requestParams,
+    // FastAPI expects repeated keys for arrays like position_ids=1&position_ids=2.
+    const query = buildQueryParams(requestParams).toString();
+    const url = query ? `${endpoint}?${query}` : endpoint;
+    const { data } = await api.get(url, {
         signal: options?.signal
     });
     return data;
@@ -96,8 +98,11 @@ export async function fetchAllEmployees(params = {}, options = {}) {
 }
 
 export async function fetchEmployeesBootstrap(params = {}, options = {}) {
-    const { data } = await api.get('/api/staff/employees/bootstrap', {
-        params,
+    const query = buildQueryParams(params).toString();
+    const url = query
+        ? `/api/staff/employees/bootstrap?${query}`
+        : '/api/staff/employees/bootstrap';
+    const { data } = await api.get(url, {
         signal: options?.signal
     });
     return data;

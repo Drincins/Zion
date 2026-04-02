@@ -425,7 +425,13 @@
 
 <script setup>
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
-import { fetchKpiMetricGroupPlanFactsBulk, fetchKpiMetrics, fetchKpiPlanFactsBulk, fetchRestaurants } from '@/api';
+import {
+    fetchKpiMetricGroupPlanFactsBulk,
+    fetchKpiMetrics,
+    fetchKpiPlanFactsBulk,
+    fetchKpiPlanPreferences,
+    fetchRestaurants,
+} from '@/api';
 import { useDebounce } from '@/composables/useDebounce';
 import { useToast } from 'vue-toastification';
 import DateInput from '@/components/UI-components/DateInput.vue';
@@ -464,6 +470,7 @@ const months = [
 const expandedMetrics = ref({});
 const planFacts = ref({});
 const groupPlanFacts = ref({});
+const planPrefsByMetric = ref({});
 const resultsRequestSeq = ref(0);
 
 const restaurantOptions = computed(() =>
@@ -484,32 +491,35 @@ const metricMetaById = computed(() => {
     (metrics.value || []).forEach((metric) => {
         const metricId = Number(metric?.id);
         if (!Number.isFinite(metricId)) return;
+        const planPref = metricPlanPreference(metricId);
 
         const parts = [];
         if (metric?.unit) {
             parts.push(metric.unit);
         }
 
-        const planValues = [];
-        const metricFactsByRestaurant = planFacts.value?.[metricId] || {};
-        Object.entries(metricFactsByRestaurant).forEach(([restId, monthFacts]) => {
-            const numericRestId = Number(restId);
-            if (
-                Number.isFinite(selectedRestaurantId) &&
-                selectedRestaurantId > 0 &&
-                numericRestId !== selectedRestaurantId
-            ) {
-                return;
-            }
-            Object.values(monthFacts || {}).forEach((monthFact) => {
-                const plan = parseNumber(monthFact?.plan_value);
-                if (plan !== null) {
-                    planValues.push(plan);
+        let planLabel = '';
+        if (planPref?.planMode !== 'per_restaurant') {
+            const planValues = [];
+            const metricFactsByRestaurant = planFacts.value?.[metricId] || {};
+            Object.entries(metricFactsByRestaurant).forEach(([restId, monthFacts]) => {
+                const numericRestId = Number(restId);
+                if (
+                    Number.isFinite(selectedRestaurantId) &&
+                    selectedRestaurantId > 0 &&
+                    numericRestId !== selectedRestaurantId
+                ) {
+                    return;
                 }
+                Object.values(monthFacts || {}).forEach((monthFact) => {
+                    const plan = parseNumber(monthFact?.plan_value);
+                    if (plan !== null) {
+                        planValues.push(plan);
+                    }
+                });
             });
-        });
-
-        const planLabel = formatPlanRange(planValues);
+            planLabel = formatPlanRange(planValues);
+        }
         const maxScale = metric?.use_max_scale ? parseNumber(metric?.max_scale_value) : null;
         const hasScale = maxScale !== null && maxScale > 0;
 
@@ -683,6 +693,28 @@ function metricMetaLabel(metricOrId) {
     return metricMetaById.value.get(Number(metric.id)) || '';
 }
 
+function normalizePlanPreference(pref) {
+    if (!pref || pref.metric_id === null || pref.metric_id === undefined) return null;
+    return {
+        metricId: Number(pref.metric_id),
+        planMode: pref.plan_mode === 'per_restaurant' ? 'per_restaurant' : 'shared',
+        restaurantId:
+            pref.restaurant_id !== null && pref.restaurant_id !== undefined
+                ? Number(pref.restaurant_id)
+                : null,
+        isDynamic: Boolean(pref.is_dynamic),
+        selectedMonth:
+            pref.selected_month !== null && pref.selected_month !== undefined
+                ? Number(pref.selected_month)
+                : null,
+    };
+}
+
+function metricPlanPreference(metricId) {
+    if (metricId === null || metricId === undefined) return null;
+    return planPrefsByMetric.value?.[String(Number(metricId))] || null;
+}
+
 function emptySummary() {
     return {
         actual: null,
@@ -722,6 +754,12 @@ function buildSummary(definition, actualValue, planValue) {
         meetsPlan: compareToPlan(definition, plan, actual),
         hint: '',
     };
+}
+
+function planHintLabel(planValue) {
+    const plan = parseNumber(planValue);
+    if (plan === null) return '';
+    return `План: ${formatNumber(plan)}`;
 }
 
 function entry(metricId, restId, month) {
@@ -805,7 +843,12 @@ function metricMonthRestaurantSummary(metricOrId, restId, month) {
         return emptySummary();
     }
     const row = entry(Number(metric.id), Number(restId), Number(month));
-    return buildSummary(metric, row?.fact_value, row?.plan_value);
+    const summary = buildSummary(metric, row?.fact_value, row?.plan_value);
+    const planPref = metricPlanPreference(metric.id);
+    if (summaryReady(summary) && planPref?.planMode === 'per_restaurant') {
+        summary.hint = planHintLabel(summary.plan);
+    }
+    return summary;
 }
 
 function metricRestaurantYearSummary(metricOrId, restId) {
@@ -1053,6 +1096,22 @@ async function loadMetrics() {
     }
 }
 
+async function loadPlanPreferences() {
+    try {
+        const data = await fetchKpiPlanPreferences();
+        const items = Array.isArray(data?.items) ? data.items : data || [];
+        const next = {};
+        items.forEach((item) => {
+            const normalized = normalizePlanPreference(item);
+            if (!normalized) return;
+            next[String(normalized.metricId)] = normalized;
+        });
+        planPrefsByMetric.value = next;
+    } catch (error) {
+        console.error('Failed to load KPI plan preferences for plan/fact page', error);
+    }
+}
+
 async function loadRestaurants() {
     try {
         const data = await fetchRestaurants();
@@ -1189,7 +1248,7 @@ watch(
 
 onMounted(async () => {
     await loadRestaurants();
-    await loadMetrics();
+    await Promise.all([loadMetrics(), loadPlanPreferences()]);
     await loadResults();
 });
 

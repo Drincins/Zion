@@ -646,37 +646,13 @@
                         </div>
 
                         <div
-                            v-if="
-                                !planForms[metricEditingId].isDynamic &&
-                                    planForms[metricEditingId].planMode === 'per_restaurant'
-                            "
-                            class="kpi-plan-editor__row kpi-plan-editor__row--static"
-                        >
-                            <div class="kpi-plan-editor__field kpi-plan-editor__field--month">
-                                <Select
-                                    v-model="planForms[metricEditingId].selectedMonth"
-                                    label="Месяц"
-                                    :options="planMonthOptions"
-                                    placeholder="Выберите месяц"
-                                />
-                            </div>
-                            <div class="kpi-plan-editor__field kpi-plan-editor__field--value">
-                                <label class="kpi-plan-editor__label">План</label>
-                                <input
-                                    v-model="planForms[metricEditingId].months[planForms[metricEditingId].selectedMonth]"
-                                    class="kpi-plan-editor__input kpi-plan-editor__input--compact"
-                                    type="number"
-                                    step="0.01"
-                                    placeholder="0"
-                                >
-                            </div>
-                        </div>
-                        <div
-                            v-else-if="!planForms[metricEditingId].isDynamic"
+                            v-if="!planForms[metricEditingId].isDynamic"
                             class="kpi-plan-editor__row kpi-plan-editor__row--static"
                         >
                             <div class="kpi-plan-editor__field kpi-plan-editor__field--value">
-                                <label class="kpi-plan-editor__label">План на месяц</label>
+                                <label class="kpi-plan-editor__label">
+                                    {{ planForms[metricEditingId].planMode === 'per_restaurant' ? 'План для ресторана' : 'План на месяц' }}
+                                </label>
                                 <input
                                     v-model="planForms[metricEditingId].constantValue"
                                     class="kpi-plan-editor__input kpi-plan-editor__input--compact"
@@ -1375,34 +1351,13 @@
                         </div>
 
                         <div
-                            v-if="!activeMetricGroupPlanForm.isDynamic && activeMetricGroupPlanForm.planMode === 'per_restaurant'"
-                            class="kpi-plan-editor__row kpi-plan-editor__row--static"
-                        >
-                            <div class="kpi-plan-editor__field kpi-plan-editor__field--month">
-                                <Select
-                                    v-model="activeMetricGroupPlanForm.selectedMonth"
-                                    label="Месяц"
-                                    :options="planMonthOptions"
-                                    placeholder="Выберите месяц"
-                                />
-                            </div>
-                            <div class="kpi-plan-editor__field kpi-plan-editor__field--value">
-                                <label class="kpi-plan-editor__label">План</label>
-                                <input
-                                    v-model="activeMetricGroupPlanForm.months[activeMetricGroupPlanForm.selectedMonth]"
-                                    class="kpi-plan-editor__input kpi-plan-editor__input--compact"
-                                    type="number"
-                                    step="0.01"
-                                    placeholder="0"
-                                >
-                            </div>
-                        </div>
-                        <div
-                            v-else-if="!activeMetricGroupPlanForm.isDynamic"
+                            v-if="!activeMetricGroupPlanForm.isDynamic"
                             class="kpi-plan-editor__row kpi-plan-editor__row--static"
                         >
                             <div class="kpi-plan-editor__field kpi-plan-editor__field--value">
-                                <label class="kpi-plan-editor__label">План на месяц</label>
+                                <label class="kpi-plan-editor__label">
+                                    {{ activeMetricGroupPlanForm.planMode === 'per_restaurant' ? 'План для ресторана' : 'План на месяц' }}
+                                </label>
                                 <input
                                     v-model="activeMetricGroupPlanForm.constantValue"
                                     class="kpi-plan-editor__input kpi-plan-editor__input--compact"
@@ -2015,7 +1970,7 @@ async function persistPlanPreference(metricId) {
                 ? Number(form.restaurantId)
                 : null,
         is_dynamic: Boolean(form.isDynamic),
-        selected_month: Number(form.selectedMonth) || null,
+        selected_month: form.isDynamic ? (Number(form.selectedMonth) || null) : null,
     };
 
     try {
@@ -2103,7 +2058,7 @@ async function persistMetricGroupPlanPreference(groupId) {
                 ? Number(form.restaurantId)
                 : null,
         is_dynamic: Boolean(form.isDynamic),
-        selected_month: Number(form.selectedMonth) || null,
+        selected_month: form.isDynamic ? (Number(form.selectedMonth) || null) : null,
     };
 
     try {
@@ -3093,9 +3048,7 @@ async function savePlan(metricId) {
         }
 
         const yearValue = Number(planYear.value);
-        const isPerRestaurantStatic = !form.isDynamic && form.planMode === 'per_restaurant';
-        const selectedMonth = normalizeMonth(form.selectedMonth);
-        if (!form.isDynamic && !isPerRestaurantStatic) {
+        if (!form.isDynamic) {
             months.forEach(({ month }) => {
                 form.months[month] = form.constantValue;
             });
@@ -3117,14 +3070,10 @@ async function savePlan(metricId) {
             storedFacts?.restaurantId !== null && storedFacts?.restaurantId !== undefined
                 ? Number(storedFacts.restaurantId)
                 : null;
-        const monthsForSave = isPerRestaurantStatic
-            ? months.filter((item) => Number(item.month) === Number(selectedMonth))
-            : months;
+        const monthsForSave = months;
         targetRestaurants.forEach((restaurantId) => {
             monthsForSave.forEach(({ month }) => {
-                const rawValue = isPerRestaurantStatic
-                    ? form.months[selectedMonth]
-                    : (form.isDynamic ? form.months[month] : form.constantValue);
+                const rawValue = form.isDynamic ? form.months[month] : form.constantValue;
                 const planValue = parseNumber(rawValue);
                 const hasExisting = existingKeys
                     ? existingKeys.has(`${Number(restaurantId)}-${Number(month)}`)
@@ -3183,9 +3132,7 @@ async function saveMetricGroupPlan(groupId) {
         }
 
         const yearValue = Number(planYear.value);
-        const isPerRestaurantStatic = !form.isDynamic && form.planMode === 'per_restaurant';
-        const selectedMonth = normalizeMonth(form.selectedMonth);
-        if (!form.isDynamic && !isPerRestaurantStatic) {
+        if (!form.isDynamic) {
             months.forEach(({ month }) => {
                 form.months[month] = form.constantValue;
             });
@@ -3207,14 +3154,10 @@ async function saveMetricGroupPlan(groupId) {
             storedFacts?.restaurantId !== null && storedFacts?.restaurantId !== undefined
                 ? Number(storedFacts.restaurantId)
                 : null;
-        const monthsForSave = isPerRestaurantStatic
-            ? months.filter((item) => Number(item.month) === Number(selectedMonth))
-            : months;
+        const monthsForSave = months;
         targetRestaurants.forEach((restaurantId) => {
             monthsForSave.forEach(({ month }) => {
-                const rawValue = isPerRestaurantStatic
-                    ? form.months[selectedMonth]
-                    : (form.isDynamic ? form.months[month] : form.constantValue);
+                const rawValue = form.isDynamic ? form.months[month] : form.constantValue;
                 const planValue = parseNumber(rawValue);
                 const hasExisting = existingKeys
                     ? existingKeys.has(`${Number(restaurantId)}-${Number(month)}`)
