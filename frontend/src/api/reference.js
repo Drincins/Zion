@@ -1,21 +1,27 @@
 import { api, cachedGet } from './client';
 
-export async function fetchCompanies() {
+export async function fetchCompanies(options = {}) {
     return await cachedGet('/api/companies/', {
         cacheScope: 'companies',
-        ttlMs: 60 * 60 * 1000
+        ttlMs: 60 * 60 * 1000,
+        skipGlobalLoading: options?.skipGlobalLoading === true,
     });
 }
 
-export async function fetchRoles() {
-    return await cachedGet('/api/users/roles', { cacheScope: 'roles', ttlMs: 6 * 60 * 60 * 1000 });
+export async function fetchRoles(options = {}) {
+    return await cachedGet('/api/users/roles', {
+        cacheScope: 'roles',
+        ttlMs: 6 * 60 * 60 * 1000,
+        skipGlobalLoading: options?.skipGlobalLoading === true,
+    });
 }
 
-export async function fetchRestaurants(params = {}) {
+export async function fetchRestaurants(params = {}, options = {}) {
     return await cachedGet('/api/restaurants/', {
         params,
         cacheScope: 'restaurants',
-        ttlMs: 10 * 60 * 1000
+        ttlMs: 10 * 60 * 1000,
+        skipGlobalLoading: options?.skipGlobalLoading === true,
     });
 }
 

@@ -37,7 +37,8 @@ export async function fetchEmployees(params = {}, options = {}) {
     const query = buildQueryParams(requestParams).toString();
     const url = query ? `${endpoint}?${query}` : endpoint;
     const { data } = await api.get(url, {
-        signal: options?.signal
+        signal: options?.signal,
+        skipGlobalLoading: options?.skipGlobalLoading === true,
     });
     return data;
 }
@@ -103,7 +104,8 @@ export async function fetchEmployeesBootstrap(params = {}, options = {}) {
         ? `/api/staff/employees/bootstrap?${query}`
         : '/api/staff/employees/bootstrap';
     const { data } = await api.get(url, {
-        signal: options?.signal
+        signal: options?.signal,
+        skipGlobalLoading: options?.skipGlobalLoading === true,
     });
     return data;
 }
