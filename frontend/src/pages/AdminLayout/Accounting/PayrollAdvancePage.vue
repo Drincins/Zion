@@ -1045,6 +1045,7 @@ import {
     createAdvanceStatement,
     downloadAdvanceStatement,
     fetchAdvanceStatement,
+    fetchAdvanceStatementLookup,
     fetchAdvanceStatementTotals,
     fetchAdvanceStatements,
     fetchAdvanceConsolidatedStatements,
@@ -2702,7 +2703,14 @@ function syncStatementList(data) {
 
 async function loadStatements() {
     try {
-        const data = await fetchAdvanceStatements();
+        const params = {
+            limit: 100,
+            month: listFilters.value.month || undefined,
+            restaurant_id: listFilters.value.restaurantId || undefined,
+            sort_by: sortBy.value || 'created_at',
+            sort_direction: sortDirection.value || 'desc',
+        };
+        const data = await fetchAdvanceStatements(params);
         statements.value = Array.isArray(data?.items) ? data.items : [];
     } catch (error) {
         toast.error('Не удалось загрузить список документов');
@@ -2712,13 +2720,36 @@ async function loadStatements() {
 
 async function loadConsolidatedStatementsList() {
     try {
-        const data = await fetchAdvanceConsolidatedStatements();
+        const params = {
+            limit: 100,
+            month: listFilters.value.month || undefined,
+            restaurant_id: listFilters.value.restaurantId || undefined,
+        };
+        const data = await fetchAdvanceConsolidatedStatements(params);
         const items = Array.isArray(data?.items) ? data.items : [];
         consolidatedStatements.value = items
             .map((item) => normalizeConsolidatedStatement(item))
             .filter(Boolean);
     } catch (error) {
         toast.error('Не удалось загрузить общие ведомости');
+        console.error(error);
+    }
+}
+
+async function ensureConsolidatedStatementsLoaded(group) {
+    const ids = Array.isArray(group?.statement_ids)
+        ? group.statement_ids.map((value) => Number(value)).filter((value) => Number.isFinite(value) && value > 0)
+        : [];
+    if (!ids.length) return;
+    const missingIds = ids.filter((id) => !statementById.value.has(id));
+    if (!missingIds.length) return;
+    try {
+        const payload = await fetchAdvanceStatementLookup(missingIds);
+        const items = Array.isArray(payload?.items) ? payload.items : [];
+        for (const item of items) {
+            syncStatementList(item);
+        }
+    } catch (error) {
         console.error(error);
     }
 }
@@ -2982,6 +3013,7 @@ function openConsolidatedStatementModal(id) {
     currentConsolidated.value = normalizeConsolidatedStatement(item);
     consolidatedViewTab.value = 'statements';
     showConsolidatedStatementModal.value = true;
+    void ensureConsolidatedStatementsLoaded(currentConsolidated.value);
 }
 
 function closeConsolidatedStatementModal() {
@@ -2997,10 +3029,12 @@ function closeConsolidatedStatementModal() {
 async function openStatementFromConsolidated(id) {
     const targetId = Number(id);
     if (!Number.isFinite(targetId)) return;
-    if (statementById.value.has(targetId)) {
-        showConsolidatedStatementModal.value = false;
-        await openStatementModal(targetId);
+    if (!statementById.value.has(targetId)) {
+        await ensureConsolidatedStatementsLoaded({ statement_ids: [targetId] });
     }
+    if (!statementById.value.has(targetId)) return;
+    showConsolidatedStatementModal.value = false;
+    await openStatementModal(targetId);
 }
 
 function toggleConsolidatedSelection(id) {
@@ -3175,9 +3209,18 @@ onMounted(() => {
 });
 
 watch(
+    () => [listFilters.value.restaurantId, listFilters.value.month, sortBy.value, sortDirection.value],
+    () => {
+        void loadStatements();
+        void loadConsolidatedStatementsList();
+    },
+);
+
+watch(
     () => [showConsolidatedStatementModal.value, currentConsolidated.value?.id],
     ([isOpen, groupId]) => {
         if (!isOpen || !groupId) return;
+        void ensureConsolidatedStatementsLoaded(currentConsolidated.value);
         void loadConsolidatedTotals();
         if (consolidatedViewTab.value === 'histogram') {
             void loadConsolidatedHistogram();

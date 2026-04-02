@@ -14,8 +14,9 @@ function parseContentDispositionFilename(contentDisposition) {
     return plainMatch?.[1] || '';
 }
 
-export async function fetchAdvanceStatements() {
-    const { data } = await api.get('/api/payroll/advances');
+export async function fetchAdvanceStatements(params = {}) {
+    const query = buildQueryParams(params);
+    const { data } = await api.get('/api/payroll/advances', { params: query });
     return data;
 }
 
@@ -35,6 +36,20 @@ export async function fetchAdvanceStatementTotals(statementIds = []) {
     }
     const params = buildQueryParams({ ids });
     const { data } = await api.get('/api/payroll/advances/totals', { params });
+    return data;
+}
+
+export async function fetchAdvanceStatementLookup(statementIds = []) {
+    const ids = Array.isArray(statementIds)
+        ? statementIds
+              .map((value) => Number(value))
+              .filter((value) => Number.isFinite(value) && value > 0)
+        : [];
+    if (!ids.length) {
+        return { items: [], total: 0, offset: 0, limit: 0, next_offset: null, has_more: false };
+    }
+    const params = buildQueryParams({ ids });
+    const { data } = await api.get('/api/payroll/advances/lookup', { params });
     return data;
 }
 
@@ -101,8 +116,9 @@ export async function downloadAdvanceConsolidated(statementIds = []) {
     };
 }
 
-export async function fetchAdvanceConsolidatedStatements() {
-    const { data } = await api.get('/api/payroll/advances/consolidated');
+export async function fetchAdvanceConsolidatedStatements(params = {}) {
+    const query = buildQueryParams(params);
+    const { data } = await api.get('/api/payroll/advances/consolidated', { params: query });
     return data;
 }
 
