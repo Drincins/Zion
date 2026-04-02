@@ -1485,6 +1485,8 @@ const SERVER_SORTABLE_EMPLOYEE_FIELDS = new Set([
 ]);
 let employeesLastBootstrapKey = '';
 let employeesLastBootstrapAt = 0;
+let employeesBootstrapPromise = null;
+let employeesBootstrapPromiseKey = '';
 const EMPLOYEE_TAB_AUTOLOAD_DEDUP_MS = 1500;
 const employeeTabAutoLoadInflight = new Map();
 const employeeTabAutoLoadRecent = new Map();
@@ -2267,6 +2269,66 @@ function applyBootstrapReferences(references, options = {}) {
     referencesLoadedFromBootstrap.value = true;
 }
 
+function shouldSkipEmployeesBootstrapByDedup(requestKey) {
+    return (
+        employeesLastBootstrapKey === requestKey &&
+        Date.now() - employeesLastBootstrapAt < EMPLOYEES_BOOTSTRAP_DEDUP_MS
+    );
+}
+
+function loadEmployeesBootstrapInBackground(requestKey) {
+    if (!isEmployeesBootstrapAvailable || shouldSkipEmployeesBootstrapByDedup(requestKey)) {
+        return;
+    }
+    if (employeesBootstrapPromise && employeesBootstrapPromiseKey === requestKey) {
+        return;
+    }
+
+    employeesBootstrapPromiseKey = requestKey;
+    const bootstrapPromise = (async () => {
+        try {
+            const bootstrapData = await fetchEmployeesBootstrap(
+                {
+                    include_restaurants: false,
+                    include_companies: false,
+                    include_roles: false,
+                    include_positions: false,
+                    include_items: false,
+                },
+                {
+                    skipGlobalLoading: true,
+                },
+            );
+            if (!canViewEmployees.value) {
+                return;
+            }
+            const references = bootstrapData?.references;
+            if (!references) {
+                return;
+            }
+            applyBootstrapReferences(references, { includePositions: false });
+            employeesLastBootstrapKey = requestKey;
+            employeesLastBootstrapAt = Date.now();
+        } catch (error) {
+            if (error?.response?.status === 404) {
+                isEmployeesBootstrapAvailable = false;
+                return;
+            }
+            if (error?.code === 'ERR_CANCELED' || error?.name === 'CanceledError') {
+                return;
+            }
+            console.error(error);
+        }
+    })();
+    employeesBootstrapPromise = bootstrapPromise;
+    void bootstrapPromise.finally(() => {
+        if (employeesBootstrapPromise === bootstrapPromise) {
+            employeesBootstrapPromise = null;
+            employeesBootstrapPromiseKey = '';
+        }
+    });
+}
+
 function isServerSortableEmployeeField(field) {
     return SERVER_SORTABLE_EMPLOYEE_FIELDS.has(String(field || '').trim());
 }
@@ -2367,6 +2429,8 @@ async function loadEmployees(options = {}) {
         employeesNextOffset.value = 0;
         employeesLastBootstrapKey = '';
         employeesLastBootstrapAt = 0;
+        employeesBootstrapPromise = null;
+        employeesBootstrapPromiseKey = '';
         return;
     }
     if (append && (!employeesHasMore.value || isLoading.value || isLoadingMoreEmployees.value)) {
@@ -2383,13 +2447,6 @@ async function loadEmployees(options = {}) {
         offset: requestOffset,
         ...baseParams,
     });
-    if (
-        canUseBootstrap &&
-        employeesLastBootstrapKey === requestKey &&
-        Date.now() - employeesLastBootstrapAt < EMPLOYEES_BOOTSTRAP_DEDUP_MS
-    ) {
-        return;
-    }
     if (employeesLoadPromise && employeesLoadKey === requestKey) {
         return await employeesLoadPromise;
     }
@@ -2410,81 +2467,15 @@ async function loadEmployees(options = {}) {
     }
     const currentPromise = (async () => {
         try {
-            let data = null;
-            let bootstrapData = null;
-            if (canUseBootstrap) {
-                try {
-                    const [pageData, refsData] = await Promise.all([
-                        fetchEmployees(
-                            {
-                                ...baseParams,
-                                offset: requestOffset,
-                            },
-                            {
-                                signal: abortController.signal,
-                            },
-                        ),
-                        fetchEmployeesBootstrap(
-                            {
-                                include_restaurants: false,
-                                include_companies: false,
-                                include_roles: false,
-                                include_positions: false,
-                                include_items: false,
-                            },
-                            {
-                                signal: abortController.signal,
-                                skipGlobalLoading: true,
-                            },
-                        ),
-                    ]);
-                    data = pageData;
-                    bootstrapData = refsData;
-                } catch (error) {
-                    if (error?.response?.status === 404) {
-                        isEmployeesBootstrapAvailable = false;
-                        bootstrapData = null;
-                    } else {
-                        throw error;
-                    }
-                }
-            }
-
-            if (!data) {
-                data = await fetchEmployees(
-                    {
-                        ...baseParams,
-                        offset: requestOffset,
-                    },
-                    {
-                        signal: abortController.signal,
-                    },
-                );
-            }
-
-            if (!bootstrapData && canUseBootstrap && isEmployeesBootstrapAvailable) {
-                try {
-                    bootstrapData = await fetchEmployeesBootstrap(
-                        {
-                            include_restaurants: false,
-                            include_companies: false,
-                            include_roles: false,
-                            include_positions: false,
-                            include_items: false,
-                        },
-                        {
-                            signal: abortController.signal,
-                            skipGlobalLoading: true,
-                        },
-                    );
-                } catch (error) {
-                    if (error?.response?.status === 404) {
-                        isEmployeesBootstrapAvailable = false;
-                    } else {
-                        throw error;
-                    }
-                }
-            }
+            const data = await fetchEmployees(
+                {
+                    ...baseParams,
+                    offset: requestOffset,
+                },
+                {
+                    signal: abortController.signal,
+                },
+            );
 
             if (requestId !== employeesLoadCounter) return;
             const pageItems = Array.isArray(data?.items) ? data.items : [];
@@ -2495,7 +2486,7 @@ async function loadEmployees(options = {}) {
             employeesNextOffset.value =
                 Number.isFinite(nextOffsetRaw) && nextOffsetRaw >= 0 ? nextOffsetRaw : fallbackOffset;
 
-            const references = bootstrapData?.references ?? data?.references;
+            const references = data?.references;
             if (!append && references) {
                 applyBootstrapReferences(references, { includePositions: false });
                 employeesLastBootstrapKey = requestKey;
@@ -2504,6 +2495,10 @@ async function loadEmployees(options = {}) {
 
             if (!positionsLoadedFromAccess.value) {
                 derivePositionsFromEmployees(employees.value);
+            }
+
+            if (!append && canUseBootstrap) {
+                loadEmployeesBootstrapInBackground(requestKey);
             }
         } catch (error) {
             if (error?.code === 'ERR_CANCELED' || error?.name === 'CanceledError') {
