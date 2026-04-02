@@ -211,7 +211,7 @@ function throwIfAborted(signal) {
 
 export async function cachedGet(
     url,
-    { params = {}, cacheScope = 'default', ttlMs = 0, signal } = {},
+    { params = {}, cacheScope = 'default', ttlMs = 0, signal, skipGlobalLoading = false } = {},
 ) {
     throwIfAborted(signal);
     const generationKey = getCacheGenerationKey(cacheScope);
@@ -234,7 +234,7 @@ export async function cachedGet(
     }
 
     const requestFactory = () => api
-        .get(url, { params, signal })
+        .get(url, { params, signal, skipGlobalLoading })
         .then(({ data }) => {
             if ((apiCacheGenerations.get(generationKey) || 0) === generation) {
                 writeMemoryCache(cacheKey, data, ttlMs);

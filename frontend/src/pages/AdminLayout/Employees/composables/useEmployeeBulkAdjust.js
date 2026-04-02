@@ -375,7 +375,7 @@ export function useEmployeeBulkAdjust({
         };
 
         bulkSearchLoading.value = true;
-        fetchAllEmployees({ include_fired: true })
+        fetchAllEmployees({ include_fired: true }, { skipGlobalLoading: true })
             .then((data) => {
                 const list = Array.isArray(data?.items) ? data.items : Array.isArray(data) ? data : [];
                 applyList(list);
@@ -401,7 +401,7 @@ export function useEmployeeBulkAdjust({
                 params.include_fired = true;
                 params.only_fired = true;
             }
-            const data = await fetchEmployees(params);
+            const data = await fetchEmployees(params, { skipGlobalLoading: true });
             const list = Array.isArray(data?.items) ? data.items : Array.isArray(data) ? data : [];
             bulkSearchResults.value = list;
         } catch (error) {

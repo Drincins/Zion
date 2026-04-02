@@ -2434,6 +2434,7 @@ async function loadEmployees(options = {}) {
                             },
                             {
                                 signal: abortController.signal,
+                                skipGlobalLoading: true,
                             },
                         ),
                     ]);
@@ -2473,6 +2474,7 @@ async function loadEmployees(options = {}) {
                         },
                         {
                             signal: abortController.signal,
+                            skipGlobalLoading: true,
                         },
                     );
                 } catch (error) {
@@ -3896,7 +3898,7 @@ async function loadRoles() {
         return;
     }
     try {
-        const data = await fetchRoles();
+        const data = await fetchRoles({ skipGlobalLoading: true });
         roles.value = Array.isArray(data) ? data : [];
     } catch (error) {
         const detail = error?.response?.data?.detail;
@@ -3915,7 +3917,7 @@ async function loadRestaurants() {
         return;
     }
     try {
-        const data = await fetchRestaurants();
+        const data = await fetchRestaurants({}, { skipGlobalLoading: true });
         restaurants.value = Array.isArray(data) ? data : [];
     } catch (error) {
         const detail = error?.response?.data?.detail;
@@ -3934,7 +3936,7 @@ async function loadCompanies() {
         return;
     }
     try {
-        const data = await fetchCompanies();
+        const data = await fetchCompanies({ skipGlobalLoading: true });
         companies.value = Array.isArray(data) ? data : [];
     } catch (error) {
         const detail = error?.response?.data?.detail;
@@ -3964,6 +3966,8 @@ async function loadPositions() {
             include_roles: false,
             include_positions: true,
             include_items: false,
+        }, {
+            skipGlobalLoading: true,
         });
         const items = Array.isArray(data?.references?.positions) ? data.references.positions : [];
         positions.value = items;

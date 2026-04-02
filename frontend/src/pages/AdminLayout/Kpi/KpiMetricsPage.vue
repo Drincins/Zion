@@ -1549,10 +1549,6 @@ const months = [
     { month: 12, short: 'Дек' },
 ];
 const currentMonth = new Date().getMonth() + 1;
-const planMonthOptions = months.map((item) => ({
-    value: item.month,
-    label: `${item.short}`,
-}));
 
 const comparisonOptions = [
     { value: 'gte', label: 'больше или равно' },
