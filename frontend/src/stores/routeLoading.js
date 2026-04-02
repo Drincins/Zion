@@ -3,10 +3,12 @@ import { readonly, ref } from 'vue';
 const pendingNavigations = ref(0);
 const pendingApiRequests = ref(0);
 const isRouteLoading = ref(false);
+const SHOW_DELAY_MS = 250;
 const MIN_VISIBLE_MS = 260;
 const HIDE_GRACE_MS = 220;
 let visibleSince = 0;
 let hideTimer = null;
+let showTimer = null;
 
 function getPendingCount() {
     return pendingNavigations.value + pendingApiRequests.value;
@@ -20,8 +22,17 @@ function clearHideTimer() {
     hideTimer = null;
 }
 
+function clearShowTimer() {
+    if (!showTimer) {
+        return;
+    }
+    globalThis.clearTimeout(showTimer);
+    showTimer = null;
+}
+
 function showLoading() {
     clearHideTimer();
+    clearShowTimer();
     if (isRouteLoading.value) {
         return;
     }
@@ -29,7 +40,21 @@ function showLoading() {
     visibleSince = Date.now();
 }
 
+function scheduleShowLoading() {
+    clearHideTimer();
+    if (isRouteLoading.value || showTimer) {
+        return;
+    }
+    showTimer = globalThis.setTimeout(() => {
+        showTimer = null;
+        if (getPendingCount() > 0) {
+            showLoading();
+        }
+    }, SHOW_DELAY_MS);
+}
+
 function hideLoadingWithMinDuration() {
+    clearShowTimer();
     if (!isRouteLoading.value) {
         return;
     }
@@ -47,7 +72,7 @@ function hideLoadingWithMinDuration() {
 
 export function beginRouteLoading() {
     pendingNavigations.value += 1;
-    showLoading();
+    scheduleShowLoading();
 }
 
 export function endRouteLoading() {
@@ -61,15 +86,16 @@ export function resetRouteLoading() {
     pendingNavigations.value = 0;
     if (getPendingCount() === 0) {
         clearHideTimer();
+        clearShowTimer();
         isRouteLoading.value = false;
         return;
     }
-    showLoading();
+    scheduleShowLoading();
 }
 
 export function beginApiLoading() {
     pendingApiRequests.value += 1;
-    showLoading();
+    scheduleShowLoading();
 }
 
 export function endApiLoading() {
