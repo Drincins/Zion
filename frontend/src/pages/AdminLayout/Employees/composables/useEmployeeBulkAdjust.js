@@ -5,7 +5,6 @@ import { useDebounce } from '@/composables/useDebounce';
 import { useMultiSelect } from '@/composables/useMultiSelect';
 
 export function useEmployeeBulkAdjust({
-    employees,
     restaurantOptions,
     timesheetOptions,
     formatDateInput,

@@ -220,6 +220,7 @@
             <EmployeeModal
                 v-if="isEmployeeModalOpen"
                 :is-open="isEmployeeModalOpen"
+                :modal-z-index="modalZIndex"
                 :active-tab="activeModalTab"
                 :active-employee="activeEmployee"
                 :can-manage-employees="canManageEmployees"
@@ -1374,6 +1375,10 @@ const props = defineProps({
         type: Boolean,
         default: false,
     },
+    modalZIndex: {
+        type: [Number, String],
+        default: 1000,
+    },
 });
 
 
@@ -1382,6 +1387,7 @@ const router = useRouter();
 const route = useRoute();
 
 const modalOnly = computed(() => props.modalOnly);
+const modalZIndex = computed(() => props.modalZIndex);
 
 const {
     isSuperAdminRole,
@@ -2046,7 +2052,6 @@ const {
     toggleBulkSubdivisionPanel,
     handleBulkAdjust,
 } = useEmployeeBulkAdjust({
-    employees,
     restaurantOptions,
     timesheetOptions,
     formatDateInput,

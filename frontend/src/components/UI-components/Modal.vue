@@ -1,6 +1,6 @@
 <template>
     <Transition name="modal-fade" appear>
-        <div ref="backdropRef" class="modal-backdrop" @click.self="emit('close')">
+        <div ref="backdropRef" class="modal-backdrop" :style="backdropStyle" @click.self="emit('close')">
             <div class="modal-window">
                 <header class="modal-header">
                     <slot name="header" />
@@ -17,16 +17,24 @@
 </template>
 
 <script setup>
-import { onBeforeUnmount, ref } from 'vue';
+import { computed, onBeforeUnmount, ref } from 'vue';
 
 const props = defineProps({
     disableLeaveAnimation: { type: Boolean, default: false },
+    zIndex: { type: [Number, String], default: null },
 });
 
 const emit = defineEmits(['close']);
 const backdropRef = ref(null);
 
 const MODAL_LEAVE_DURATION_MS = 300;
+
+const backdropStyle = computed(() => {
+    if (props.zIndex === null || props.zIndex === undefined || props.zIndex === '') {
+        return undefined;
+    }
+    return { zIndex: String(props.zIndex) };
+});
 
 onBeforeUnmount(() => {
     if (typeof window === 'undefined') {
