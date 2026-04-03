@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session, selectinload
 from backend.bd.database import get_db
 from backend.bd.models import (
     Position,
+    PositionChangeOrder,
     Permission,
     Role,
     User,
@@ -31,6 +32,9 @@ from backend.schemas import (
     PositionHierarchyCreate,
     PositionHierarchyNode,
     PositionHierarchyUpdate,
+    PositionChangeOrderCreate,
+    PositionChangeOrderPublic,
+    PositionChangeOrderListResponse,
     PaymentFormatRead,
     RestaurantSubdivisionRead,
     RestaurantSubdivisionCreate,
@@ -47,8 +51,9 @@ from backend.services.permissions import (
     collect_permission_codes,
 )
 from backend.services.employee_changes import log_employee_changes
+from backend.services.position_change_orders import apply_position_change_order
 from backend.services.reference_cache import cached_reference_data, invalidate_reference_scope
-from backend.utils import get_current_user, user_has_global_access
+from backend.utils import get_current_user, now_local, today_local, user_has_global_access
 
 router = APIRouter(prefix="/access", tags=["Access control"])
 
@@ -113,6 +118,40 @@ def _position_response(position: Position) -> PositionHierarchyNode:
         night_bonus_enabled=position.night_bonus_enabled,
         night_bonus_percent=position.night_bonus_percent,
     )
+
+
+def _require_position_change_orders_manage(current_user: User) -> None:
+    _require_permissions(
+        current_user,
+        [
+            PermissionCode.SYSTEM_ADMIN,
+            PermissionCode.POSITIONS_CHANGE_ORDERS_MANAGE,
+        ],
+    )
+
+
+def _load_position_change_order(
+    db: Session,
+    *,
+    position_id: int,
+    order_id: int,
+) -> PositionChangeOrder:
+    order = (
+        db.query(PositionChangeOrder)
+        .options(
+            selectinload(PositionChangeOrder.position).selectinload(Position.payment_format),
+            selectinload(PositionChangeOrder.created_by),
+            selectinload(PositionChangeOrder.cancelled_by),
+        )
+        .filter(
+            PositionChangeOrder.id == order_id,
+            PositionChangeOrder.position_id == position_id,
+        )
+        .first()
+    )
+    if not order:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Position change order not found")
+    return order
 
 
 class AccessBootstrapResponse(BaseModel):
@@ -235,6 +274,7 @@ def _can_read_positions(user: User) -> bool:
             PermissionCode.POSITIONS_MANAGE,
             PermissionCode.POSITIONS_EDIT,
             PermissionCode.POSITIONS_RATE_MANAGE,
+            PermissionCode.POSITIONS_CHANGE_ORDERS_MANAGE,
         ],
     )
 
@@ -810,6 +850,7 @@ def list_positions(
             PermissionCode.POSITIONS_MANAGE,
             PermissionCode.POSITIONS_EDIT,
             PermissionCode.POSITIONS_RATE_MANAGE,
+            PermissionCode.POSITIONS_CHANGE_ORDERS_MANAGE,
         ],
     )
 
@@ -1178,6 +1219,148 @@ def update_position(
     if not position:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Position not found after update")
     return _position_response(position)
+
+
+@router.get(
+    "/positions/{position_id}/change-orders",
+    response_model=PositionChangeOrderListResponse,
+    response_model_exclude_none=True,
+)
+def list_position_change_orders(
+    position_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> PositionChangeOrderListResponse:
+    _require_position_change_orders_manage(current_user)
+
+    position = db.query(Position.id).filter(Position.id == position_id).first()
+    if not position:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Position not found")
+
+    items = (
+        db.query(PositionChangeOrder)
+        .options(
+            selectinload(PositionChangeOrder.position).selectinload(Position.payment_format),
+            selectinload(PositionChangeOrder.created_by),
+            selectinload(PositionChangeOrder.cancelled_by),
+        )
+        .filter(PositionChangeOrder.position_id == position_id)
+        .order_by(
+            PositionChangeOrder.effective_date.desc(),
+            PositionChangeOrder.created_at.desc(),
+            PositionChangeOrder.id.desc(),
+        )
+        .all()
+    )
+    return PositionChangeOrderListResponse(
+        items=[PositionChangeOrderPublic.model_validate(item) for item in items]
+    )
+
+
+@router.post(
+    "/positions/{position_id}/change-orders",
+    response_model=PositionChangeOrderPublic,
+    response_model_exclude_none=True,
+    status_code=status.HTTP_201_CREATED,
+)
+def create_position_change_order(
+    position_id: int,
+    payload: PositionChangeOrderCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> PositionChangeOrderPublic:
+    _require_position_change_orders_manage(current_user)
+
+    position = (
+        db.query(Position)
+        .options(selectinload(Position.payment_format))
+        .filter(Position.id == position_id)
+        .first()
+    )
+    if not position:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Position not found")
+
+    if payload.effective_date < today_local():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Effective date must be today or in the future",
+        )
+    if payload.rate_new is None or payload.rate_new < 0:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Укажите корректную новую ставку",
+        )
+
+    existing_pending = (
+        db.query(PositionChangeOrder.id)
+        .filter(
+            PositionChangeOrder.position_id == position_id,
+            PositionChangeOrder.effective_date == payload.effective_date,
+            PositionChangeOrder.status == "pending",
+        )
+        .first()
+    )
+    if existing_pending:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="A pending change order already exists for this date",
+        )
+
+    order = PositionChangeOrder(
+        position_id=position_id,
+        effective_date=payload.effective_date,
+        rate_new=payload.rate_new,
+        apply_to_attendances=bool(payload.apply_to_attendances),
+        comment=(payload.comment or "").strip() or None,
+        created_by_id=current_user.id,
+    )
+    db.add(order)
+    db.commit()
+
+    order = _load_position_change_order(db, position_id=position_id, order_id=order.id)
+    if order.effective_date <= today_local():
+        try:
+            apply_position_change_order(db, order)
+            db.commit()
+            order = _load_position_change_order(db, position_id=position_id, order_id=order.id)
+        except Exception:
+            db.rollback()
+            raise
+    return PositionChangeOrderPublic.model_validate(order)
+
+
+@router.post(
+    "/positions/{position_id}/change-orders/{order_id}/cancel",
+    response_model=PositionChangeOrderPublic,
+    response_model_exclude_none=True,
+)
+def cancel_position_change_order(
+    position_id: int,
+    order_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> PositionChangeOrderPublic:
+    _require_position_change_orders_manage(current_user)
+
+    position = db.query(Position.id).filter(Position.id == position_id).first()
+    if not position:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Position not found")
+
+    order = _load_position_change_order(db, position_id=position_id, order_id=order_id)
+    if order.status != "pending":
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Only pending position change orders can be cancelled",
+        )
+
+    order.status = "cancelled"
+    order.cancelled_at = now_local()
+    order.cancelled_by_id = current_user.id
+    order.error_message = None
+    db.commit()
+
+    order = _load_position_change_order(db, position_id=position_id, order_id=order_id)
+    return PositionChangeOrderPublic.model_validate(order)
 
 
 @router.delete("/positions/{position_id}", status_code=status.HTTP_204_NO_CONTENT)

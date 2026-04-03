@@ -4,6 +4,7 @@
             <div class="user-info__positions-header">
                 <h3 class="h3 user-info__card-title">Должности</h3>
                 <Button
+                    v-if="canManagePositions"
                     type="button"
                     size="sm"
                     :disabled="positionsLoading || rolesLoading || !roles.length"
@@ -275,7 +276,20 @@
                 </form>
             </template>
             <template #footer>
-                <Button type="button" :loading="positionModalSaving" @click="handleSavePosition">
+                <Button
+                    v-if="editingPositionId && canManagePositionChangeOrders"
+                    type="button"
+                    color="secondary"
+                    @click="openPositionChangeOrderModal"
+                >
+                    Изменение с даты
+                </Button>
+                <Button
+                    v-if="canManagePositions"
+                    type="button"
+                    :loading="positionModalSaving"
+                    @click="handleSavePosition"
+                >
                     Сохранить
                 </Button>
                 <Button type="button" color="secondary" @click="closePositionModal">
@@ -283,6 +297,22 @@
                 </Button>
             </template>
         </Modal>
+
+        <PositionChangeOrderModal
+            v-if="isPositionChangeOrderModalOpen"
+            :is-open="isPositionChangeOrderModalOpen"
+            :position-name="editingPositionName"
+            :form="positionChangeOrderForm"
+            :orders="positionChangeOrders"
+            :loading="positionChangeOrdersLoading"
+            :error="positionChangeOrdersError"
+            :saving="positionChangeOrderSaving"
+            :cancelling-id="cancellingPositionChangeOrderId"
+            @close="closePositionChangeOrderModal"
+            @submit="handleCreatePositionChangeOrder"
+            @cancel-order="handleCancelPositionChangeOrder"
+            @update-field="updatePositionChangeOrderField"
+        />
     </div>
 </template>
 
@@ -290,9 +320,12 @@
 import { computed, onMounted, reactive, ref, watch } from 'vue';
 import {
     createAccessPosition,
+    createPositionChangeOrder,
+    cancelPositionChangeOrder,
     deleteAccessPosition,
     fetchAccessPositions,
     fetchAccessRoles,
+    fetchPositionChangeOrders,
     fetchPaymentFormats,
     fetchRestaurantSubdivisions,
     fetchRoles,
@@ -308,6 +341,8 @@ import Select from '@/components/UI-components/Select.vue';
 import Table from '@/components/UI-components/Table.vue';
 import BaseIcon from '@/components/UI-components/BaseIcon.vue';
 import { extractApiErrorMessage } from '@/utils/apiErrors';
+import { POSITIONS_CHANGE_ORDERS_MANAGE_PERMISSIONS } from '@/accessPolicy';
+import PositionChangeOrderModal from './components/PositionChangeOrderModal.vue';
 
 const userStore = useUserStore();
 const toast = useToast();
@@ -315,6 +350,9 @@ const toast = useToast();
 const canViewRoles = computed(() => userStore.hasAnyPermission('roles.manage', 'system.admin'));
 const canManagePositions = computed(() =>
     userStore.hasAnyPermission('positions.manage', 'system.admin'),
+);
+const canManagePositionChangeOrders = computed(() =>
+    userStore.hasAnyPermission(...POSITIONS_CHANGE_ORDERS_MANAGE_PERMISSIONS),
 );
 
 const positions = ref([]);
@@ -331,6 +369,12 @@ const isPositionModalOpen = ref(false);
 const editingPositionId = ref(null);
 const positionModalSaving = ref(false);
 const deletingPosition = ref(false);
+const isPositionChangeOrderModalOpen = ref(false);
+const positionChangeOrders = ref([]);
+const positionChangeOrdersLoading = ref(false);
+const positionChangeOrdersError = ref('');
+const positionChangeOrderSaving = ref(false);
+const cancellingPositionChangeOrderId = ref(null);
 const positionForm = reactive({
     name: '',
     code: '',
@@ -343,6 +387,12 @@ const positionForm = reactive({
     restaurantSubdivisionId: '',
     nightBonusEnabled: false,
     nightBonusPercent: '',
+});
+const positionChangeOrderForm = reactive({
+    effectiveDate: formatTodayDate(),
+    rateNew: '',
+    applyToAttendances: false,
+    comment: '',
 });
 
 const sortBy = ref('');
@@ -436,6 +486,11 @@ const restaurantSubdivisionMap = computed(() => {
     return map;
 });
 
+const editingPositionName = computed(() => {
+    const current = positions.value.find((item) => item.id === editingPositionId.value);
+    return current?.name || '';
+});
+
 const positionParentOptions = computed(() => {
     const base = [
         {
@@ -470,6 +525,21 @@ function resetPositionForm() {
     positionForm.restaurantSubdivisionId = '';
     positionForm.nightBonusEnabled = false;
     positionForm.nightBonusPercent = '';
+}
+
+function formatTodayDate() {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+}
+
+function resetPositionChangeOrderForm() {
+    positionChangeOrderForm.effectiveDate = formatTodayDate();
+    positionChangeOrderForm.rateNew = '';
+    positionChangeOrderForm.applyToAttendances = false;
+    positionChangeOrderForm.comment = '';
 }
 
 function openCreatePositionModal() {
@@ -527,6 +597,114 @@ function closePositionModal() {
     positionModalSaving.value = false;
     editingPositionId.value = null;
     resetPositionForm();
+    closePositionChangeOrderModal();
+}
+
+function updatePositionChangeOrderField(payload) {
+    const field = payload?.field;
+    if (!field || !Object.prototype.hasOwnProperty.call(positionChangeOrderForm, field)) {
+        return;
+    }
+    positionChangeOrderForm[field] = payload.value;
+}
+
+async function loadPositionChangeOrders() {
+    if (!editingPositionId.value || !canManagePositionChangeOrders.value) {
+        positionChangeOrders.value = [];
+        positionChangeOrdersError.value = '';
+        return;
+    }
+    positionChangeOrdersLoading.value = true;
+    positionChangeOrdersError.value = '';
+    try {
+        const data = await fetchPositionChangeOrders(editingPositionId.value);
+        positionChangeOrders.value = Array.isArray(data?.items) ? data.items : [];
+    } catch (error) {
+        positionChangeOrders.value = [];
+        positionChangeOrdersError.value = extractApiErrorMessage(
+            error,
+            'Не удалось загрузить кадровые изменения должности',
+        );
+        console.error(error);
+    } finally {
+        positionChangeOrdersLoading.value = false;
+    }
+}
+
+async function openPositionChangeOrderModal() {
+    if (!editingPositionId.value || !canManagePositionChangeOrders.value) {
+        return;
+    }
+    resetPositionChangeOrderForm();
+    positionChangeOrderForm.rateNew =
+        positionForm.rate !== '' && positionForm.rate !== null && positionForm.rate !== undefined
+            ? String(positionForm.rate)
+            : '';
+    isPositionChangeOrderModalOpen.value = true;
+    await loadPositionChangeOrders();
+}
+
+function closePositionChangeOrderModal() {
+    isPositionChangeOrderModalOpen.value = false;
+    positionChangeOrderSaving.value = false;
+    positionChangeOrdersError.value = '';
+    positionChangeOrders.value = [];
+    cancellingPositionChangeOrderId.value = null;
+    resetPositionChangeOrderForm();
+}
+
+async function handleCreatePositionChangeOrder() {
+    if (!editingPositionId.value || !canManagePositionChangeOrders.value) {
+        return;
+    }
+    if (!positionChangeOrderForm.effectiveDate) {
+        toast.error('Укажите дату вступления в силу');
+        return;
+    }
+
+    const parsedRate = Number.parseFloat(String(positionChangeOrderForm.rateNew).replace(',', '.'));
+    if (!Number.isFinite(parsedRate) || parsedRate < 0) {
+        toast.error('Укажите корректную новую ставку');
+        return;
+    }
+
+    positionChangeOrderSaving.value = true;
+    try {
+        await createPositionChangeOrder(editingPositionId.value, {
+            effective_date: positionChangeOrderForm.effectiveDate,
+            rate_new: parsedRate,
+            apply_to_attendances: Boolean(positionChangeOrderForm.applyToAttendances),
+            comment: positionChangeOrderForm.comment.trim() || null,
+        });
+        toast.success('Кадровое изменение должности сохранено');
+        if (positionChangeOrderForm.effectiveDate === formatTodayDate()) {
+            positionForm.rate = String(parsedRate);
+        }
+        await Promise.all([loadPositionChangeOrders(), loadPositions()]);
+        closePositionChangeOrderModal();
+    } catch (error) {
+        toast.error(extractApiErrorMessage(error, 'Не удалось сохранить кадровое изменение должности'));
+        console.error(error);
+    } finally {
+        positionChangeOrderSaving.value = false;
+    }
+}
+
+async function handleCancelPositionChangeOrder(orderId) {
+    if (!editingPositionId.value || !orderId || !canManagePositionChangeOrders.value) {
+        return;
+    }
+    cancellingPositionChangeOrderId.value = orderId;
+    try {
+        await cancelPositionChangeOrder(editingPositionId.value, orderId);
+        toast.success('Кадровое изменение должности отменено');
+        await loadPositionChangeOrders();
+    } catch (error) {
+        toast.error(extractApiErrorMessage(error, 'Не удалось отменить кадровое изменение должности'));
+        console.error(error);
+    } finally {
+        cancellingPositionChangeOrderId.value = null;
+    }
 }
 
 function resolveSubdivisionName(subdivisionId) {

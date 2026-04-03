@@ -65,6 +65,7 @@ export function useEmployeeDocuments({
     });
     const isMedicalFormOpen = ref(false);
     const isMedicalBulkMode = ref(false);
+    const isMedicalBulkUpdateMode = ref(false);
     const isCisFormOpen = ref(false);
     const isEmploymentFormOpen = ref(false);
     const savingMedicalRecord = ref(false);
@@ -147,6 +148,7 @@ export function useEmployeeDocuments({
 
     function startCreateMedicalRecord() {
         isMedicalBulkMode.value = false;
+        isMedicalBulkUpdateMode.value = false;
         resetMedicalForm();
         isMedicalFormOpen.value = true;
     }
@@ -154,6 +156,14 @@ export function useEmployeeDocuments({
     function startCreateMedicalRecordsBulk() {
         resetMedicalForm();
         isMedicalBulkMode.value = true;
+        isMedicalBulkUpdateMode.value = false;
+        isMedicalFormOpen.value = true;
+    }
+
+    function startUpdateMedicalRecordsBulk() {
+        resetMedicalForm();
+        isMedicalBulkMode.value = false;
+        isMedicalBulkUpdateMode.value = true;
         isMedicalFormOpen.value = true;
     }
 
@@ -177,6 +187,7 @@ export function useEmployeeDocuments({
     function startEditMedicalRecord(record) {
         if (!record) return;
         isMedicalBulkMode.value = false;
+        isMedicalBulkUpdateMode.value = false;
         isMedicalFormOpen.value = true;
         medicalForm.id = record.id ?? null;
         medicalForm.medicalCheckTypeId = record.medical_check_type?.id
@@ -205,6 +216,7 @@ export function useEmployeeDocuments({
         isMedicalFormOpen.value = false;
         savingMedicalRecord.value = false;
         isMedicalBulkMode.value = false;
+        isMedicalBulkUpdateMode.value = false;
         resetMedicalForm();
     }
 
@@ -346,6 +358,10 @@ export function useEmployeeDocuments({
             await handleSaveAllMedicalRecords();
             return;
         }
+        if (isMedicalBulkUpdateMode.value) {
+            await handleUpdateAllMedicalRecords();
+            return;
+        }
 
         if (!medicalForm.medicalCheckTypeId) {
             toast.error('Выберите тип анализа');
@@ -430,6 +446,67 @@ export function useEmployeeDocuments({
             }
             if (failed.length) {
                 toast.error(`Не удалось добавить: ${failed.join(', ')}`);
+            }
+        } catch (error) {
+            const detail = error?.response?.data?.detail;
+            toast.error(detail || 'Не удалось выполнить операцию');
+            console.error(error);
+        } finally {
+            savingMedicalRecord.value = false;
+        }
+    }
+
+    async function handleUpdateAllMedicalRecords() {
+        if (!activeEmployee.value) {
+            toast.error('Не выбран сотрудник');
+            return;
+        }
+        if (!medicalForm.passedAt) {
+            toast.error('Укажите дату прохождения');
+            return;
+        }
+
+        const latestRecordsByType = [];
+        const seenTypeIds = new Set();
+        for (const record of medicalCheckRecords.value || []) {
+            const typeId = Number(record?.medical_check_type?.id);
+            if (!record?.id || !Number.isFinite(typeId) || typeId <= 0 || seenTypeIds.has(typeId)) {
+                continue;
+            }
+            seenTypeIds.add(typeId);
+            latestRecordsByType.push(record);
+        }
+
+        if (!latestRecordsByType.length) {
+            toast.error('Нет записей медкнижек для обновления');
+            return;
+        }
+
+        savingMedicalRecord.value = true;
+        try {
+            const failed = [];
+            for (const record of latestRecordsByType) {
+                try {
+                    await updateMedicalCheckRecord(record.id, {
+                        passed_at: medicalForm.passedAt,
+                        comment: normalizeOptional(medicalForm.comment),
+                    });
+                } catch (error) {
+                    failed.push(record.medical_check_type?.name || `Тип #${record.medical_check_type?.id || record.id}`);
+                    console.error(error);
+                }
+            }
+            await refreshEmployeeDocuments();
+            cancelMedicalForm();
+            const successCount = latestRecordsByType.length - failed.length;
+            if (successCount > 0) {
+                const suffix = latestRecordsByType.length > 1
+                    ? ` (${successCount} из ${latestRecordsByType.length})`
+                    : '';
+                toast.success(`Записи медкнижек обновлены${suffix}`);
+            }
+            if (failed.length) {
+                toast.error(`Не удалось обновить: ${failed.join(', ')}`);
             }
         } catch (error) {
             const detail = error?.response?.data?.detail;
@@ -652,6 +729,7 @@ export function useEmployeeDocuments({
         employmentDocumentForm,
         isMedicalFormOpen,
         isMedicalBulkMode,
+        isMedicalBulkUpdateMode,
         isCisFormOpen,
         isEmploymentFormOpen,
         savingMedicalRecord,
@@ -668,6 +746,7 @@ export function useEmployeeDocuments({
         employmentDocumentFormLabel,
         startCreateMedicalRecord,
         startCreateMedicalRecordsBulk,
+        startUpdateMedicalRecordsBulk,
         startCreateCisDocument,
         startEditMedicalRecord,
         startEditCisDocument,

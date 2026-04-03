@@ -150,6 +150,21 @@ export async function fetchEmployeeDetail(userId, params = {}) {
     return data;
 }
 
+export async function fetchEmployeeChangeOrders(userId) {
+    const { data } = await api.get(`/api/staff/employees/${userId}/change-orders`);
+    return data;
+}
+
+export async function createEmployeeChangeOrder(userId, payload = {}) {
+    const { data } = await api.post(`/api/staff/employees/${userId}/change-orders`, payload);
+    return data;
+}
+
+export async function cancelEmployeeChangeOrder(userId, orderId) {
+    const { data } = await api.post(`/api/staff/employees/${userId}/change-orders/${orderId}/cancel`);
+    return data;
+}
+
 export async function fetchEmployeeIikoSyncPreview(userId, params = {}) {
     const { data } = await api.get(`/api/staff/employees/${userId}/iiko-sync-preview`, { params });
     return data;

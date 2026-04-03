@@ -28,6 +28,7 @@
                             >
                                 <img
                                     v-if="photoUrl"
+                                    :key="photoUrl"
                                     :src="photoUrl"
                                     alt="Фото сотрудника"
                                     @load="handlePhotoLoaded"
@@ -143,6 +144,19 @@
                         @click="emit('update:activeTab', 'documents')"
                     >
                         Документы
+                    </button>
+                    <button
+                        v-if="canManageEmployeeChangeOrders"
+                        :ref="setModalTabRef('orders')"
+                        type="button"
+                        :class="[
+                            'employees-page__modal-tab',
+                            { 'employees-page__modal-tab--active': activeTab === 'orders' },
+                        ]"
+                        :aria-pressed="activeTab === 'orders'"
+                        @click="emit('update:activeTab', 'orders')"
+                    >
+                        Кадровые изменения
                     </button>
 
                     <button
@@ -264,6 +278,7 @@
                     :cis-document-form="cisDocumentForm"
                     :employment-document-form="employmentDocumentForm"
                     :is-medical-bulk-mode="isMedicalBulkMode"
+                    :is-medical-bulk-update-mode="isMedicalBulkUpdateMode"
                     :is-medical-form-open="isMedicalFormOpen"
                     :is-cis-form-open="isCisFormOpen"
                     :is-employment-form-open="isEmploymentFormOpen"
@@ -278,6 +293,7 @@
                     :employment-document-form-label="employmentDocumentFormLabel"
                     @start-create-medical="emit('start-create-medical')"
                     @start-create-medical-bulk="emit('start-create-medical-bulk')"
+                    @start-update-medical-bulk="emit('start-update-medical-bulk')"
                     @start-edit-medical="(record) => emit('start-edit-medical', record)"
                     @cancel-medical-form="emit('cancel-medical-form')"
                     @submit-medical-form="emit('submit-medical-form')"
@@ -295,6 +311,18 @@
                     @upload-employment-attachment="(file) => emit('upload-employment-attachment', file)"
                 />
             </div>
+            <EmployeeChangeOrdersTab
+                v-else-if="activeTab === 'orders'"
+                :can-manage-employee-change-orders="canManageEmployeeChangeOrders"
+                :employee-change-orders="employeeChangeOrders"
+                :employee-change-orders-loading="employeeChangeOrdersLoading"
+                :employee-change-orders-error="employeeChangeOrdersError"
+                :cancelling-employee-change-order-id="cancellingEmployeeChangeOrderId"
+                :format-date="formatDate"
+                :format-amount="formatAmount"
+                @open-form="emit('open-employee-change-order-form')"
+                @cancel-order="emit('cancel-employee-change-order', $event)"
+            />
             <EmployeeModalChangesTab
                 v-else-if="activeTab === 'changes'"
                 :can-view-employee-changes="canViewEmployeeChanges"
@@ -351,9 +379,23 @@
         @close="closePhotoPreview"
     >
         <div class="employees-page__photo-modal">
-            <img v-if="photoUrl" :src="photoUrl" alt="Фото сотрудника" />
+            <img v-if="photoUrl" :key="photoUrl" :src="photoUrl" alt="Фото сотрудника" />
         </div>
     </Modal>
+
+    <EmployeeChangeOrderModal
+        v-if="isEmployeeChangeOrderFormOpen"
+        :is-open="isEmployeeChangeOrderFormOpen"
+        :z-index="employeeChangeOrderModalZIndex"
+        :employee-change-order-form="employeeChangeOrderForm"
+        :saving-employee-change-order="savingEmployeeChangeOrder"
+        :can-manage-rate-changes="canManageRateChanges"
+        :position-options="positionOptions"
+        :workplace-restaurant-options="workplaceRestaurantOptions"
+        @close="emit('close-employee-change-order-form')"
+        @submit="emit('submit-employee-change-order')"
+        @update-field="emit('update-employee-change-order-field', $event)"
+    />
 </template>
 
 <script setup>
@@ -366,6 +408,8 @@ import { formatChangeField, formatChangeValue } from '@/utils/changeEvents';
 import { normalizeMojibakeText } from '@/utils/textEncoding';
 
 const EmployeeModalChangesTab = defineAsyncComponent(() => import('./EmployeeModalChangesTab.vue'));
+const EmployeeChangeOrdersTab = defineAsyncComponent(() => import('./EmployeeChangeOrdersTab.vue'));
+const EmployeeChangeOrderModal = defineAsyncComponent(() => import('./EmployeeChangeOrderModal.vue'));
 const EmployeeModalTrainingsTab = defineAsyncComponent(() => import('./EmployeeModalTrainingsTab.vue'));
 const EmployeeDocumentsTab = defineAsyncComponent(() => import('./EmployeeDocumentsTab.vue'));
 const EmployeeFinanceTab = defineAsyncComponent(() => import('./EmployeeFinanceTab.vue'));
@@ -424,6 +468,7 @@ const props = defineProps({
     cisDocumentForm: { type: Object, default: () => ({}) },
     employmentDocumentForm: { type: Object, default: () => ({}) },
     isMedicalBulkMode: { type: Boolean, default: false },
+    isMedicalBulkUpdateMode: { type: Boolean, default: false },
     isMedicalFormOpen: { type: Boolean, default: false },
     isCisFormOpen: { type: Boolean, default: false },
     isEmploymentFormOpen: { type: Boolean, default: false },
@@ -464,6 +509,17 @@ const props = defineProps({
     employeeChangeEventsError: { type: String, default: '' },
     employeeChangeEventsHasMore: { type: Boolean, default: false },
     canViewEmployeeChanges: { type: Boolean, default: false },
+    canManageEmployeeChangeOrders: { type: Boolean, default: false },
+    canManageRateChanges: { type: Boolean, default: false },
+    employeeChangeOrders: { type: Array, default: () => [] },
+    employeeChangeOrdersLoading: { type: Boolean, default: false },
+    employeeChangeOrdersError: { type: String, default: '' },
+    isEmployeeChangeOrderFormOpen: { type: Boolean, default: false },
+    savingEmployeeChangeOrder: { type: Boolean, default: false },
+    cancellingEmployeeChangeOrderId: { type: [Number, String], default: null },
+    employeeChangeOrderForm: { type: Object, default: () => ({}) },
+    positionOptions: { type: Array, default: () => [] },
+    workplaceRestaurantOptions: { type: Array, default: () => [] },
     canRestoreEmployees: { type: Boolean, default: false },
     restoringEmployee: { type: Boolean, default: false },
 });
@@ -494,6 +550,7 @@ const emit = defineEmits([
     'toggle-training-requirement',
     'start-create-medical',
     'start-create-medical-bulk',
+    'start-update-medical-bulk',
     'start-edit-medical',
     'cancel-medical-form',
     'submit-medical-form',
@@ -513,6 +570,11 @@ const emit = defineEmits([
     'toggle-user-permission',
     'update:delete-from-iiko',
     'sync-employee-to-iiko',
+    'open-employee-change-order-form',
+    'close-employee-change-order-form',
+    'submit-employee-change-order',
+    'cancel-employee-change-order',
+    'update-employee-change-order-field',
     'load-more-employee-change-events',
 ]);
 
@@ -566,6 +628,7 @@ const {
     cisDocumentForm,
     employmentDocumentForm,
     isMedicalBulkMode,
+    isMedicalBulkUpdateMode,
     isMedicalFormOpen,
     isCisFormOpen,
     isEmploymentFormOpen,
@@ -604,6 +667,17 @@ const {
     employeeChangeEventsError,
     employeeChangeEventsHasMore,
     canViewEmployeeChanges,
+    canManageEmployeeChangeOrders,
+    canManageRateChanges,
+    employeeChangeOrders,
+    employeeChangeOrdersLoading,
+    employeeChangeOrdersError,
+    isEmployeeChangeOrderFormOpen,
+    savingEmployeeChangeOrder,
+    cancellingEmployeeChangeOrderId,
+    employeeChangeOrderForm,
+    positionOptions,
+    workplaceRestaurantOptions,
     canRestoreEmployees,
     restoringEmployee,
 } = toRefs(props);
@@ -635,6 +709,14 @@ const photoPreviewModalZIndex = computed(() => {
         return 1001;
     }
     return baseZIndex + 1;
+});
+
+const employeeChangeOrderModalZIndex = computed(() => {
+    const baseZIndex = Number(modalZIndex.value);
+    if (!Number.isFinite(baseZIndex)) {
+        return 1002;
+    }
+    return baseZIndex + 2;
 });
 
 const fileInput = ref(null);
@@ -692,8 +774,14 @@ const attendanceShiftRestaurantOptions = computed(() => {
             continue;
         }
         const parsedId = Number(attendance?.restaurant_id);
+        const restoredLabel =
+            Number.isFinite(parsedId) && typeof formatRestaurant.value === 'function'
+                ? formatRestaurant.value(parsedId)
+                : null;
         const label = attendance?.restaurant_name
             ? normalizeMojibakeText(attendance.restaurant_name)
+            : restoredLabel && restoredLabel !== '—'
+            ? normalizeMojibakeText(restoredLabel)
             : Number.isFinite(parsedId)
             ? `ID ${parsedId}`
             : '—';
@@ -922,6 +1010,7 @@ watch(
         isOpen,
         canManageUserPermissions,
         canViewDocuments,
+        canManageEmployeeChangeOrders,
         canViewEmployeeChanges,
     ],
     () => {
@@ -1115,6 +1204,12 @@ function formatAttendanceRestaurant(attendance) {
         return normalizeText(attendance.restaurant_name);
     }
     if (attendance.restaurant_id) {
+        if (typeof formatRestaurant.value === 'function') {
+            const restored = formatRestaurant.value(attendance.restaurant_id);
+            if (restored && restored !== '—') {
+                return normalizeText(restored);
+            }
+        }
         return `ID ${attendance.restaurant_id}`;
     }
     return '—';

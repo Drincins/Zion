@@ -48,6 +48,7 @@ export function useInventoryCatalogPage() {
         typeId: '',
         cost: '',
         photoUrl: '',
+        photoPreviewUrl: '',
         useInstanceCodes: true,
         isActive: true,
         createdAt: '',

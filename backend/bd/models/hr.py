@@ -124,6 +124,7 @@ class Attendance(Base):
         Index("ix_attendances_user_id", "user_id"),
         Index("ix_attendances_restaurant_id", "restaurant_id"),
         Index("ix_attendances_position_id", "position_id"),
+        Index("ix_attendances_user_open_date_time", "user_id", "open_date", "open_time"),
         Index("ix_attendances_open_date_user", "open_date", "user_id"),
         Index("ix_attendances_open_date_position", "open_date", "position_id"),
     )

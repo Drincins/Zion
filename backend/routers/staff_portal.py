@@ -1118,33 +1118,22 @@ def manual_update_attendance(
         a.close_time = data["close_time"]
         close_changed = True
 
-    explicit_duration = "duration_minutes" in data
-    explicit_night = "night_minutes" in data
-
     if ("close_date" in data and data["close_date"] is None) or ("close_time" in data and data["close_time"] is None):
         a.close_date = None
         a.close_time = None
-        a.duration_minutes = data.get("duration_minutes") if explicit_duration else None
-        a.night_minutes = data.get("night_minutes") if explicit_night else 0
+        a.duration_minutes = None
+        a.night_minutes = 0
         a.pay_amount = None
     else:
-        if explicit_duration:
-            a.duration_minutes = data["duration_minutes"]
-        if explicit_night:
-            a.night_minutes = data["night_minutes"] or 0
-
         if a.close_date and a.close_time and a.open_date and a.open_time:
             opened_dt = combine_date_time(a.open_date, a.open_time)
             closed_dt = combine_date_time(a.close_date, a.close_time)
-            if not explicit_duration or not explicit_night:
-                _apply_close_stats(a, opened_dt, closed_dt)
+            _apply_close_stats(a, opened_dt, closed_dt)
             _calculate_and_set_pay(db, a)
         else:
             if open_changed or close_changed:
-                if not explicit_duration:
-                    a.duration_minutes = None
-                if not explicit_night:
-                    a.night_minutes = 0
+                a.duration_minutes = None
+                a.night_minutes = 0
             a.pay_amount = None
 
     after_summary = _attendance_summary(a)

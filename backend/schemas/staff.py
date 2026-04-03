@@ -1,7 +1,7 @@
 """Schemas for staff portal and attendance."""
 from __future__ import annotations
 
-from datetime import date, time
+from datetime import date, datetime, time
 from typing import List, Optional, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -198,8 +198,6 @@ class AttendanceManualCreate(BaseModel):
     restaurant_id: Optional[int] = None
     position_id: Optional[int] = None
     rate: Optional[float] = None
-    duration_minutes: Optional[int] = None
-    night_minutes: Optional[int] = None
 
     
 class AttendanceManualUpdate(BaseModel):
@@ -210,8 +208,6 @@ class AttendanceManualUpdate(BaseModel):
     restaurant_id: Optional[int] = None
     position_id: Optional[int] = None
     rate: Optional[float] = None
-    duration_minutes: Optional[int] = None
-    night_minutes: Optional[int] = None
 
 
 class AttendanceRecalculateNightRequest(BaseModel):
@@ -330,9 +326,59 @@ class EmployeeUpdateRequest(BaseModel):
     photo_key: Optional[str] = None
     confidential_data_consent: Optional[bool] = None
     is_formalized: Optional[bool] = None
+    update_attendances: Optional[bool] = None
+    attendance_date_from: Optional[date] = None
+    attendance_date_to: Optional[date] = None
     add_to_iiko: Optional[bool] = None
     iiko_sync_restaurant_id: Optional[int] = None
     iiko_department_restaurant_ids: Optional[List[int]] = None
+
+
+class EmployeeChangeOrderCreate(BaseModel):
+    effective_date: date
+    change_position: bool = False
+    position_id_new: Optional[int] = None
+    change_workplace_restaurant: bool = False
+    workplace_restaurant_id_new: Optional[int] = None
+    change_rate: bool = False
+    rate_new: Optional[float] = None
+    change_individual_rate: bool = False
+    individual_rate_new: Optional[float] = None
+    apply_to_attendances: bool = False
+    comment: Optional[str] = None
+
+
+class EmployeeChangeOrderPublic(BaseModel):
+    id: int
+    user_id: int
+    effective_date: date
+    status: str
+    change_position: bool = False
+    position_id_new: Optional[int] = None
+    position_name_new: Optional[str] = None
+    change_workplace_restaurant: bool = False
+    workplace_restaurant_id_new: Optional[int] = None
+    workplace_restaurant_name_new: Optional[str] = None
+    change_rate: bool = False
+    rate_new: Optional[float] = None
+    change_individual_rate: bool = False
+    individual_rate_new: Optional[float] = None
+    apply_to_attendances: bool = False
+    comment: Optional[str] = None
+    error_message: Optional[str] = None
+    created_by_id: Optional[int] = None
+    created_by_name: Optional[str] = None
+    cancelled_by_id: Optional[int] = None
+    cancelled_by_name: Optional[str] = None
+    created_at: datetime
+    applied_at: Optional[datetime] = None
+    cancelled_at: Optional[datetime] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class EmployeeChangeOrderListResponse(BaseModel):
+    items: List[EmployeeChangeOrderPublic] = Field(default_factory=list)
 
 
 class PhotoUploadResponse(BaseModel):

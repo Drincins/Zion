@@ -138,6 +138,25 @@ export async function updateAccessPosition(positionId, payload) {
     return data;
 }
 
+export async function fetchPositionChangeOrders(positionId) {
+    const { data } = await api.get(`/api/access/positions/${positionId}/change-orders`);
+    return data;
+}
+
+export async function createPositionChangeOrder(positionId, payload) {
+    const { data } = await api.post(`/api/access/positions/${positionId}/change-orders`, payload);
+    invalidateCacheScope('access-positions');
+    invalidateCacheScope(ACCESS_BOOTSTRAP_SCOPE);
+    return data;
+}
+
+export async function cancelPositionChangeOrder(positionId, orderId) {
+    const { data } = await api.post(`/api/access/positions/${positionId}/change-orders/${orderId}/cancel`);
+    invalidateCacheScope('access-positions');
+    invalidateCacheScope(ACCESS_BOOTSTRAP_SCOPE);
+    return data;
+}
+
 export async function deleteAccessPosition(positionId) {
     await api.delete(`/api/access/positions/${positionId}`);
     invalidateCacheScope('access-positions');

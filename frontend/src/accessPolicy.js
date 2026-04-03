@@ -14,7 +14,16 @@ export const STAFF_VIEW_PERMISSIONS = [
     'employees_card.view'
 ];
 
-export const POSITIONS_VIEW_PERMISSIONS = ['positions.manage', 'positions.edit', 'positions.rate.manage'];
+export const POSITIONS_VIEW_PERMISSIONS = [
+    'positions.manage',
+    'positions.edit',
+    'positions.rate.manage',
+    'positions.change_orders.manage'
+];
+export const POSITIONS_CHANGE_ORDERS_MANAGE_PERMISSIONS = [
+    'positions.change_orders.manage',
+    SYSTEM_ADMIN_PERMISSION
+];
 
 export const STAFF_VIEW_WITH_SYSTEM_PERMISSIONS = unique(
     STAFF_VIEW_PERMISSIONS,
@@ -39,16 +48,22 @@ export const STAFF_LOAD_ROLES_PERMISSIONS = ['roles.manage', 'staff.roles.assign
 export const STAFF_LOAD_RESTAURANTS_PERMISSIONS = [
     'restaurants.manage',
     'restaurants.view',
+    'staff.employee_orders.manage',
     'staff_portal.access',
     SYSTEM_ADMIN_PERMISSION
 ];
 export const STAFF_LOAD_COMPANIES_PERMISSIONS = ['companies.manage', 'companies.view', SYSTEM_ADMIN_PERMISSION];
 export const STAFF_LOAD_POSITIONS_PERMISSIONS = unique(
     POSITIONS_VIEW_PERMISSIONS,
+    ['staff.employee_orders.manage'],
     STAFF_VIEW_PERMISSIONS,
     STAFF_MANAGE_PERMISSIONS,
     [SYSTEM_ADMIN_PERMISSION]
 );
+export const STAFF_EMPLOYEE_ORDERS_MANAGE_PERMISSIONS = [
+    'staff.employee_orders.manage',
+    SYSTEM_ADMIN_PERMISSION
+];
 export const STAFF_MEDICAL_CHECKS_VIEW_PERMISSIONS = [
     'medical_checks.view',
     'medical_checks.manage',
@@ -79,6 +94,7 @@ export const STAFF_RESTORE_PERMISSIONS = ['staff_employees.restore', SYSTEM_ADMI
 export const ACCESS_CONTROL_VIEW_PERMISSIONS = [
     'roles.manage',
     'positions.manage',
+    'positions.change_orders.manage',
     'access_control.read',
     'access_control.manage'
 ];

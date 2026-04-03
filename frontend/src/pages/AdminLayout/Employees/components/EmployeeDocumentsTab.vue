@@ -13,6 +13,14 @@
                         <Button
                             color="secondary"
                             size="sm"
+                            :disabled="savingMedical || !medicalRecords.length"
+                            @click="emit('start-update-medical-bulk')"
+                        >
+                            Обновить все
+                        </Button>
+                        <Button
+                            color="secondary"
+                            size="sm"
                             :disabled="savingMedical || !medicalTypeOptions.length"
                             @click="emit('start-create-medical-bulk')"
                         >
@@ -50,14 +58,18 @@
                 <div v-if="isMedicalFormOpen && !medicalForm.id" class="employees-page__documents-form">
                     <div class="employees-page__documents-form-grid">
                         <Select
-                            v-if="!isMedicalBulkMode"
+                            v-if="!isMedicalBulkMode && !isMedicalBulkUpdateMode"
                             v-model="medicalForm.medicalCheckTypeId"
                             label="Тип"
                             :options="medicalTypeOptions"
                         />
                         <div v-else class="employees-page__documents-bulk-info">
                             <p class="employees-page__documents-hint">
-                                Будут добавлены все типы анализов ({{ medicalTypeOptions.length }}) с указанной датой и комментарием.
+                                {{
+                                    isMedicalBulkUpdateMode
+                                        ? `Будут обновлены последние записи по всем имеющимся типам анализов (${medicalRecords.length}).`
+                                        : `Будут добавлены все типы анализов (${medicalTypeOptions.length}) с указанной датой и комментарием.`
+                                }}
                             </p>
                         </div>
                         <DateInput v-model="medicalForm.passedAt" label="Дата прохождения" />
@@ -71,7 +83,15 @@
                             :disabled="savingMedical"
                             @click="emit('submit-medical-form')"
                         >
-                            {{ isMedicalBulkMode ? 'Добавить все' : medicalForm.id ? 'Сохранить' : 'Добавить' }}
+                            {{
+                                isMedicalBulkUpdateMode
+                                    ? 'Обновить все'
+                                    : isMedicalBulkMode
+                                      ? 'Добавить все'
+                                      : medicalForm.id
+                                        ? 'Сохранить'
+                                        : 'Добавить'
+                            }}
                         </Button>
                         <Button
                             color="ghost"
@@ -526,6 +546,7 @@ const props = defineProps({
     cisDocumentForm: { type: Object, default: () => ({}) },
     employmentDocumentForm: { type: Object, default: () => ({}) },
     isMedicalBulkMode: { type: Boolean, default: false },
+    isMedicalBulkUpdateMode: { type: Boolean, default: false },
     isMedicalFormOpen: { type: Boolean, default: false },
     isCisFormOpen: { type: Boolean, default: false },
     isEmploymentFormOpen: { type: Boolean, default: false },
@@ -543,6 +564,7 @@ const props = defineProps({
 const emit = defineEmits([
     'start-create-medical',
     'start-create-medical-bulk',
+    'start-update-medical-bulk',
     'start-edit-medical',
     'cancel-medical-form',
     'submit-medical-form',
@@ -579,6 +601,7 @@ const {
     cisDocumentForm,
     employmentDocumentForm,
     isMedicalBulkMode,
+    isMedicalBulkUpdateMode,
     isMedicalFormOpen,
     isCisFormOpen,
     isEmploymentFormOpen,

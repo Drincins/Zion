@@ -81,6 +81,7 @@ def upload_employee_photo(user_id: int, filename: str, content: bytes, content_t
         Key=key,
         Body=content,
         ContentType=content_type,
+        CacheControl="no-store, max-age=0",
     )
     return key
 
@@ -96,6 +97,26 @@ def upload_bytes(key: str, content: bytes, content_type: str | None = None) -> s
         ContentType=content_type or "application/octet-stream",
     )
     return key
+
+
+def delete_object(key: str, bucket: str | None = None) -> None:
+    """Delete an object from S3 storage. Missing objects are ignored."""
+
+    if not key:
+        return
+    client = _get_client()
+    target_bucket = bucket or S3_BUCKET
+    try:
+        client.delete_object(Bucket=target_bucket, Key=key)
+    except ClientError as exc:
+        code = exc.response.get("Error", {}).get("Code")
+        if code in {"NoSuchKey", "404", "NotFound"}:
+            return
+        logger.exception("Failed to delete object %s", key)
+        raise RuntimeError("Failed to delete object") from exc
+    except BotoCoreError as exc:
+        logger.exception("Failed to delete object %s", key)
+        raise RuntimeError("Failed to delete object") from exc
 
 
 def upload_bytes_to_bucket(

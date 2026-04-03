@@ -224,7 +224,7 @@
                 <div v-else class="inventory-items__catalog-photo-readonly">
                     <label class="inventory-items__label">Фото</label>
                     <div v-if="itemForm.photoUrl" class="inventory-items__catalog-photo-preview">
-                        <img :src="itemForm.photoUrl" alt="Фото из каталога" />
+                        <img :src="itemForm.photoPreviewUrl || itemForm.photoUrl" alt="Фото из каталога" />
                     </div>
                     <p class="inventory-items__catalog-source-help">
                         Фото и описание подтягиваются из карточки каталога и в этом окне не редактируются.
@@ -321,4 +321,3 @@ function clearItemPhoto() {
 <style scoped lang="scss">
 @use '@/assets/styles/pages/inventory-items' as *;
 </style>
-

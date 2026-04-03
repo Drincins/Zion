@@ -1,14 +1,12 @@
 from __future__ import annotations
 
-import os
-from datetime import date
-from io import BytesIO
 from typing import Any
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, UploadFile, status
-from PIL import Image, UnidentifiedImageError
 
 from . import common as c
+from backend.services.employee_attendance_updates import apply_employee_updates_to_attendances
+from backend.services.image_uploads import normalize_uploaded_image
 
 router = APIRouter()
 
@@ -33,30 +31,21 @@ async def upload_employee_photo(
     if not content:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Uploaded file is empty")
 
-    upload_filename = file.filename or "photo.jpg"
-    upload_content = content
-    upload_content_type = file.content_type
+    old_photo_key = db_user.photo_key
+
     try:
-        img = Image.open(BytesIO(content))
-        img_format = (img.format or "").upper()
-        if img_format != "JPEG" or upload_content_type not in {"image/jpeg", "image/jpg"}:
-            if img.mode in {"RGBA", "LA"} or (img.mode == "P" and "transparency" in img.info):
-                rgba = img.convert("RGBA")
-                background = Image.new("RGB", rgba.size, (255, 255, 255))
-                background.paste(rgba, mask=rgba.split()[-1])
-                img = background
-            else:
-                img = img.convert("RGB")
-            buf = BytesIO()
-            img.save(buf, format="JPEG", quality=90)
-            upload_content = buf.getvalue()
-            upload_content_type = "image/jpeg"
-            base = os.path.splitext(upload_filename)[0] or "photo"
-            upload_filename = f"{base}.jpg"
-    except UnidentifiedImageError:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Unsupported image format")
+        upload_filename, upload_content, upload_content_type = normalize_uploaded_image(
+            filename=file.filename,
+            content=content,
+            content_type=file.content_type,
+        )
+    except HTTPException:
+        raise
     except Exception:
         c.logger.warning("Failed to normalize employee photo; uploading original", exc_info=True)
+        upload_filename = file.filename or "photo.jpg"
+        upload_content = content
+        upload_content_type = file.content_type or "application/octet-stream"
 
     photo_key, photo_url = c.upload_employee_photo_with_url(
         user_id,
@@ -65,8 +54,21 @@ async def upload_employee_photo(
         upload_content_type,
     )
     db_user.photo_key = photo_key
-    db.commit()
+    try:
+        db.commit()
+    except Exception:
+        db.rollback()
+        try:
+            c.delete_object(photo_key)
+        except Exception:
+            c.logger.warning("Failed to delete uploaded employee photo after DB rollback", exc_info=True)
+        raise
     db.refresh(db_user)
+    if old_photo_key and old_photo_key != photo_key:
+        try:
+            c.delete_object(old_photo_key)
+        except Exception:
+            c.logger.warning("Failed to delete previous employee photo %s", old_photo_key, exc_info=True)
     return c.PhotoUploadResponse(photo_key=photo_key, photo_url=photo_url)
 
 
@@ -102,6 +104,8 @@ def update_employee(
         "rate": db_user.rate,
         "fired": db_user.fired,
     }
+    original_position_id = getattr(db_user.position, "id", None)
+    original_workplace_id = getattr(db_user.workplace_restaurant, "id", None)
 
     fields_set = getattr(payload, "model_fields_set", set())
     sync_only_allowed_fields = {
@@ -244,7 +248,12 @@ def update_employee(
 
     if payload.position_id is not None:
         if payload.position_id:
-            position = db.query(c.Position).filter(c.Position.id == payload.position_id).first()
+            position = (
+                db.query(c.Position)
+                .options(c.joinedload(c.Position.payment_format))
+                .filter(c.Position.id == payload.position_id)
+                .first()
+            )
             if not position:
                 raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Position not found")
             db_user.position = position
@@ -326,6 +335,40 @@ def update_employee(
             if company:
                 db_user.company = company
 
+    updated_position = db_user.position
+    updated_workplace = db_user.workplace_restaurant
+    updated_position_id = getattr(updated_position, "id", None)
+    updated_workplace_id = getattr(updated_workplace, "id", None)
+    position_changed = original_position_id != updated_position_id
+    workplace_changed = original_workplace_id != updated_workplace_id
+    rate_changed = c._normalize_rate_value(original_values["rate"]) != c._normalize_rate_value(db_user.rate)
+
+    if payload.update_attendances:
+        attendance_date_from = payload.attendance_date_from
+        attendance_date_to = payload.attendance_date_to
+        if attendance_date_from is None or attendance_date_to is None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Для обновления смен укажите диапазон дат",
+            )
+        if attendance_date_from > attendance_date_to:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Дата начала периода не может быть позже даты окончания",
+            )
+        apply_employee_updates_to_attendances(
+            db=db,
+            user_id=db_user.id,
+            date_from=attendance_date_from,
+            date_to=attendance_date_to,
+            position_changed=position_changed,
+            restaurant_changed=workplace_changed,
+            rate_changed=rate_changed,
+            position=updated_position,
+            restaurant=updated_workplace,
+            rate=float(db_user.rate) if db_user.rate is not None else None,
+        )
+
     new_row_id = c.build_employee_row_id(
         last_name=db_user.last_name,
         first_name=db_user.first_name,
@@ -372,7 +415,7 @@ def update_employee(
         changes.append({"field": "position", "old_value": c.format_ref(original_values["position"]), "new_value": c.format_ref(db_user.position)})
     if getattr(original_values["workplace"], "id", None) != getattr(db_user.workplace_restaurant, "id", None):
         changes.append({"field": "workplace_restaurant", "old_value": c.format_ref(original_values["workplace"]), "new_value": c.format_ref(db_user.workplace_restaurant)})
-    if c._normalize_rate_value(original_values["rate"]) != c._normalize_rate_value(db_user.rate):
+    if rate_changed:
         changes.append({"field": "rate", "old_value": original_values["rate"], "new_value": db_user.rate})
     original_restaurant_ids = {item.id for item in (original_values["restaurants"] or []) if item and item.id is not None}
     updated_restaurant_ids = {item.id for item in (db_user.restaurants or []) if item and item.id is not None}

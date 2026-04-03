@@ -1,6 +1,7 @@
 """Schemas for access control (permissions, roles, positions)."""
 from __future__ import annotations
 
+from datetime import date, datetime
 from decimal import Decimal
 from typing import List, Optional
 
@@ -107,6 +108,38 @@ class PositionHierarchyNode(BaseModel):
     night_bonus_percent: Optional[Decimal] = None
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class PositionChangeOrderCreate(BaseModel):
+    effective_date: date
+    rate_new: Decimal
+    apply_to_attendances: bool = False
+    comment: Optional[str] = None
+
+
+class PositionChangeOrderPublic(BaseModel):
+    id: int
+    position_id: int
+    position_name: Optional[str] = None
+    effective_date: date
+    status: str
+    rate_new: Decimal
+    apply_to_attendances: bool = False
+    comment: Optional[str] = None
+    error_message: Optional[str] = None
+    created_by_id: Optional[int] = None
+    created_by_name: Optional[str] = None
+    cancelled_by_id: Optional[int] = None
+    cancelled_by_name: Optional[str] = None
+    created_at: datetime
+    applied_at: Optional[datetime] = None
+    cancelled_at: Optional[datetime] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class PositionChangeOrderListResponse(BaseModel):
+    items: List[PositionChangeOrderPublic] = Field(default_factory=list)
 
 
 class PermissionRouteInfo(BaseModel):
