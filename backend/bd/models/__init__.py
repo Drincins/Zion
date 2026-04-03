@@ -84,6 +84,8 @@ from .kpi import (
 )
 from .fingerprint import FingerprintEvent
 from .employee_changes import EmployeeChangeEvent
+from .employee_change_orders import EmployeeChangeOrder, EMPLOYEE_CHANGE_ORDER_STATUS
+from .position_change_orders import PositionChangeOrder, POSITION_CHANGE_ORDER_STATUS
 from .accounting import (
     AccountingInvoice,
     AccountingInvoiceClosingDocument,
@@ -183,6 +185,10 @@ __all__ = ["Base",
     "KpiPayoutItem",
     "FingerprintEvent",
     "EmployeeChangeEvent",
+    "EmployeeChangeOrder",
+    "EMPLOYEE_CHANGE_ORDER_STATUS",
+    "PositionChangeOrder",
+    "POSITION_CHANGE_ORDER_STATUS",
     "AccountingInvoice",
     "AccountingInvoiceClosingDocument",
     "AccountingInvoiceChange",

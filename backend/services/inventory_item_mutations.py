@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from backend.services.image_uploads import normalize_uploaded_image
 from backend.routers.inventory_routes.common import (
     AttachmentUploadResponse,
     Decimal,
@@ -330,12 +331,14 @@ async def upload_inventory_item_photo_attachment(
     if not file.content_type or not file.content_type.startswith("image/"):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Only image uploads are allowed")
 
-    content = await file.read()
-    if not content:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Uploaded file is empty")
+    upload_filename, upload_content, upload_content_type = normalize_uploaded_image(
+        filename=file.filename,
+        content=await file.read(),
+        content_type=file.content_type,
+    )
 
-    key = _build_inventory_photo_key(file.filename)
-    upload_bytes(key, content, file.content_type or "application/octet-stream")
+    key = _build_inventory_photo_key(upload_filename)
+    upload_bytes(key, upload_content, upload_content_type)
     url = _resolve_photo_url(key)
     return AttachmentUploadResponse(attachment_key=key, attachment_url=url or key)
 

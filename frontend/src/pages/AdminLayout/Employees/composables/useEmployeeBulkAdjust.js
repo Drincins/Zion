@@ -5,13 +5,14 @@ import { useDebounce } from '@/composables/useDebounce';
 import { useMultiSelect } from '@/composables/useMultiSelect';
 
 export function useEmployeeBulkAdjust({
-    restaurantOptions,
+    payrollRestaurantOptions,
     timesheetOptions,
     formatDateInput,
     resolveEmployeeId,
     formatFullNameShort,
     employeeMatchesWorkplace,
     loadPayrollAdjustmentTypes,
+    loadRestaurantOptions,
     loadTimesheetOptions,
 }) {
     const toast = useToast();
@@ -140,7 +141,7 @@ export function useEmployeeBulkAdjust({
     const workplaceFilterOptions = computed(() => {
         return [
             { value: '', label: 'Все' },
-            ...restaurantOptions.value.map((item) => ({
+            ...(payrollRestaurantOptions.value || []).map((item) => ({
                 value: String(item.value),
                 label: item.label,
             })),
@@ -245,6 +246,9 @@ export function useEmployeeBulkAdjust({
         resetBulkAdjustForm();
         if (typeof loadPayrollAdjustmentTypes === 'function') {
             loadPayrollAdjustmentTypes();
+        }
+        if (typeof loadRestaurantOptions === 'function') {
+            loadRestaurantOptions();
         }
         if (typeof loadTimesheetOptions === 'function') {
             loadTimesheetOptions();

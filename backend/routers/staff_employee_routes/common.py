@@ -54,7 +54,7 @@ from backend.services.permissions import (
     has_permission,
 )
 from backend.services.reference_cache import cached_reference_data
-from backend.services.s3 import generate_presigned_url, upload_employee_photo_with_url
+from backend.services.s3 import delete_object, generate_presigned_url, upload_employee_photo_with_url
 from backend.services.staff_employee_listing import (
     ensure_staff_view as _ensure_staff_view,
     get_allowed_workplace_ids as _get_allowed_workplace_ids,

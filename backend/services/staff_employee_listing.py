@@ -194,6 +194,7 @@ def _can_load_restaurant_references(user: User) -> bool:
         has_permission(user, code)
         for code in (
             PermissionCode.SYSTEM_ADMIN,
+            PermissionCode.STAFF_EMPLOYEE_ORDERS_MANAGE,
             PermissionCode.RESTAURANTS_VIEW,
             PermissionCode.RESTAURANTS_MANAGE,
             PermissionCode.RESTAURANTS_SETTINGS_VIEW,
@@ -230,6 +231,7 @@ def _can_load_position_references(user: User) -> bool:
         has_permission(user, code)
         for code in (
             PermissionCode.SYSTEM_ADMIN,
+            PermissionCode.STAFF_EMPLOYEE_ORDERS_MANAGE,
             PermissionCode.POSITIONS_MANAGE,
             PermissionCode.POSITIONS_EDIT,
             PermissionCode.POSITIONS_RATE_MANAGE,

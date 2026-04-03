@@ -45,8 +45,10 @@ from backend.routers.checklists import router as checklists_router
 from backend.routers.knowledge_base import router as knowledge_base_router
 from backend.routers.iiko_sales import router as iiko_sales_router
 from backend.tasks.attendance_auto_close import attendance_auto_close_loop
+from backend.tasks.employee_change_orders import employee_change_orders_loop
 from backend.tasks.iiko_olap_daily_sync import iiko_olap_daily_sync_loop
 from backend.tasks.iiko_sales_auto_sync import iiko_sales_auto_sync_loop
+from backend.tasks.position_change_orders import position_change_orders_loop
 from backend.services.request_context import (
     RequestContext,
     set_request_context,
@@ -199,6 +201,8 @@ app.include_router(knowledge_base_router, prefix="/api")
 async def start_background_jobs():
     run_startup_bootstrap()
     app.state.attendance_auto_close_task = asyncio.create_task(attendance_auto_close_loop())
+    app.state.employee_change_orders_task = asyncio.create_task(employee_change_orders_loop())
+    app.state.position_change_orders_task = asyncio.create_task(position_change_orders_loop())
     app.state.iiko_olap_daily_sync_task = asyncio.create_task(iiko_olap_daily_sync_loop())
     app.state.iiko_sales_auto_sync_task = asyncio.create_task(iiko_sales_auto_sync_loop())
 
@@ -206,6 +210,16 @@ async def start_background_jobs():
 @app.on_event("shutdown")
 async def stop_background_jobs():
     task = getattr(app.state, "attendance_auto_close_task", None)
+    if task:
+        task.cancel()
+        with suppress(asyncio.CancelledError):
+            await task
+    task = getattr(app.state, "employee_change_orders_task", None)
+    if task:
+        task.cancel()
+        with suppress(asyncio.CancelledError):
+            await task
+    task = getattr(app.state, "position_change_orders_task", None)
     if task:
         task.cancel()
         with suppress(asyncio.CancelledError):

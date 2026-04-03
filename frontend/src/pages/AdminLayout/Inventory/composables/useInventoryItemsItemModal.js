@@ -100,6 +100,7 @@ export function useInventoryItemsItemModal({
         itemForm.manufacturer = '';
         itemForm.storageConditions = '';
         itemForm.photoUrl = '';
+        itemForm.photoPreviewUrl = '';
         itemForm.useInstanceCodes = true;
         itemForm.useCatalogItem = false;
         itemForm.selectedCatalogItemId = null;
@@ -154,6 +155,7 @@ export function useInventoryItemsItemModal({
         itemForm.storageConditions = item.storage_conditions || '';
         itemForm.catalogNodeId = item.kind_id ? `t:${item.kind_id}` : '';
         itemForm.photoUrl = item.photo_key || item.photo_url || '';
+        itemForm.photoPreviewUrl = item.photo_url || item.photo_key || '';
         itemForm.cost = String(item.default_cost ?? item.cost ?? '');
         itemForm.useInstanceCodes = item.use_instance_codes !== false;
         if (!itemForm.targetOptionId) {
@@ -176,6 +178,7 @@ export function useInventoryItemsItemModal({
             itemForm.catalogNodeId = '';
             itemForm.cost = '';
             itemForm.photoUrl = '';
+            itemForm.photoPreviewUrl = '';
             itemForm.useInstanceCodes = true;
             itemForm.targetQuantity = '1';
             if (!itemForm.targetOptionId) {
@@ -190,6 +193,7 @@ export function useInventoryItemsItemModal({
             itemForm.catalogNodeId = '';
             itemForm.cost = '';
             itemForm.photoUrl = '';
+            itemForm.photoPreviewUrl = '';
             itemForm.useInstanceCodes = true;
             itemForm.targetOptionId = '';
             itemForm.targetQuantity = '1';
@@ -233,6 +237,7 @@ export function useInventoryItemsItemModal({
         itemForm.manufacturer = item.manufacturer || '';
         itemForm.storageConditions = item.storage_conditions || '';
         itemForm.photoUrl = item.photo_key || item.photo_url || '';
+        itemForm.photoPreviewUrl = item.photo_url || item.photo_key || '';
         itemForm.useInstanceCodes = item.use_instance_codes !== false;
         itemForm.useCatalogItem = false;
         itemForm.selectedCatalogItemId = null;
@@ -260,6 +265,7 @@ export function useInventoryItemsItemModal({
         try {
             const response = await uploadInventoryItemPhoto(file);
             itemForm.photoUrl = response?.attachment_key || response?.attachment_url || '';
+            itemForm.photoPreviewUrl = response?.attachment_url || response?.attachment_key || '';
             toast.success('Фото загружено');
         } catch (error) {
             toast.error('Не удалось загрузить фото');

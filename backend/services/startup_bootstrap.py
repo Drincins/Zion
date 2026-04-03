@@ -30,6 +30,20 @@ def _get_default_permission_payloads() -> list[dict[str, str]]:
             "responsibility_zone": "Сотрудники",
         },
         {
+            "api_router": PermissionKey.STAFF_EMPLOYEE_ORDERS_MANAGE,
+            "router_description": "Кадровые изменения сотрудников",
+            "comment": "Создание, отмена и применение кадровых изменений сотрудника с датой вступления в силу.",
+            "display_name": "Кадровые изменения сотрудников",
+            "responsibility_zone": "Сотрудники",
+        },
+        {
+            "api_router": PermissionKey.POSITIONS_CHANGE_ORDERS_MANAGE,
+            "router_description": "Кадровые изменения должностей",
+            "comment": "Создание, отмена и применение отложенных изменений ставок должностей с датой вступления в силу.",
+            "display_name": "Кадровые изменения должностей",
+            "responsibility_zone": "Доступ",
+        },
+        {
             "api_router": PermissionKey.KNOWLEDGE_BASE_VIEW,
             "router_description": "Knowledge base: view",
             "comment": "Read access to folders and documents in the knowledge base module.",

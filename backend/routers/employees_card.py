@@ -349,32 +349,18 @@ def create_employee_attendance(
 						raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Position not found")
 				attendance.position_id = pos_id
 
-		explicit_duration = data.get("duration_minutes") is not None
-		explicit_night = data.get("night_minutes") is not None
-
 		if close_date is not None and close_time is not None:
 				attendance.close_date = close_date
 				attendance.close_time = close_time
 				opened_dt = combine_date_time(attendance.open_date, attendance.open_time)
 				closed_dt = combine_date_time(close_date, close_time)
-
-				if explicit_duration or explicit_night:
-						_ensure_close_after_open(opened_dt, closed_dt)
-						if not explicit_duration or not explicit_night:
-								_apply_close_stats(attendance, opened_dt, closed_dt)
-				else:
-						_apply_close_stats(attendance, opened_dt, closed_dt)
-
-				if explicit_duration:
-						attendance.duration_minutes = data["duration_minutes"]
-				if explicit_night:
-						attendance.night_minutes = data["night_minutes"] or 0
+				_apply_close_stats(attendance, opened_dt, closed_dt)
 				_calculate_and_set_pay(db, attendance)
 		else:
 				attendance.close_date = None
 				attendance.close_time = None
-				attendance.duration_minutes = data.get("duration_minutes") if explicit_duration else None
-				attendance.night_minutes = data.get("night_minutes") or 0 if explicit_night else 0
+				attendance.duration_minutes = None
+				attendance.night_minutes = 0
 				attendance.pay_amount = None
 
 		db.add(attendance)
@@ -489,35 +475,22 @@ def update_employee_attendance(
 		attendance.close_time = data["close_time"]
 		close_changed = True
 
-	explicit_duration = data.get("duration_minutes") is not None
-	explicit_night = data.get("night_minutes") is not None
-
 	if ("close_date" in data and data["close_date"] is None) or ("close_time" in data and data["close_time"] is None):
 		attendance.close_date = None
 		attendance.close_time = None
-		attendance.duration_minutes = data.get("duration_minutes") if explicit_duration else None
-		attendance.night_minutes = data.get("night_minutes") if explicit_night else 0
+		attendance.duration_minutes = None
+		attendance.night_minutes = 0
 		attendance.pay_amount = None
 	else:
-		if explicit_duration:
-			attendance.duration_minutes = data["duration_minutes"]
-		if explicit_night:
-			attendance.night_minutes = data["night_minutes"] or 0
-
 		if attendance.close_date and attendance.close_time and attendance.open_date and attendance.open_time:
 			opened_dt = combine_date_time(attendance.open_date, attendance.open_time)
 			closed_dt = combine_date_time(attendance.close_date, attendance.close_time)
-			if not explicit_duration or not explicit_night:
-				_apply_close_stats(attendance, opened_dt, closed_dt)
-		else:
-			if open_changed or close_changed:
-				if not explicit_duration:
-					attendance.duration_minutes = None
-				if not explicit_night:
-					attendance.night_minutes = 0
-		if attendance.close_date and attendance.close_time and attendance.duration_minutes is not None:
+			_apply_close_stats(attendance, opened_dt, closed_dt)
 			_calculate_and_set_pay(db, attendance)
 		else:
+			if open_changed or close_changed:
+				attendance.duration_minutes = None
+				attendance.night_minutes = 0
 			attendance.pay_amount = None
 
 	after_summary = _attendance_summary(attendance)

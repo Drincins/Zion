@@ -19,6 +19,7 @@
                     <div class="employees-edit-modal__photo-preview">
                         <img
                             v-if="employeeCard?.photo_url"
+                            :key="employeeCard?.photo_key || employeeCard?.photo_url || 'employee-photo'"
                             :src="employeeCard.photo_url"
                             alt="Фото сотрудника"
                         />

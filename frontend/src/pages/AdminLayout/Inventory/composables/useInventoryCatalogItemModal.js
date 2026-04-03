@@ -28,6 +28,7 @@ export function useInventoryCatalogItemModal({
         itemForm.typeId = '';
         itemForm.cost = '';
         itemForm.photoUrl = '';
+        itemForm.photoPreviewUrl = '';
         itemForm.useInstanceCodes = true;
         itemForm.isActive = true;
         itemForm.createdAt = '';
@@ -58,6 +59,7 @@ export function useInventoryCatalogItemModal({
         itemForm.typeId = item.kind_id ? String(item.kind_id) : '';
         itemForm.cost = item.cost !== null && item.cost !== undefined ? String(item.cost) : '';
         itemForm.photoUrl = item.photo_key || item.photo_url || '';
+        itemForm.photoPreviewUrl = item.photo_url || item.photo_key || '';
         itemForm.useInstanceCodes = item.use_instance_codes !== false;
         itemForm.isActive = item.is_active !== false;
         itemForm.createdAt = item.created_at || '';
@@ -86,6 +88,7 @@ export function useInventoryCatalogItemModal({
         try {
             const response = await uploadInventoryItemPhoto(file);
             itemForm.photoUrl = response?.attachment_key || response?.attachment_url || '';
+            itemForm.photoPreviewUrl = response?.attachment_url || response?.attachment_key || '';
             toast.success('Фото загружено');
         } catch (error) {
             toast.error('Не удалось загрузить фото');

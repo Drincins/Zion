@@ -20,6 +20,7 @@ class PermissionKey:
     POSITIONS_MANAGE = "positions.manage"
     POSITIONS_EDIT = "positions.edit"
     POSITIONS_RATE_MANAGE = "positions.rate.manage"
+    POSITIONS_CHANGE_ORDERS_MANAGE = "positions.change_orders.manage"
     USERS_VIEW = "users.view"
     USERS_MANAGE = "users.manage"
     COMPANIES_VIEW = "companies.view"
@@ -88,6 +89,7 @@ class PermissionKey:
     STAFF_EMPLOYEES_IIKO_SYNC = "staff_employees.iiko_sync"
     STAFF_ROLES_ASSIGN = "staff.roles.assign"
     STAFF_RATE_MANAGE = "staff.rate.manage"
+    STAFF_EMPLOYEE_ORDERS_MANAGE = "staff.employee_orders.manage"
     STAFF_PORTAL_ACCESS = "staff_portal.access"
     EMPLOYEES_CARD_VIEW = "employees_card.view"
     EMPLOYEES_CARD_MANAGE = "employees_card.manage"
@@ -133,6 +135,7 @@ class PermissionCode:
     POSITIONS_MANAGE = PermissionKey.POSITIONS_MANAGE
     POSITIONS_EDIT = PermissionKey.POSITIONS_EDIT
     POSITIONS_RATE_MANAGE = PermissionKey.POSITIONS_RATE_MANAGE
+    POSITIONS_CHANGE_ORDERS_MANAGE = PermissionKey.POSITIONS_CHANGE_ORDERS_MANAGE
     USERS_VIEW = PermissionKey.USERS_VIEW
     USERS_MANAGE = PermissionKey.USERS_MANAGE
     COMPANIES_VIEW = PermissionKey.COMPANIES_VIEW
@@ -201,6 +204,7 @@ class PermissionCode:
     STAFF_EMPLOYEES_IIKO_SYNC = PermissionKey.STAFF_EMPLOYEES_IIKO_SYNC
     STAFF_ROLES_ASSIGN = PermissionKey.STAFF_ROLES_ASSIGN
     STAFF_RATE_MANAGE = PermissionKey.STAFF_RATE_MANAGE
+    STAFF_EMPLOYEE_ORDERS_MANAGE = PermissionKey.STAFF_EMPLOYEE_ORDERS_MANAGE
     STAFF_PORTAL_ACCESS = PermissionKey.STAFF_PORTAL_ACCESS
     EMPLOYEES_CARD_VIEW = PermissionKey.EMPLOYEES_CARD_VIEW
     EMPLOYEES_CARD_MANAGE = PermissionKey.EMPLOYEES_CARD_MANAGE

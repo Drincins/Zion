@@ -363,6 +363,7 @@ export function useInventoryCatalogItemCard({
             return;
         }
         itemForm.photoUrl = '';
+        itemForm.photoPreviewUrl = '';
         itemCardPhotoPreviewOverride.value = '';
         toast.success('Фото будет удалено после сохранения карточки');
     }
@@ -376,6 +377,7 @@ export function useInventoryCatalogItemCard({
         try {
             const response = await uploadInventoryItemPhoto(file);
             itemForm.photoUrl = response?.attachment_key || response?.attachment_url || '';
+            itemForm.photoPreviewUrl = response?.attachment_url || response?.attachment_key || '';
             if (response?.attachment_url) {
                 itemCardPhotoPreviewOverride.value = response.attachment_url;
             }

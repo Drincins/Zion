@@ -3,6 +3,7 @@ from fastapi import APIRouter
 from backend.routers import employees_card as legacy_employees_card
 from backend.routers.staff_employee_routes import common as common_routes
 from backend.routers.staff_employee_routes.admin import router as admin_router
+from backend.routers.staff_employee_routes.change_orders import router as change_orders_router
 from backend.routers.staff_employee_routes.detail import router as detail_router
 from backend.routers.staff_employee_routes.listing import (
     list_staff_employees_compact as list_staff_employees_compact_handler,
@@ -79,4 +80,5 @@ router.add_api_route(
 router.include_router(listing_router)
 router.include_router(admin_router)
 router.include_router(detail_router)
+router.include_router(change_orders_router)
 router.include_router(mutations_router)

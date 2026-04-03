@@ -6,6 +6,7 @@ import {
     STAFF_AUTH_CREDENTIALS_VIEW_PERMISSIONS,
     STAFF_CIS_DOCUMENTS_VIEW_PERMISSIONS,
     STAFF_CHANGES_VIEW_PERMISSIONS,
+    STAFF_EMPLOYEE_ORDERS_MANAGE_PERMISSIONS,
     STAFF_CIS_DOCUMENTS_MANAGE_PERMISSIONS,
     STAFF_CREATE_PERMISSIONS,
     STAFF_DOCUMENTS_VIEW_PERMISSIONS,
@@ -186,6 +187,10 @@ export function useEmployeeAccess(userStore) {
         userStore.hasAnyPermission(...STAFF_CHANGES_VIEW_PERMISSIONS)
     );
 
+    const canManageEmployeeChangeOrders = computed(() =>
+        userStore.hasAnyPermission(...STAFF_EMPLOYEE_ORDERS_MANAGE_PERMISSIONS)
+    );
+
     const canRestoreEmployees = computed(() =>
         userStore.hasAnyPermission(...STAFF_RESTORE_PERMISSIONS)
     );
@@ -220,6 +225,7 @@ export function useEmployeeAccess(userStore) {
         canManageCisDocuments,
         canManageDocuments,
         canViewEmployeeChanges,
+        canManageEmployeeChangeOrders,
         canRestoreEmployees
     };
 }

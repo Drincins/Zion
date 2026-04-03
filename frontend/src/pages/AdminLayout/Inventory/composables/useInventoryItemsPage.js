@@ -46,6 +46,7 @@ export function useInventoryItemsPage() {
         manufacturer: '',
         storageConditions: '',
         photoUrl: '',
+        photoPreviewUrl: '',
         useInstanceCodes: true,
         useCatalogItem: false,
         selectedCatalogItemId: null,

@@ -238,6 +238,15 @@
                 :employee-change-events-error="employeeChangeEventsError"
                 :employee-change-events-has-more="employeeChangeEventsHasMore"
                 :can-view-employee-changes="canViewEmployeeChanges"
+                :can-manage-employee-change-orders="canManageEmployeeChangeOrders"
+                :can-manage-rate-changes="canManageRateChanges"
+                :employee-change-orders="employeeChangeOrders"
+                :employee-change-orders-loading="employeeChangeOrdersLoading"
+                :employee-change-orders-error="employeeChangeOrdersError"
+                :is-employee-change-order-form-open="isEmployeeChangeOrderFormOpen"
+                :saving-employee-change-order="savingEmployeeChangeOrder"
+                :cancelling-employee-change-order-id="cancellingEmployeeChangeOrderId"
+                :employee-change-order-form="employeeChangeOrderForm"
                 :can-restore-employees="canRestoreEmployees"
                 :format-full-name="formatFullName"
                 :format-gender="formatGender"
@@ -289,6 +298,7 @@
                 :cis-document-form="cisDocumentForm"
                 :employment-document-form="employmentDocumentForm"
                 :is-medical-bulk-mode="isMedicalBulkMode"
+                :is-medical-bulk-update-mode="isMedicalBulkUpdateMode"
                 :is-medical-form-open="isMedicalFormOpen"
                 :is-cis-form-open="isCisFormOpen"
                 :is-employment-form-open="isEmploymentFormOpen"
@@ -311,6 +321,8 @@
                 :payroll-adjustment-types-loading="payrollAdjustmentTypesLoading"
                 :payroll-restaurant-options="payrollRestaurantOptions"
                 :responsible-options="responsibleOptions"
+                :position-options="positionOptions"
+                :workplace-restaurant-options="workplaceRestaurantOptions"
                 :format-restaurant="formatRestaurant"
                 @close="closeEmployeeModal"
                 @toggle-edit-mode="toggleEditMode"
@@ -335,6 +347,7 @@
                 @toggle-training-requirement="toggleTrainingRequirement"
                 @start-create-medical="startCreateMedicalRecord"
                 @start-create-medical-bulk="startCreateMedicalRecordsBulk"
+                @start-update-medical-bulk="startUpdateMedicalRecordsBulk"
                 @start-edit-medical="startEditMedicalRecord"
                 @cancel-medical-form="cancelMedicalForm"
                 @submit-medical-form="handleSaveMedicalRecord"
@@ -352,6 +365,11 @@
                 @upload-employment-attachment="handleUploadEmploymentAttachment"
                 @upload-photo="handleUploadEmployeePhoto"
                 @toggle-user-permission="handleToggleUserPermission"
+                @open-employee-change-order-form="openEmployeeChangeOrderForm"
+                @close-employee-change-order-form="closeEmployeeChangeOrderForm"
+                @submit-employee-change-order="handleCreateEmployeeChangeOrder"
+                @cancel-employee-change-order="handleCancelEmployeeChangeOrder"
+                @update-employee-change-order-field="updateEmployeeChangeOrderFormField"
                 @load-more-employee-change-events="loadMoreEmployeeChangeEvents"
                 @update:active-tab="handleActiveTabChange"
                 @update:attendance-date-from="handleAttendanceDateFromChange"
@@ -382,6 +400,65 @@
                 @upload-photo="handleUploadEmployeePhoto"
                 @toggle-edit-restaurant="toggleEditRestaurant"
             />
+
+            <Modal
+                v-if="isAttendanceSyncConfirmModalOpen"
+                class="employees-page__attendance-sync-modal"
+                :z-index="1600"
+                @close="closeAttendanceSyncConfirmModal"
+            >
+                <template #header>Изменить уже существующие смены?</template>
+                <div class="employees-page__comment-modal-body">
+                    <p class="employees-page__comment-modal-hint">
+                        Мы увидели изменения в карточке сотрудника. Их можно применить к уже созданным сменам за выбранный период.
+                    </p>
+                    <div v-if="attendanceSyncChangeLabels.length" class="employees-page__attendance-sync-tags">
+                        <span
+                            v-for="label in attendanceSyncChangeLabels"
+                            :key="label"
+                            class="employees-page__attendance-sync-tag"
+                        >
+                            {{ label }}
+                        </span>
+                    </div>
+                    <div class="employees-page__attendance-sync-range">
+                        <DateInput
+                            v-model="attendanceSyncForm.dateFrom"
+                            label="Дата с"
+                        />
+                        <DateInput
+                            v-model="attendanceSyncForm.dateTo"
+                            label="Дата по"
+                        />
+                    </div>
+                    <p class="employees-page__comment-modal-hint">
+                        Если выбрать «Нет», изменения сохранятся только в карточке сотрудника и не затронут уже существующие смены.
+                    </p>
+                </div>
+                <template #footer>
+                    <Button
+                        color="ghost"
+                        :disabled="updatingEmployee"
+                        @click="closeAttendanceSyncConfirmModal"
+                    >
+                        Отмена
+                    </Button>
+                    <Button
+                        color="secondary"
+                        :loading="updatingEmployee"
+                        @click="confirmEmployeeUpdateWithoutAttendanceSync"
+                    >
+                        Нет
+                    </Button>
+                    <Button
+                        color="primary"
+                        :loading="updatingEmployee"
+                        @click="confirmEmployeeUpdateWithAttendanceSync"
+                    >
+                        Да, изменить смены
+                    </Button>
+                </template>
+            </Modal>
 
             <Modal
                 v-if="isDeleteCommentModalOpen"
@@ -579,7 +656,7 @@
                                 <Select
                                     v-model="bulkAdjustForm.restaurantId"
                                     label="Ресторан (опционально)"
-                                    :options="restaurantFilterOptions"
+                                    :options="bulkAdjustRestaurantOptions"
                                 />
                                 <DateInput v-model="bulkAdjustForm.date" label="Дата операции" required />
                                 <Select
@@ -1326,6 +1403,7 @@ import { useEmployeeListState } from './composables/useEmployeeListState';
 import { useEmployeeTableFilters } from './composables/useEmployeeTableFilters';
 import { useEmployeeAttendances } from './composables/useEmployeeAttendances';
 import { useEmployeeBulkAdjust } from './composables/useEmployeeBulkAdjust';
+import { useEmployeeChangeOrders } from './composables/useEmployeeChangeOrders';
 import { useEmployeeDocuments } from './composables/useEmployeeDocuments';
 import { useEmployeeExports } from './composables/useEmployeeExports';
 import { useEmployeePayrollAdjustments } from './composables/useEmployeePayrollAdjustments';
@@ -1419,6 +1497,7 @@ const {
     canManageCisDocuments,
     canManageDocuments,
     canViewEmployeeChanges,
+    canManageEmployeeChangeOrders,
     canRestoreEmployees
 } = useEmployeeAccess(userStore);
 
@@ -1495,6 +1574,8 @@ const isEmployeeModalOpen = ref(false);
 const isOpeningFromRoute = ref(false);
 const activeEmployee = ref(null);
 const employeeCard = ref(null);
+const employeePhotoPreviewUrl = ref('');
+let employeePhotoRefreshTimer = null;
 const cardLoading = ref(false);
 const uploadingPhoto = ref(false);
 const activeModalTab = ref('info');
@@ -1556,13 +1637,44 @@ const isIikoSyncActionLoading = computed(
     () => syncingEmployeeToIiko.value || preparingIikoSyncPreview.value,
 );
 
-const employeePhotoUrl = computed(() => employeeCard.value?.photo_url || '');
+const employeePhotoUrl = computed(() => employeePhotoPreviewUrl.value || employeeCard.value?.photo_url || '');
+
+function revokeEmployeePhotoPreviewUrl() {
+    if (!employeePhotoPreviewUrl.value) {
+        return;
+    }
+    if (employeePhotoPreviewUrl.value.startsWith('blob:') && typeof URL !== 'undefined') {
+        URL.revokeObjectURL(employeePhotoPreviewUrl.value);
+    }
+    employeePhotoPreviewUrl.value = '';
+}
+
+function scheduleEmployeePhotoCardReload(userId) {
+    if (!userId) {
+        return;
+    }
+    if (employeePhotoRefreshTimer) {
+        clearTimeout(employeePhotoRefreshTimer);
+        employeePhotoRefreshTimer = null;
+    }
+    employeePhotoRefreshTimer = setTimeout(async () => {
+        employeePhotoRefreshTimer = null;
+        try {
+            await loadEmployeeCard(userId);
+        } finally {
+            revokeEmployeePhotoPreviewUrl();
+        }
+    }, 1200);
+}
 
 const handleActiveTabChange = (tab) => {
     if (tab === 'trainings' && !canViewTrainings.value) {
         return;
     }
     if (tab === 'permissions' && !canManageUserPermissions.value) {
+        return;
+    }
+    if (tab === 'orders' && !canManageEmployeeChangeOrders.value) {
         return;
     }
     activeModalTab.value = tab;
@@ -1600,6 +1712,30 @@ const {
 });
 
 const {
+    employeeChangeOrders,
+    employeeChangeOrdersLoading,
+    employeeChangeOrdersError,
+    isEmployeeChangeOrderFormOpen,
+    savingEmployeeChangeOrder,
+    cancellingEmployeeChangeOrderId,
+    employeeChangeOrderForm,
+    canManageRateChanges,
+    openEmployeeChangeOrderForm,
+    closeEmployeeChangeOrderForm,
+    updateEmployeeChangeOrderFormField,
+    loadEmployeeChangeOrders,
+    handleCreateEmployeeChangeOrder,
+    handleCancelEmployeeChangeOrder,
+    resetEmployeeChangeOrdersState,
+} = useEmployeeChangeOrders({
+    activeEmployee,
+    employeeCard,
+    canManageEmployeeChangeOrders,
+    canEditRates,
+    formatDateInput,
+});
+
+const {
     medicalCheckRecords,
     cisDocumentRecords,
     medicalCheckTypes,
@@ -1612,6 +1748,7 @@ const {
     employmentDocumentForm,
     isMedicalFormOpen,
     isMedicalBulkMode,
+    isMedicalBulkUpdateMode,
     isCisFormOpen,
     isEmploymentFormOpen,
     savingMedicalRecord,
@@ -1628,6 +1765,7 @@ const {
     employmentDocumentFormLabel,
     startCreateMedicalRecord,
     startCreateMedicalRecordsBulk,
+    startUpdateMedicalRecordsBulk,
     startCreateCisDocument,
     startEditMedicalRecord,
     startEditCisDocument,
@@ -1877,6 +2015,13 @@ const employeeEditForm = reactive({
     password: '',
     photoKey: '',
 });
+const isAttendanceSyncConfirmModalOpen = ref(false);
+const attendanceSyncChangeLabels = ref([]);
+const pendingEmployeeUpdateContext = ref(null);
+const attendanceSyncForm = reactive({
+    dateFrom: '',
+    dateTo: '',
+});
 
 const suppressEmployeeRateAutofill = ref(false);
 const suppressEmployeeEditWorkplaceSync = ref(false);
@@ -1885,46 +2030,93 @@ const employeeEditInitialUsername = ref('');
 const employeeEditInitialRestaurantIds = ref([]);
 const employeeEditRestaurantsTouched = ref(false);
 
+function setRestaurantOption(options, rawId, rawLabel = null) {
+    const id = Number(rawId);
+    if (!Number.isFinite(id) || id <= 0) {
+        return;
+    }
+    const nextLabel =
+        typeof rawLabel === 'string' && rawLabel.trim()
+            ? rawLabel.trim()
+            : `ID ${id}`;
+    const currentLabel = options.get(id);
+    if (!currentLabel) {
+        options.set(id, nextLabel);
+        return;
+    }
+    const currentLooksLikeFallback =
+        currentLabel === `ID ${id}` || currentLabel === `Ресторан #${id}`;
+    const nextLooksNamed =
+        nextLabel !== `ID ${id}` && nextLabel !== `Ресторан #${id}`;
+    if (currentLooksLikeFallback && nextLooksNamed) {
+        options.set(id, nextLabel);
+    }
+}
+
 const payrollRestaurantOptions = computed(() => {
-    if (Array.isArray(restaurants.value) && restaurants.value.length) {
-        return restaurants.value.map((r) => ({
-            value: String(r.id),
-            label: r.name || `ID ${r.id}`,
-        }));
+    const options = new Map();
+
+    for (const restaurant of restaurants.value || []) {
+        setRestaurantOption(options, restaurant?.id, restaurant?.name);
     }
 
-    if (Array.isArray(userStore.restaurantIds) && userStore.restaurantIds.length) {
-        return userStore.restaurantIds
-            .map((id) => Number(id))
-            .filter((id) => Number.isFinite(id))
-            .map((id) => ({
-                value: String(id),
-                label: `ID ${id}`,
-            }));
+    for (const restaurant of activeEmployee.value?.restaurants || []) {
+        setRestaurantOption(options, restaurant?.id, restaurant?.name);
     }
 
-    const restaurantsFromEmployee = Array.isArray(activeEmployee.value?.restaurants)
-        ? activeEmployee.value.restaurants
+    const cardRestaurantIds = Array.isArray(employeeCard.value?.restaurant_ids)
+        ? employeeCard.value.restaurant_ids
         : [];
-    if (restaurantsFromEmployee.length) {
-        return restaurantsFromEmployee
-            .filter((r) => r?.id)
-            .map((r) => ({
-                value: String(r.id),
-                label: r.name || `ID ${r.id}`,
-            }));
+    const cardRestaurantNames = Array.isArray(employeeCard.value?.restaurant_names)
+        ? employeeCard.value.restaurant_names
+        : [];
+    cardRestaurantIds.forEach((id, index) => {
+        setRestaurantOption(options, id, cardRestaurantNames[index]);
+    });
+
+    setRestaurantOption(
+        options,
+        employeeCard.value?.workplace_restaurant_id,
+        employeeCard.value?.workplace_restaurant_name,
+    );
+    setRestaurantOption(
+        options,
+        activeEmployee.value?.workplace_restaurant_id,
+        activeEmployee.value?.workplace_restaurant_name,
+    );
+
+    if (!options.size && Array.isArray(userStore.restaurantIds) && userStore.restaurantIds.length) {
+        for (const id of userStore.restaurantIds) {
+            setRestaurantOption(options, id);
+        }
     }
 
-    const ids = Array.isArray(activeEmployee.value?.restaurant_ids)
-        ? activeEmployee.value.restaurant_ids
-        : [];
-    return ids
-        .map((id) => Number(id))
-        .filter((id) => Number.isFinite(id))
-        .map((id) => ({
+    return Array.from(options.entries())
+        .map(([id, label]) => ({
             value: String(id),
-            label: `ID ${id}`,
-        }));
+            label,
+        }))
+        .sort((a, b) => a.label.localeCompare(b.label, 'ru', { sensitivity: 'base' }));
+});
+
+const bulkAdjustRestaurantOptions = computed(() => {
+    const seen = new Set();
+    const items = [];
+    for (const option of payrollRestaurantOptions.value || []) {
+        const value = String(option?.value ?? '').trim();
+        if (!value || seen.has(value)) {
+            continue;
+        }
+        seen.add(value);
+        items.push({
+            value,
+            label: option?.label || `ID ${value}`,
+        });
+    }
+    return [
+        { value: '', label: 'По месту работы сотрудника' },
+        ...items,
+    ];
 });
 
 const responsibleOptions = computed(() => {
@@ -2054,13 +2246,19 @@ const {
     toggleBulkSubdivisionPanel,
     handleBulkAdjust,
 } = useEmployeeBulkAdjust({
-    restaurantOptions,
+    payrollRestaurantOptions,
     timesheetOptions,
     formatDateInput,
     resolveEmployeeId,
     formatFullNameShort,
     employeeMatchesWorkplace,
     loadPayrollAdjustmentTypes,
+    loadRestaurantOptions: () =>
+        ensureEmployeeReferenceData({
+            includeCompanies: false,
+            includeRoles: false,
+            includePositions: false,
+        }),
     loadTimesheetOptions,
 });
 
@@ -2823,13 +3021,12 @@ function formatRestaurant(restaurantId) {
         return '—';
     }
     const idNum = Number(restaurantId);
-    const fromActive = activeEmployee.value?.restaurants?.find((r) => r?.id === idNum);
-    if (fromActive) {
-        return fromActive.name || `ID ${idNum}`;
+    if (!Number.isFinite(idNum)) {
+        return String(restaurantId);
     }
-    const fromList = restaurants.value?.find((r) => r?.id === idNum);
-    if (fromList) {
-        return fromList.name || `ID ${idNum}`;
+    const fromOptions = payrollRestaurantOptions.value?.find((option) => Number(option?.value) === idNum);
+    if (fromOptions?.label) {
+        return fromOptions.label;
     }
     return `ID ${idNum}`;
 }
@@ -3115,20 +3312,54 @@ async function autoLoadChangesTab() {
     });
 }
 
+async function autoLoadChangeOrdersTab() {
+    if (!canManageEmployeeChangeOrders.value) {
+        return;
+    }
+    const key = resolveActiveEmployeeTabKey();
+    if (!key) {
+        return;
+    }
+    await runEmployeeTabAutoLoad('orders', key, async () => {
+        await loadEmployeeChangeOrders();
+    });
+}
+
 async function handleUploadEmployeePhoto(file) {
     if (!activeEmployee.value || !file) {
         return;
     }
     uploadingPhoto.value = true;
+    const localPreviewUrl =
+        typeof URL !== 'undefined' && typeof URL.createObjectURL === 'function'
+            ? URL.createObjectURL(file)
+            : '';
+    if (localPreviewUrl) {
+        revokeEmployeePhotoPreviewUrl();
+        employeePhotoPreviewUrl.value = localPreviewUrl;
+    }
     try {
         const response = await uploadEmployeePhoto(activeEmployee.value.id, file);
         employeeCard.value = {
             ...(employeeCard.value || {}),
             photo_key: response?.photo_key || null,
-            photo_url: response?.photo_url || null,
+            photo_url: localPreviewUrl || response?.photo_url || null,
         };
+        employeeEditForm.photoKey = response?.photo_key || '';
+        if (activeEmployee.value) {
+            activeEmployee.value = {
+                ...activeEmployee.value,
+                photo_key: response?.photo_key || null,
+                photo_url: localPreviewUrl || response?.photo_url || null,
+            };
+        }
+        scheduleEmployeePhotoCardReload(activeEmployee.value.id);
         toast.success('Фото обновлено');
     } catch (error) {
+        revokeEmployeePhotoPreviewUrl();
+        if (activeEmployee.value?.id) {
+            await loadEmployeeCard(activeEmployee.value.id);
+        }
         const detail = error?.response?.data?.detail;
         toast.error(detail || 'Не удалось выполнить операцию');
         console.error(error);
@@ -3252,6 +3483,7 @@ function cancelEditMode() {
     isEditMode.value = false;
     editContextLoading.value = false;
     employeeEditForm.password = '';
+    resetAttendanceSyncConfirmState();
 }
 
 async function toggleEditMode() {
@@ -3317,6 +3549,11 @@ function closeEmployeeModal() {
     isEmployeeModalOpen.value = false;
     activeEmployee.value = null;
     employeeCard.value = null;
+    if (employeePhotoRefreshTimer) {
+        clearTimeout(employeePhotoRefreshTimer);
+        employeePhotoRefreshTimer = null;
+    }
+    revokeEmployeePhotoPreviewUrl();
     uploadingPhoto.value = false;
     syncingEmployeeToIiko.value = false;
     preparingIikoSyncPreview.value = false;
@@ -3327,6 +3564,7 @@ function closeEmployeeModal() {
     deleteCommentText.value = '';
     deleteFromIikoPending.value = false;
     resetEmployeeAttendancesState();
+    resetEmployeeChangeOrdersState();
     employeeChangeEvents.value = [];
     employeeChangeEventsError.value = '';
     employeeChangeEventsLoading.value = false;
@@ -4022,6 +4260,167 @@ async function ensureEmployeeReferenceData(options = {}) {
     }
 }
 
+function normalizeComparableEmployeeId(value) {
+    if (value === null || value === undefined || value === '' || value === 0 || value === '0') {
+        return null;
+    }
+    const parsed = Number(value);
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+}
+
+function normalizeComparableEmployeeRate(value) {
+    if (value === null || value === undefined || value === '') {
+        return null;
+    }
+    const parsed = Number.parseFloat(String(value).replace(',', '.'));
+    if (!Number.isFinite(parsed)) {
+        return null;
+    }
+    return parsed.toFixed(2);
+}
+
+function resetAttendanceSyncConfirmState() {
+    isAttendanceSyncConfirmModalOpen.value = false;
+    attendanceSyncChangeLabels.value = [];
+    pendingEmployeeUpdateContext.value = null;
+    attendanceSyncForm.dateFrom = '';
+    attendanceSyncForm.dateTo = '';
+}
+
+function closeAttendanceSyncConfirmModal() {
+    if (updatingEmployee.value) {
+        return;
+    }
+    resetAttendanceSyncConfirmState();
+}
+
+function getAttendanceSyncChangeLabels({ positionId, workplaceRestaurantId, rate }) {
+    const labels = [];
+    const currentCard = employeeCard.value;
+    if (!currentCard) {
+        return labels;
+    }
+
+    if (
+        normalizeComparableEmployeeId(currentCard.position_id)
+        !== normalizeComparableEmployeeId(positionId)
+    ) {
+        labels.push('Должность');
+    }
+
+    if (
+        normalizeComparableEmployeeId(currentCard.workplace_restaurant_id)
+        !== normalizeComparableEmployeeId(workplaceRestaurantId)
+    ) {
+        labels.push('Место работы');
+    }
+
+    if (canEditRates.value && !employeeEditForm.rateHidden) {
+        if (
+            normalizeComparableEmployeeRate(currentCard.rate)
+            !== normalizeComparableEmployeeRate(rate)
+        ) {
+            labels.push('Ставка');
+        }
+    }
+
+    return labels;
+}
+
+async function submitEmployeeUpdate(updateContext, options = {}) {
+    if (!activeEmployee.value || !updateContext) {
+        return;
+    }
+
+    const { payload, wantsFullAccess, username } = updateContext;
+    const requestPayload = { ...payload };
+    if (options?.updateAttendances) {
+        requestPayload.update_attendances = true;
+        requestPayload.attendance_date_from = options.dateFrom;
+        requestPayload.attendance_date_to = options.dateTo;
+    }
+    updatingEmployee.value = true;
+    try {
+        const updatedCard = await updateStaffEmployee(activeEmployee.value.id, requestPayload);
+        employeeCard.value = updatedCard;
+
+        const shouldUpdateFullAccess =
+            canEditFullAccess.value &&
+            wantsFullAccess !== employeeEditInitialFullAccess.value;
+        const shouldUpdateUsername = username !== (employeeEditInitialUsername.value?.trim() || null);
+
+        if (shouldUpdateFullAccess || shouldUpdateUsername) {
+            try {
+                await updateUser(activeEmployee.value.id, {
+                    ...(shouldUpdateFullAccess
+                        ? { has_full_restaurant_access: wantsFullAccess }
+                        : {}),
+                    ...(shouldUpdateUsername ? { username } : {}),
+                });
+                employeeEditInitialFullAccess.value = wantsFullAccess;
+                employeeEditInitialUsername.value = username ?? '';
+            } catch (error) {
+                const detail = error?.response?.data?.detail;
+                toast.error(detail || 'Не удалось выполнить операцию');
+                console.error(error);
+                await loadEmployeeCard(activeEmployee.value.id);
+                return;
+            }
+        }
+
+        if (options?.updateAttendances) {
+            toast.success('Данные сотрудника и смены обновлены');
+        } else {
+            toast.success('Данные сотрудника обновлены');
+        }
+        resetAttendanceSyncConfirmState();
+        cancelEditMode();
+        invalidateEmployeeDirectory();
+        if (canViewEmployees.value) {
+            await loadEmployees();
+            const refreshed = employees.value.find((employee) => employee.id === updatedCard.id);
+            if (refreshed) {
+                activeEmployee.value = refreshed;
+            }
+        }
+        if (canViewEmployeeChanges.value) {
+            await loadEmployeeChangeEvents();
+        }
+    } catch (error) {
+        const detail = error?.response?.data?.detail;
+        toast.error(detail || 'Не удалось выполнить операцию');
+        console.error(error);
+    } finally {
+        updatingEmployee.value = false;
+    }
+}
+
+async function confirmEmployeeUpdateWithoutAttendanceSync() {
+    if (!pendingEmployeeUpdateContext.value) {
+        return;
+    }
+    await submitEmployeeUpdate(pendingEmployeeUpdateContext.value);
+}
+
+async function confirmEmployeeUpdateWithAttendanceSync() {
+    if (!pendingEmployeeUpdateContext.value) {
+        return;
+    }
+    if (!attendanceSyncForm.dateFrom || !attendanceSyncForm.dateTo) {
+        toast.error('Укажите диапазон дат для обновления смен');
+        return;
+    }
+    if (attendanceSyncForm.dateFrom > attendanceSyncForm.dateTo) {
+        toast.error('Дата начала периода не может быть позже даты окончания');
+        return;
+    }
+    await submitEmployeeUpdate(pendingEmployeeUpdateContext.value, {
+        updateAttendances: true,
+        dateFrom: attendanceSyncForm.dateFrom,
+        dateTo: attendanceSyncForm.dateTo,
+    });
+}
+
 async function handleUpdateEmployee() {
     if (!activeEmployee.value || !canManageEmployees.value) {
         return;
@@ -4110,135 +4509,105 @@ async function handleUpdateEmployee() {
         return;
     }
 
-    updatingEmployee.value = true;
-    try {
-        const payload = {
-            first_name: employeeEditForm.firstName || null,
-            middle_name: employeeEditForm.middleName || null,
-            last_name: employeeEditForm.lastName || null,
-            gender: employeeEditForm.gender || null,
-            staff_code: employeeEditForm.staffCode || null,
-            iiko_code: employeeEditForm.iikoCode || null,
-            ...(canEditIikoId.value
-                ? { iiko_id: employeeEditForm.iikoId || null }
-                : {}),
-            is_cis_employee: Boolean(employeeEditForm.isCisEmployee),
-            is_formalized: Boolean(employeeEditForm.isFormalized),
-            confidential_data_consent: Boolean(employeeEditForm.confidentialDataConsent),
-            phone_number: normalizedPhone,
-            email,
-            role_id: canEditRoles.value ? roleId : undefined,
-            company_id: companyId ?? undefined,
-            position_id: positionId,
-            workplace_restaurant_id: workplaceRestaurantId,
-            restaurant_ids: restaurantIds,
-            ...(employeeEditForm.rateHidden || !canEditRates.value
-                ? {}
-                : {
-                      rate: rate,
-                      individual_rate: employeeEditForm.useIndividualRate ? individualRate : null,
-                  }),
-            hire_date: employeeEditForm.hireDate || null,
-            ...(employeeCard.value?.fired ? { fire_date: employeeEditForm.fireDate || null } : {}),
-            birth_date: employeeEditForm.birthDate || null,
-            photo_key: employeeEditForm.photoKey || null,
-        };
+    const payload = {
+        first_name: employeeEditForm.firstName || null,
+        middle_name: employeeEditForm.middleName || null,
+        last_name: employeeEditForm.lastName || null,
+        gender: employeeEditForm.gender || null,
+        staff_code: employeeEditForm.staffCode || null,
+        iiko_code: employeeEditForm.iikoCode || null,
+        ...(canEditIikoId.value
+            ? { iiko_id: employeeEditForm.iikoId || null }
+            : {}),
+        is_cis_employee: Boolean(employeeEditForm.isCisEmployee),
+        is_formalized: Boolean(employeeEditForm.isFormalized),
+        confidential_data_consent: Boolean(employeeEditForm.confidentialDataConsent),
+        phone_number: normalizedPhone,
+        email,
+        role_id: canEditRoles.value ? roleId : undefined,
+        company_id: companyId ?? undefined,
+        position_id: positionId,
+        workplace_restaurant_id: workplaceRestaurantId,
+        restaurant_ids: restaurantIds,
+        ...(employeeEditForm.rateHidden || !canEditRates.value
+            ? {}
+            : {
+                  rate: rate,
+                  individual_rate: employeeEditForm.useIndividualRate ? individualRate : null,
+              }),
+        hire_date: employeeEditForm.hireDate || null,
+        ...(employeeCard.value?.fired ? { fire_date: employeeEditForm.fireDate || null } : {}),
+        birth_date: employeeEditForm.birthDate || null,
+        photo_key: employeeEditForm.photoKey || null,
+    };
 
-        if (!canViewSensitiveStaffFields.value) {
-            delete payload.iiko_code;
-            delete payload.confidential_data_consent;
-            delete payload.role_id;
-        }
-        if (!canEditIikoId.value) {
-            delete payload.iiko_id;
-        }
-
-        if (employeeEditForm.password) {
-            payload.password = employeeEditForm.password;
-        }
-        if (rate === null) {
-            delete payload.rate;
-        }
-        const hadRestaurants =
-            Array.isArray(employeeEditInitialRestaurantIds.value) &&
-            (employeeEditInitialRestaurantIds.value.length > 0 || employeeEditInitialFullAccess.value);
-        if (!payload.restaurant_ids || payload.restaurant_ids.length === 0) {
-            if (employeeEditRestaurantsTouched.value && hadRestaurants) {
-                payload.restaurant_ids = [];
-                payload.clear_restaurants = true;
-            } else {
-                delete payload.restaurant_ids;
-            }
-        }
-        if (!payload.photo_key) {
-            payload.photo_key = null;
-        }
-        if (!payload.staff_code) {
-            payload.staff_code = null;
-        }
-        if (!payload.iiko_code) {
-            payload.iiko_code = null;
-        }
-        if (canEditIikoId.value && !payload.iiko_id) {
-            payload.iiko_id = null;
-        }
-        if (!payload.gender) {
-            payload.gender = null;
-        }
-        if (!payload.hire_date) {
-            payload.hire_date = null;
-        }
-        if (!payload.birth_date) {
-            payload.birth_date = null;
-        }
-
-        const updatedCard = await updateStaffEmployee(activeEmployee.value.id, payload);
-        employeeCard.value = updatedCard;
-
-        const shouldUpdateFullAccess =
-            canEditFullAccess.value &&
-            wantsFullAccess !== employeeEditInitialFullAccess.value;
-            const shouldUpdateUsername = username !== (employeeEditInitialUsername.value?.trim() || null);
-
-        if (shouldUpdateFullAccess || shouldUpdateUsername) {
-            try {
-                await updateUser(activeEmployee.value.id, {
-                    ...(shouldUpdateFullAccess
-                        ? { has_full_restaurant_access: wantsFullAccess }
-                        : {}),
-                    ...(shouldUpdateUsername ? { username } : {}),
-                });
-                employeeEditInitialFullAccess.value = wantsFullAccess;
-                employeeEditInitialUsername.value = username ?? '';
-            } catch (error) {
-                const detail = error?.response?.data?.detail;
-                toast.error(detail || 'Не удалось выполнить операцию');
-                console.error(error);
-                await loadEmployeeCard(activeEmployee.value.id);
-                return;
-            }
-        }
-
-        toast.success('Данные сотрудника обновлены');
-        cancelEditMode();
-        invalidateEmployeeDirectory();
-        if (canViewEmployees.value) {
-            await loadEmployees();
-            const refreshed = employees.value.find((employee) => employee.id === updatedCard.id);
-            if (refreshed) {
-                activeEmployee.value = refreshed;
-            }
-        }
-        if (canViewEmployeeChanges.value) {
-            await loadEmployeeChangeEvents();
-        }
-    } catch (error) {
-        const detail = error?.response?.data?.detail;
-        toast.error(detail || 'Не удалось выполнить операцию');
-        console.error(error);
-    } finally {
-        updatingEmployee.value = false;
+    if (!canViewSensitiveStaffFields.value) {
+        delete payload.iiko_code;
+        delete payload.confidential_data_consent;
+        delete payload.role_id;
     }
+    if (!canEditIikoId.value) {
+        delete payload.iiko_id;
+    }
+
+    if (employeeEditForm.password) {
+        payload.password = employeeEditForm.password;
+    }
+    if (rate === null) {
+        delete payload.rate;
+    }
+    const hadRestaurants =
+        Array.isArray(employeeEditInitialRestaurantIds.value) &&
+        (employeeEditInitialRestaurantIds.value.length > 0 || employeeEditInitialFullAccess.value);
+    if (!payload.restaurant_ids || payload.restaurant_ids.length === 0) {
+        if (employeeEditRestaurantsTouched.value && hadRestaurants) {
+            payload.restaurant_ids = [];
+            payload.clear_restaurants = true;
+        } else {
+            delete payload.restaurant_ids;
+        }
+    }
+    if (!payload.photo_key) {
+        payload.photo_key = null;
+    }
+    if (!payload.staff_code) {
+        payload.staff_code = null;
+    }
+    if (!payload.iiko_code) {
+        payload.iiko_code = null;
+    }
+    if (canEditIikoId.value && !payload.iiko_id) {
+        payload.iiko_id = null;
+    }
+    if (!payload.gender) {
+        payload.gender = null;
+    }
+    if (!payload.hire_date) {
+        payload.hire_date = null;
+    }
+    if (!payload.birth_date) {
+        payload.birth_date = null;
+    }
+
+    const updateContext = {
+        payload,
+        wantsFullAccess,
+        username,
+    };
+
+    const shiftSyncChangeLabels = getAttendanceSyncChangeLabels({
+        positionId,
+        workplaceRestaurantId,
+        rate,
+    });
+    if (shiftSyncChangeLabels.length) {
+        attendanceSyncChangeLabels.value = shiftSyncChangeLabels;
+        pendingEmployeeUpdateContext.value = updateContext;
+        isAttendanceSyncConfirmModalOpen.value = true;
+        return;
+    }
+
+    await submitEmployeeUpdate(updateContext);
 }
 
 async function handleDeleteEmployee() {
@@ -4836,6 +5205,7 @@ watch(
     () => activeEmployee.value?.id,
     async (id) => {
         resetEmployeeAttendancesState();
+        resetEmployeeChangeOrdersState();
         resetEmployeeTrainingsState();
         if (!id) {
             resetUserPermissionState();
@@ -4852,6 +5222,9 @@ watch(
         }
         if (activeModalTab.value === 'permissions' && canManageUserPermissions.value) {
             await autoLoadPermissionTab();
+        }
+        if (activeModalTab.value === 'orders' && canManageEmployeeChangeOrders.value) {
+            await autoLoadChangeOrdersTab();
         }
     },
 );
@@ -4987,6 +5360,22 @@ watch(
 );
 
 watch(
+    () => canManageEmployeeChangeOrders.value,
+    async (allowed) => {
+        if (!allowed && activeModalTab.value === 'orders') {
+            activeModalTab.value = 'info';
+        }
+        if (allowed && activeEmployee.value && activeModalTab.value === 'orders') {
+            await autoLoadChangeOrdersTab();
+        }
+        if (!allowed) {
+            resetEmployeeChangeOrdersState();
+        }
+    },
+    { immediate: true },
+);
+
+watch(
     () => canViewEmployeeChanges.value,
     async (allowed) => {
         if (allowed && activeEmployee.value && activeModalTab.value === 'changes') {
@@ -5076,6 +5465,9 @@ watch(
         if (tab === 'finance' && activeEmployee.value) {
             await autoLoadFinanceTab();
         }
+        if (tab === 'orders' && activeEmployee.value && canManageEmployeeChangeOrders.value) {
+            await autoLoadChangeOrdersTab();
+        }
         if (tab === 'changes' && activeEmployee.value && canViewEmployeeChanges.value) {
             await autoLoadChangesTab();
         }
@@ -5087,6 +5479,11 @@ onBeforeUnmount(() => {
         employeesLoadAbortController.abort();
         employeesLoadAbortController = null;
     }
+    if (employeePhotoRefreshTimer) {
+        clearTimeout(employeePhotoRefreshTimer);
+        employeePhotoRefreshTimer = null;
+    }
+    revokeEmployeePhotoPreviewUrl();
 });
 </script>
 
