@@ -120,11 +120,7 @@ def create_employee_change_order(
 
     _ensure_employee_change_orders_manage(db, current_user, target_user)
 
-    if payload.effective_date < today_local():
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Effective date must be today or in the future",
-        )
+    today = today_local()
 
     has_changes = any(
         [
@@ -221,7 +217,11 @@ def create_employee_change_order(
         individual_rate_new=(
             payload.individual_rate_new if payload.change_individual_rate else None
         ),
-        apply_to_attendances=bool(payload.apply_to_attendances),
+        apply_to_attendances=(
+            bool(payload.apply_to_attendances)
+            if payload.effective_date < today
+            else True
+        ),
         comment=(payload.comment or "").strip() or None,
         created_by_id=current_user.id,
     )
@@ -229,7 +229,7 @@ def create_employee_change_order(
     db.commit()
 
     order = _load_order(db, user_id=user_id, order_id=order.id)
-    if order.effective_date <= today_local():
+    if order.effective_date <= today:
         try:
             apply_employee_change_order(db, order)
             db.commit()

@@ -1,11 +1,11 @@
 from __future__ import annotations
 
+from datetime import date
 from typing import Any
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, UploadFile, status
 
 from . import common as c
-from backend.services.employee_attendance_updates import apply_employee_updates_to_attendances
 from backend.services.image_uploads import normalize_uploaded_image
 
 router = APIRouter()
@@ -104,10 +104,27 @@ def update_employee(
         "rate": db_user.rate,
         "fired": db_user.fired,
     }
-    original_position_id = getattr(db_user.position, "id", None)
-    original_workplace_id = getattr(db_user.workplace_restaurant, "id", None)
 
     fields_set = getattr(payload, "model_fields_set", set())
+    blocked_change_order_fields = {
+        "position_id",
+        "rate",
+        "individual_rate",
+    }
+    requested_blocked_fields = blocked_change_order_fields.intersection(fields_set)
+    if requested_blocked_fields:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                "Должность, ставка и обновление смен меняются через раздел "
+                "«Кадровые изменения»."
+            ),
+        )
+    if "workplace_restaurant_id" in fields_set and not payload.add_to_iiko:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Место работы меняется через раздел «Кадровые изменения».",
+        )
     sync_only_allowed_fields = {
         "first_name",
         "last_name",
@@ -335,39 +352,7 @@ def update_employee(
             if company:
                 db_user.company = company
 
-    updated_position = db_user.position
-    updated_workplace = db_user.workplace_restaurant
-    updated_position_id = getattr(updated_position, "id", None)
-    updated_workplace_id = getattr(updated_workplace, "id", None)
-    position_changed = original_position_id != updated_position_id
-    workplace_changed = original_workplace_id != updated_workplace_id
     rate_changed = c._normalize_rate_value(original_values["rate"]) != c._normalize_rate_value(db_user.rate)
-
-    if payload.update_attendances:
-        attendance_date_from = payload.attendance_date_from
-        attendance_date_to = payload.attendance_date_to
-        if attendance_date_from is None or attendance_date_to is None:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Для обновления смен укажите диапазон дат",
-            )
-        if attendance_date_from > attendance_date_to:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Дата начала периода не может быть позже даты окончания",
-            )
-        apply_employee_updates_to_attendances(
-            db=db,
-            user_id=db_user.id,
-            date_from=attendance_date_from,
-            date_to=attendance_date_to,
-            position_changed=position_changed,
-            restaurant_changed=workplace_changed,
-            rate_changed=rate_changed,
-            position=updated_position,
-            restaurant=updated_workplace,
-            rate=float(db_user.rate) if db_user.rate is not None else None,
-        )
 
     new_row_id = c.build_employee_row_id(
         last_name=db_user.last_name,

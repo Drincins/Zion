@@ -231,7 +231,7 @@
                                         <div class="kpi-result__status" :class="metricMonthStatusClass(block.metric, month.month)">
                                             {{ metricMonthStatusSymbol(block.metric, month.month) }}
                                         </div>
-                                        <div class="kpi-result__hint">
+                                        <div class="kpi-result__hint kpi-result__hint--overall-plan">
                                             {{ metricMonthHintLabel(block.metric, month.month) }}
                                         </div>
                                     </td>
@@ -240,7 +240,7 @@
                                         <div class="kpi-result__status" :class="metricTotalStatusClass(block.metric)">
                                             {{ metricTotalStatusSymbol(block.metric) }}
                                         </div>
-                                        <div class="kpi-result__hint">
+                                        <div class="kpi-result__hint kpi-result__hint--overall-plan">
                                             {{ metricTotalHintLabel(block.metric) }}
                                         </div>
                                     </td>
@@ -762,6 +762,12 @@ function planHintLabel(planValue) {
     return `План: ${formatNumber(plan)}`;
 }
 
+function overallPlanHintLabel(planValue) {
+    const plan = parseNumber(planValue);
+    if (plan === null) return '';
+    return `Общий план: ${formatNumber(plan)}`;
+}
+
 function entry(metricId, restId, month) {
     return planFacts.value?.[metricId]?.[restId]?.[month] || null;
 }
@@ -810,6 +816,16 @@ function sumSummaries(definition, summaries) {
         return emptySummary();
     }
     return buildSummary(definition, sumNumeric(valid.map((item) => item.actual)), sumNumeric(valid.map((item) => item.plan)));
+}
+
+function metricAggregationMode(metric) {
+    return metric?.result_aggregation_mode === 'sum' ? 'sum' : 'average';
+}
+
+function aggregateMetricSummaries(metric, summaries) {
+    return metricAggregationMode(metric) === 'sum'
+        ? sumSummaries(metric, summaries)
+        : averageSummaries(metric, summaries);
 }
 
 function summaryValueLabel(summary) {
@@ -863,17 +879,25 @@ function metricRestaurantYearSummary(metricOrId, restId) {
 }
 
 function metricMonthOverallSummary(metric, month) {
-    return averageSummaries(
+    const summary = aggregateMetricSummaries(
         metric,
         metricRestaurants(metric).map((rest) => metricMonthRestaurantSummary(metric, Number(rest.id), month)),
     );
+    if (summaryReady(summary)) {
+        summary.hint = overallPlanHintLabel(summary.plan);
+    }
+    return summary;
 }
 
 function metricOverallYearSummary(metric) {
-    return averageSummaries(
+    const summary = aggregateMetricSummaries(
         metric,
         metricRestaurants(metric).map((rest) => metricRestaurantYearSummary(metric, Number(rest.id))),
     );
+    if (summaryReady(summary)) {
+        summary.hint = overallPlanHintLabel(summary.plan);
+    }
+    return summary;
 }
 
 function groupRestaurantMonthSummary(block, restId, month) {

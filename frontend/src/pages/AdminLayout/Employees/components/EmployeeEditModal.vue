@@ -82,42 +82,31 @@
                     placeholder="Выберите роль"
                     :disabled="!canEditRoles || Boolean(employeeEditForm.positionId)"
                 />
-                <Select
-                    v-model="employeeEditForm.positionId"
-                    label="Должность"
-                    :options="positionOptions"
-                    placeholder="Выберите должность"
-                />
-                <Select
-                    v-model="employeeEditForm.workplaceRestaurantId"
-                    label="Место работы"
-                    :options="workplaceRestaurantOptions"
-                    placeholder="Не выбрано"
-                />
+                <div class="employees-edit-modal__readonly-field">
+                    <label class="input-label">Должность</label>
+                    <div class="employees-edit-modal__readonly-value">
+                        {{ lockedPositionLabel }}
+                    </div>
+                </div>
+                <div class="employees-edit-modal__readonly-field">
+                    <label class="input-label">Место работы</label>
+                    <div class="employees-edit-modal__readonly-value">
+                        {{ lockedWorkplaceLabel }}
+                    </div>
+                </div>
                 <template v-if="employeeEditForm.rateHidden">
-                    <Input
-                        :model-value="'$$$'"
-                        label="Ставка"
-                        type="text"
-                        disabled
-                    />
+                    <div class="employees-edit-modal__readonly-field">
+                        <label class="input-label">Ставка</label>
+                        <div class="employees-edit-modal__readonly-value">$$$</div>
+                    </div>
                 </template>
                 <template v-else>
-                    <Checkbox v-model="employeeEditForm.useIndividualRate" :disabled="!canEditRates" label="Индивидуальная ставка" />
-                    <Input
-                        v-if="employeeEditForm.useIndividualRate"
-                        v-model="employeeEditForm.individualRate" :disabled="!canEditRates"
-                        label="Индивидуальная ставка"
-                        type="number"
-                        step="0.01"
-                    />
-                    <Input
-                        v-else
-                        v-model="employeeEditForm.rate" :disabled="!canEditRates"
-                        label="Ставка"
-                        type="number"
-                        step="0.01"
-                    />
+                    <div class="employees-edit-modal__readonly-field">
+                        <label class="input-label">{{ lockedRateLabel }}</label>
+                        <div class="employees-edit-modal__readonly-value">
+                            {{ lockedRateValue }}
+                        </div>
+                    </div>
                 </template>
                 <DateInput v-model="employeeEditForm.hireDate" label="Дата найма" />
                 <DateInput
@@ -233,6 +222,83 @@ const employeeName = computed(() => {
         return '';
     }
     return formatFullName.value(employeeCard.value) || '';
+});
+
+function findOptionLabel(options, value, emptyLabel = 'Не выбрано') {
+    if (value === null || value === undefined || value === '') {
+        return emptyLabel;
+    }
+    const option = options.find((item) => String(item?.value) === String(value));
+    return option?.label || emptyLabel;
+}
+
+function resolveImmediateLabel(value, candidates, options, emptyLabel = 'Не выбрано') {
+    const normalizedValue =
+        value === null || value === undefined || value === '' ? null : String(value);
+    for (const candidate of candidates) {
+        const label = typeof candidate?.label === 'string' ? candidate.label.trim() : '';
+        if (!label) {
+            continue;
+        }
+        const candidateId =
+            candidate?.id === null || candidate?.id === undefined || candidate?.id === ''
+                ? null
+                : String(candidate.id);
+        if (!normalizedValue || !candidateId || candidateId === normalizedValue) {
+            return label;
+        }
+    }
+    return findOptionLabel(options, value, emptyLabel);
+}
+
+const lockedPositionLabel = computed(() =>
+    resolveImmediateLabel(
+        employeeEditForm.value?.positionId,
+        [
+            {
+                id: employeeCard.value?.position_id,
+                label: employeeCard.value?.position_name,
+            },
+            {
+                id: employeeCard.value?.position?.id,
+                label: employeeCard.value?.position?.name,
+            },
+        ],
+        positionOptions.value,
+        'Не выбрано',
+    ),
+);
+
+const lockedWorkplaceLabel = computed(() =>
+    resolveImmediateLabel(
+        employeeEditForm.value?.workplaceRestaurantId,
+        [
+            {
+                id: employeeCard.value?.workplace_restaurant_id,
+                label: employeeCard.value?.workplace_restaurant_name,
+            },
+            {
+                id: employeeCard.value?.workplace_restaurant?.id,
+                label: employeeCard.value?.workplace_restaurant?.name,
+            },
+        ],
+        workplaceRestaurantOptions.value,
+        'Не выбрано',
+    ),
+);
+
+const lockedRateLabel = computed(() =>
+    employeeEditForm.value?.useIndividualRate ? 'Индивидуальная ставка' : 'Ставка',
+);
+
+const lockedRateValue = computed(() => {
+    const rawValue = employeeEditForm.value?.useIndividualRate
+        ? employeeEditForm.value?.individualRate
+        : employeeEditForm.value?.rate;
+    if (rawValue === null || rawValue === undefined || rawValue === '') {
+        return 'Не указана';
+    }
+    return String(rawValue);
 });
 </script>
 

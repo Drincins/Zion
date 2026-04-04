@@ -85,7 +85,7 @@ from backend.services.payroll_calculations import resolve_rate as resolve_payrol
 from backend.services.reference_cache import cached_reference_data, invalidate_reference_scope
 
 try:  # pragma: no cover - shared dependency injection fallback
-    from backend.utils import get_current_user
+    from backend.utils import get_current_user, get_user_restaurant_ids
     from backend.services.permissions import (
         PermissionCode,
         has_permission,
@@ -279,6 +279,57 @@ def _ensure_payouts_manage(user: User) -> None:
     )
 
 
+def _get_kpi_payout_allowed_restaurant_ids(db: Session, user: User) -> Optional[set[int]]:
+    allowed_restaurants = get_user_restaurant_ids(db, user)
+    if allowed_restaurants is None:
+        return None
+    scoped_restaurants = {int(value) for value in allowed_restaurants if value is not None}
+    workplace_restaurant_id = getattr(user, "workplace_restaurant_id", None)
+    if workplace_restaurant_id is not None:
+        scoped_restaurants.add(int(workplace_restaurant_id))
+    return scoped_restaurants
+
+
+def _ensure_kpi_payout_restaurant_allowed(
+    db: Session,
+    user: User,
+    restaurant_id: Optional[int],
+) -> Optional[set[int]]:
+    allowed_restaurants = _get_kpi_payout_allowed_restaurant_ids(db, user)
+    if allowed_restaurants is None:
+        return None
+    if restaurant_id is not None and int(restaurant_id) not in allowed_restaurants:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Нет доступа к выплатам KPI этого ресторана",
+        )
+    return allowed_restaurants
+
+
+def _resolve_payout_batch_restaurant_ids(batch: KpiPayoutBatch) -> set[int]:
+    restaurant_ids: set[int] = set()
+    if getattr(batch, "restaurant_id", None) is not None:
+        restaurant_ids.add(int(batch.restaurant_id))
+    for item in getattr(batch, "items", None) or []:
+        restaurant_id = getattr(item, "restaurant_id", None)
+        if restaurant_id is not None:
+            restaurant_ids.add(int(restaurant_id))
+    return restaurant_ids
+
+
+def _ensure_kpi_payout_batch_access(
+    db: Session,
+    user: User,
+    batch: KpiPayoutBatch,
+) -> None:
+    allowed_restaurants = _get_kpi_payout_allowed_restaurant_ids(db, user)
+    if allowed_restaurants is None:
+        return
+    batch_restaurants = _resolve_payout_batch_restaurant_ids(batch)
+    if not batch_restaurants or batch_restaurants.isdisjoint(allowed_restaurants):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Payout batch not found")
+
+
 def _metric_public(metric: KpiMetric) -> KpiMetricPublic:
     return KpiMetricPublic.from_orm(metric)
 
@@ -336,6 +387,7 @@ def _kpi_metric_public_columns():
         KpiMetric.use_max_scale,
         KpiMetric.max_scale_value,
         KpiMetric.plan_direction,
+        KpiMetric.result_aggregation_mode,
         KpiMetric.is_active,
         KpiMetric.group_id,
         KpiMetric.all_restaurants,
@@ -2387,6 +2439,7 @@ def list_payout_batches(
     period_to: Optional[date] = Query(None),
 ) -> KpiPayoutBatchListResponse:
     _ensure_payouts_view(current_user)
+    allowed_restaurants = _ensure_kpi_payout_restaurant_allowed(db, current_user, restaurant_id)
     query = (
         db.query(KpiPayoutBatch)
         .options(
@@ -2399,6 +2452,15 @@ def list_payout_batches(
         query = query.filter(KpiPayoutBatch.rule_id == rule_id)
     if result_id:
         query = query.filter(KpiPayoutBatch.result_id == result_id)
+    if allowed_restaurants is not None:
+        if not allowed_restaurants:
+            return KpiPayoutBatchListResponse(total=0, items=[])
+        query = query.filter(
+            or_(
+                KpiPayoutBatch.restaurant_id.in_(sorted(allowed_restaurants)),
+                KpiPayoutBatch.items.any(KpiPayoutItem.restaurant_id.in_(sorted(allowed_restaurants))),
+            )
+        )
     if restaurant_id:
         query = query.filter(KpiPayoutBatch.restaurant_id == restaurant_id)
     if position_id:
@@ -2423,6 +2485,7 @@ def list_payout_batches_bulk(
     current_user: User = Depends(get_current_user),
 ) -> KpiPayoutBatchListResponse:
     _ensure_payouts_view(current_user)
+    allowed_restaurants = _get_kpi_payout_allowed_restaurant_ids(db, current_user)
 
     ordered_ids: list[int] = []
     seen_ids: set[int] = set()
@@ -2447,6 +2510,13 @@ def list_payout_batches_bulk(
         .filter(KpiPayoutBatch.id.in_(ordered_ids))
         .all()
     )
+    if allowed_restaurants is not None:
+        rows = [
+            row
+            for row in rows
+            if _resolve_payout_batch_restaurant_ids(row)
+            and not _resolve_payout_batch_restaurant_ids(row).isdisjoint(allowed_restaurants)
+        ]
     rows_by_id = {int(row.id): row for row in rows if row.id is not None}
     ordered_rows = [rows_by_id[batch_id] for batch_id in ordered_ids if batch_id in rows_by_id]
 
@@ -2471,6 +2541,7 @@ def get_payout_batch(
     )
     if not batch:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Payout batch not found")
+    _ensure_kpi_payout_batch_access(db, current_user, batch)
     return _batch_public(batch, include_items=True)
 
 
@@ -2485,6 +2556,7 @@ def delete_payout_batch(
     batch = db.query(KpiPayoutBatch).filter(KpiPayoutBatch.id == batch_id).first()
     if not batch:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Payout batch not found")
+    _ensure_kpi_payout_batch_access(db, current_user, batch)
     if batch.status != "draft":
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Можно удалить только черновик")
 
@@ -2510,6 +2582,7 @@ def delete_payout_item(
     )
     if not batch:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Payout batch not found")
+    _ensure_kpi_payout_batch_access(db, current_user, batch)
     if batch.status != "draft":
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Payout batch is not editable")
 
@@ -2673,6 +2746,8 @@ def create_payout_preview(
             detail="Нет фактического значения для расчета",
         )
 
+    _ensure_kpi_payout_restaurant_allowed(db, current_user, restaurant_id)
+
     batch = _build_payout_batch(
         db=db,
         rule=rule,
@@ -2702,6 +2777,7 @@ def create_payout_preview_by_metric(
     current_user: User = Depends(get_current_user),
 ) -> KpiPayoutBatchListResponse:
     _ensure_payouts_manage(current_user)
+    _ensure_kpi_payout_restaurant_allowed(db, current_user, payload.restaurant_id)
 
     metric = db.query(KpiMetric).filter(KpiMetric.id == payload.metric_id).first()
     if not metric:
@@ -2839,6 +2915,7 @@ def update_payout_item(
     )
     if not batch:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Payout batch not found")
+    _ensure_kpi_payout_batch_access(db, current_user, batch)
     if batch.status != "draft":
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Payout batch is not editable")
 
@@ -2894,6 +2971,7 @@ def post_payout_batch(
     )
     if not batch:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Payout batch not found")
+    _ensure_kpi_payout_batch_access(db, current_user, batch)
     if batch.status != "draft":
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Payout batch is already posted")
 

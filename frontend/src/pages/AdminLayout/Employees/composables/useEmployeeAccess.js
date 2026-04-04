@@ -1,7 +1,6 @@
 import { computed } from 'vue';
 import { isSuperAdminRole as isSuperAdminRoleByName, isSystemLevelRole } from '@/utils/roles';
 import {
-    PAYROLL_EXPORT_PERMISSION,
     PAYROLL_MANAGE_PERMISSION,
     STAFF_AUTH_CREDENTIALS_VIEW_PERMISSIONS,
     STAFF_CIS_DOCUMENTS_VIEW_PERMISSIONS,
@@ -112,11 +111,6 @@ export function useEmployeeAccess(userStore) {
         userStore.hasAnyPermission(...STAFF_LOAD_POSITIONS_PERMISSIONS)
     );
 
-    const canExportPayroll = computed(() => {
-        const set = userStore.permissionSet;
-        return set.has(PAYROLL_EXPORT_PERMISSION) || userStore.hasGlobalAccess || set.has(SYSTEM_ADMIN_PERMISSION);
-    });
-
     const canBulkPayrollAdjust = computed(() => {
         const set = userStore.permissionSet;
         return set.has(SYSTEM_ADMIN_PERMISSION) || set.has(PAYROLL_MANAGE_PERMISSION) || userStore.hasGlobalAccess;
@@ -212,7 +206,6 @@ export function useEmployeeAccess(userStore) {
         canLoadRestaurants,
         canLoadCompanies,
         canLoadPositions,
-        canExportPayroll,
         canBulkPayrollAdjust,
         canExportTimesheet,
         canDownloadEmployeesList,

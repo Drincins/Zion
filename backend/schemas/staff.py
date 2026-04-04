@@ -326,9 +326,6 @@ class EmployeeUpdateRequest(BaseModel):
     photo_key: Optional[str] = None
     confidential_data_consent: Optional[bool] = None
     is_formalized: Optional[bool] = None
-    update_attendances: Optional[bool] = None
-    attendance_date_from: Optional[date] = None
-    attendance_date_to: Optional[date] = None
     add_to_iiko: Optional[bool] = None
     iiko_sync_restaurant_id: Optional[int] = None
     iiko_department_restaurant_ids: Optional[List[int]] = None
@@ -344,7 +341,7 @@ class EmployeeChangeOrderCreate(BaseModel):
     rate_new: Optional[float] = None
     change_individual_rate: bool = False
     individual_rate_new: Optional[float] = None
-    apply_to_attendances: bool = False
+    apply_to_attendances: Optional[bool] = None
     comment: Optional[str] = None
 
 
@@ -363,7 +360,6 @@ class EmployeeChangeOrderPublic(BaseModel):
     rate_new: Optional[float] = None
     change_individual_rate: bool = False
     individual_rate_new: Optional[float] = None
-    apply_to_attendances: bool = False
     comment: Optional[str] = None
     error_message: Optional[str] = None
     created_by_id: Optional[int] = None
