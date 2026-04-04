@@ -39,18 +39,17 @@ def apply_position_change_order(db: Session, order: PositionChangeOrder) -> None
     for user in affected_users:
         user.rate = position.rate
 
-        if order.apply_to_attendances:
-            apply_employee_updates_to_attendances(
-                db=db,
-                user_id=user.id,
-                date_from=order.effective_date,
-                position_changed=False,
-                restaurant_changed=False,
-                rate_changed=True,
-                position=user.position,
-                restaurant=user.workplace_restaurant,
-                rate=user.rate,
-            )
+        apply_employee_updates_to_attendances(
+            db=db,
+            user_id=user.id,
+            date_from=order.effective_date,
+            position_changed=False,
+            restaurant_changed=False,
+            rate_changed=True,
+            position=user.position,
+            restaurant=user.workplace_restaurant,
+            rate=user.rate,
+        )
 
     order.status = "applied"
     order.applied_at = now_local()

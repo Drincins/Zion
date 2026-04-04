@@ -1310,7 +1310,7 @@ def create_position_change_order(
         position_id=position_id,
         effective_date=payload.effective_date,
         rate_new=payload.rate_new,
-        apply_to_attendances=bool(payload.apply_to_attendances),
+        apply_to_attendances=True,
         comment=(payload.comment or "").strip() or None,
         created_by_id=current_user.id,
     )

@@ -391,7 +391,6 @@ const positionForm = reactive({
 const positionChangeOrderForm = reactive({
     effectiveDate: formatTodayDate(),
     rateNew: '',
-    applyToAttendances: false,
     comment: '',
 });
 
@@ -538,7 +537,6 @@ function formatTodayDate() {
 function resetPositionChangeOrderForm() {
     positionChangeOrderForm.effectiveDate = formatTodayDate();
     positionChangeOrderForm.rateNew = '';
-    positionChangeOrderForm.applyToAttendances = false;
     positionChangeOrderForm.comment = '';
 }
 
@@ -673,7 +671,6 @@ async function handleCreatePositionChangeOrder() {
         await createPositionChangeOrder(editingPositionId.value, {
             effective_date: positionChangeOrderForm.effectiveDate,
             rate_new: parsedRate,
-            apply_to_attendances: Boolean(positionChangeOrderForm.applyToAttendances),
             comment: positionChangeOrderForm.comment.trim() || null,
         });
         toast.success('Кадровое изменение должности сохранено');

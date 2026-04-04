@@ -1,0 +1,279 @@
+@use '@/assets/styles/vars.scss' as *;
+
+.employees-page__change-orders {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.employees-page__change-orders-bar {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: start;
+    gap: 12px;
+}
+
+.employees-page__change-orders-bar-text {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+}
+
+.employees-page__change-orders-bar-title {
+    margin: 0;
+}
+
+.employees-page__modal-loading,
+.employees-page__empty {
+    text-align: center;
+    padding: 24px 0;
+    color: var(--color-text-soft);
+}
+
+.employees-page__change-orders-row {
+    vertical-align: top;
+}
+
+.employees-page__change-orders-date {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--color-text);
+}
+
+.employees-page__change-orders-meta {
+    color: var(--color-text-soft);
+    font-size: 12px;
+    line-height: 1.45;
+}
+
+.employees-page__change-orders-summary {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 8px 12px;
+}
+
+.employees-page__change-orders-summary--table {
+    min-width: min(100%, 420px);
+}
+
+.employees-page__change-orders-summary-item {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+}
+
+.employees-page__change-orders-summary-label {
+    color: var(--color-text-soft);
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.employees-page__change-orders-actions {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 8px;
+}
+
+.employees-page__change-orders-comment {
+    margin-top: 6px;
+    color: var(--color-text-soft);
+    font-size: 13px;
+    line-height: 1.45;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+.employees-page__change-orders-error {
+    margin-top: 8px;
+    color: var(--color-red-text);
+    font-size: 12px;
+    line-height: 1.45;
+}
+
+.employees-page__state {
+    margin: 0;
+    padding: 12px 14px;
+    border-radius: 10px;
+    background: var(--color-surface-200);
+    border: 1px solid var(--color-border);
+    color: var(--color-text-soft);
+}
+
+.employees-page__state--error {
+    background: var(--color-red-background);
+    border-color: color-mix(in srgb, var(--color-red-text) 28%, transparent);
+    color: var(--color-red-text);
+}
+
+.employees-page__change-order-modal-window :deep(.modal-window) {
+    max-width: 680px;
+}
+
+.employees-page__change-order-modal-window :deep(.modal-body) {
+    display: flex;
+    justify-content: center;
+}
+
+.employees-page__change-order-modal {
+    width: min(100%, 600px);
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.employees-page__change-order-form {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.employees-page__change-order-form-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+    padding: 12px;
+    border-radius: 12px;
+    background: var(--color-surface);
+}
+
+.employees-page__change-order-options {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 12px;
+}
+
+.employees-page__change-order-option {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 12px 14px;
+    border-radius: 12px;
+    border: 1px solid var(--color-border);
+    background: color-mix(in srgb, var(--color-surface) 92%, transparent);
+}
+
+.employees-page__change-order-option--full {
+    padding-bottom: 10px;
+}
+
+.employees-page__change-order-option-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.employees-page__change-order-option-body {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.employees-page__change-order-option-title {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--color-text);
+}
+
+.employees-page__change-order-option-hint {
+    margin: 4px 0 0;
+    color: var(--color-text-soft);
+    font-size: 12px;
+    line-height: 1.4;
+}
+
+.employees-page__change-order-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    width: fit-content;
+    color: var(--color-text-soft);
+    font-size: 12px;
+    user-select: none;
+}
+
+.employees-page__change-order-toggle--inline {
+    align-self: flex-start;
+}
+
+.employees-page__change-order-toggle input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.employees-page__change-order-toggle-slider {
+    position: relative;
+    width: 36px;
+    height: 20px;
+    border-radius: 999px;
+    background: var(--color-border);
+    transition: background-color $duration;
+    cursor: pointer;
+}
+
+.employees-page__change-order-toggle-slider::before {
+    content: '';
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: var(--color-primary);
+    transition: transform $duration;
+}
+
+.employees-page__change-order-toggle input:checked + .employees-page__change-order-toggle-slider {
+    background: color-mix(in srgb, var(--color-primary) 32%, var(--color-surface) 68%);
+}
+
+.employees-page__change-order-toggle input:checked + .employees-page__change-order-toggle-slider::before {
+    transform: translateX(16px);
+}
+
+.employees-page__change-order-toggle input:disabled + .employees-page__change-order-toggle-slider {
+    cursor: not-allowed;
+    opacity: 0.55;
+}
+
+.employees-page__change-order-toggle-label {
+    line-height: 1.2;
+    font-weight: 600;
+}
+
+.employees-page__change-order-note {
+    margin: 0;
+    padding: 10px 12px;
+    border-radius: 10px;
+    border: 1px solid var(--color-border);
+    background: var(--color-surface);
+    color: var(--color-text-soft);
+    font-size: 13px;
+    line-height: 1.45;
+}
+
+.employees-page__change-order-rate-block {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+@media (max-width: $tablet) {
+    .employees-page__change-orders-bar {
+        grid-template-columns: 1fr;
+    }
+
+    .employees-page__change-order-option-head {
+        display: grid;
+        grid-template-columns: 1fr;
+    }
+
+    .employees-page__change-order-form-grid {
+        grid-template-columns: 1fr;
+    }
+}

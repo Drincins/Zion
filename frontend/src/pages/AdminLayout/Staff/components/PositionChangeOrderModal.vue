@@ -1,18 +1,22 @@
 <template>
-    <Modal v-if="isOpen" @close="emit('close')">
+    <Modal
+        v-if="isOpen"
+        class="employees-page__change-order-modal-window positions-page__change-order-modal-window"
+        @close="emit('close')"
+    >
         <template #header>
-            <div class="position-change-order-modal__header">
-                <h3 class="position-change-order-modal__title">Изменение ставки должности</h3>
-                <p class="position-change-order-modal__subtitle">
+            <div class="employees-page__modal-header">
+                <h3 class="employees-page__modal-title">Создать изменение ставки</h3>
+                <p class="employees-page__modal-subtitle">
                     {{ positionName || 'Выбранная должность' }}
                 </p>
             </div>
         </template>
 
         <template #default>
-            <div class="position-change-order-modal__content">
-                <section class="position-change-order-modal__form">
-                    <div class="position-change-order-modal__grid">
+            <div class="employees-page__change-order-modal positions-page__change-order-modal">
+                <div class="employees-page__change-order-form">
+                    <div class="employees-page__change-order-form-grid">
                         <DateInput
                             :model-value="form.effectiveDate"
                             label="Дата вступления в силу"
@@ -36,100 +40,96 @@
                         @update:model-value="updateField('comment', $event)"
                     />
 
-                    <label class="position-change-order-modal__toggle">
-                        <input
-                            :checked="form.applyToAttendances"
-                            type="checkbox"
-                            @change="updateField('applyToAttendances', $event.target.checked)"
-                        >
-                        <span class="position-change-order-modal__toggle-slider"></span>
-                        <span class="position-change-order-modal__toggle-label">
-                            Обновить будущие смены сотрудников без индивидуальной ставки
-                        </span>
-                    </label>
-                </section>
-
-                <section class="position-change-order-modal__history">
-                    <div class="position-change-order-modal__history-head">
-                        <h4 class="position-change-order-modal__history-title">Запланированные изменения</h4>
-                    </div>
-
-                    <div v-if="loading" class="position-change-order-modal__state">
-                        Загрузка изменений...
-                    </div>
-                    <div
-                        v-else-if="error"
-                        class="position-change-order-modal__state position-change-order-modal__state--error"
-                    >
-                        {{ error }}
-                    </div>
-                    <div v-else-if="orders.length" class="position-change-order-modal__orders">
-                        <article
-                            v-for="order in orders"
-                            :key="order.id"
-                            class="position-change-order-modal__order"
-                        >
-                            <div class="position-change-order-modal__order-head">
-                                <div>
-                                    <div class="position-change-order-modal__order-date">
-                                        С {{ formatDate(order.effective_date) }}
-                                    </div>
-                                    <div class="position-change-order-modal__order-meta">
-                                        Создано {{ formatDateTime(order.created_at) }}
-                                        <template v-if="order.created_by_name">
-                                            · {{ order.created_by_name }}
-                                        </template>
-                                    </div>
-                                </div>
-                                <span
-                                    class="position-change-order-modal__status"
-                                    :class="`is-${order.status}`"
-                                >
-                                    {{ formatStatus(order.status) }}
-                                </span>
+                    <section class="employees-page__change-order-option employees-page__change-order-option--full">
+                        <div class="employees-page__change-order-option-head">
+                            <div>
+                                <h4 class="employees-page__change-order-option-title">Запланированные изменения</h4>
+                                <p class="employees-page__change-order-option-hint">
+                                    Здесь хранятся все будущие изменения ставки для выбранной должности.
+                                </p>
                             </div>
-                            <div class="position-change-order-modal__order-rate">
-                                Новая ставка: {{ formatRate(order.rate_new) }}
+                        </div>
+
+                        <div class="employees-page__change-order-option-body">
+                            <div v-if="loading" class="employees-page__state">
+                                Загрузка изменений...
                             </div>
                             <div
-                                v-if="order.apply_to_attendances"
-                                class="position-change-order-modal__order-note"
+                                v-else-if="error"
+                                class="employees-page__state employees-page__state--error"
                             >
-                                Будут обновлены будущие смены сотрудников без индивидуальной ставки
+                                {{ error }}
                             </div>
-                            <p v-if="order.comment" class="position-change-order-modal__order-comment">
-                                {{ order.comment }}
-                            </p>
-                            <p v-if="order.error_message" class="position-change-order-modal__order-error">
-                                {{ order.error_message }}
-                            </p>
-                            <div class="position-change-order-modal__order-foot">
-                                <span v-if="order.applied_at" class="position-change-order-modal__order-meta">
-                                    Применён {{ formatDateTime(order.applied_at) }}
-                                </span>
-                                <span v-else-if="order.cancelled_at" class="position-change-order-modal__order-meta">
-                                    Отменён {{ formatDateTime(order.cancelled_at) }}
-                                </span>
-                                <span v-else class="position-change-order-modal__order-meta">
-                                    Ожидает применения
-                                </span>
-                                <Button
-                                    v-if="order.status === 'pending'"
-                                    color="secondary"
-                                    size="sm"
-                                    :loading="cancellingId === order.id"
-                                    :disabled="cancellingId === order.id"
-                                    @click="emit('cancel-order', order.id)"
+                            <div v-else-if="orders.length" class="positions-page__change-order-list">
+                                <article
+                                    v-for="order in orders"
+                                    :key="order.id"
+                                    class="positions-page__change-order-card"
                                 >
-                                    Отменить
-                                </Button>
+                                    <div class="positions-page__change-order-card-head">
+                                        <div>
+                                            <div class="employees-page__change-orders-date">
+                                                С {{ formatDate(order.effective_date) }}
+                                            </div>
+                                            <div class="employees-page__change-orders-meta">
+                                                Создано {{ formatDateTime(order.created_at) }}
+                                                <template v-if="order.created_by_name">
+                                                    <br>
+                                                    {{ order.created_by_name }}
+                                                </template>
+                                            </div>
+                                        </div>
+                                        <span
+                                            class="employees-page__status-pill"
+                                            :class="statusClass(order.status)"
+                                        >
+                                            {{ formatStatus(order.status) }}
+                                        </span>
+                                    </div>
+
+                                    <div class="employees-page__change-orders-summary positions-page__change-order-summary">
+                                        <div class="employees-page__change-orders-summary-item">
+                                            <span class="employees-page__change-orders-summary-label">Новая ставка</span>
+                                            <span>{{ formatRate(order.rate_new) }}</span>
+                                        </div>
+                                    </div>
+
+                                    <p v-if="order.comment" class="employees-page__change-orders-comment">
+                                        {{ order.comment }}
+                                    </p>
+                                    <p v-if="order.error_message" class="employees-page__change-orders-error">
+                                        {{ order.error_message }}
+                                    </p>
+
+                                    <div class="positions-page__change-order-card-foot">
+                                        <span v-if="order.applied_at" class="employees-page__change-orders-meta">
+                                            Применён {{ formatDateTime(order.applied_at) }}
+                                        </span>
+                                        <span v-else-if="order.cancelled_at" class="employees-page__change-orders-meta">
+                                            Отменён {{ formatDateTime(order.cancelled_at) }}
+                                        </span>
+                                        <span v-else class="employees-page__change-orders-meta">
+                                            Ожидает применения
+                                        </span>
+                                        <Button
+                                            v-if="order.status === 'pending'"
+                                            color="secondary"
+                                            size="sm"
+                                            :loading="cancellingId === order.id"
+                                            :disabled="cancellingId === order.id"
+                                            @click="emit('cancel-order', order.id)"
+                                        >
+                                            Отменить
+                                        </Button>
+                                    </div>
+                                </article>
                             </div>
-                        </article>
-                    </div>
-                    <div v-else class="position-change-order-modal__state">
-                        Изменений пока нет.
-                    </div>
-                </section>
+                            <div v-else class="employees-page__state">
+                                Изменений пока нет.
+                            </div>
+                        </div>
+                    </section>
+                </div>
             </div>
         </template>
 
@@ -175,6 +175,19 @@ function formatStatus(status) {
         return 'Ошибка';
     default:
         return 'Ожидает';
+    }
+}
+
+function statusClass(status) {
+    switch (status) {
+    case 'applied':
+        return 'employees-page__status-pill--success';
+    case 'failed':
+        return 'employees-page__status-pill--danger';
+    case 'cancelled':
+        return 'employees-page__status-pill--muted';
+    default:
+        return 'employees-page__status-pill--warning';
     }
 }
 
@@ -226,119 +239,25 @@ function formatRate(value) {
 </script>
 
 <style scoped lang="scss">
-.position-change-order-modal__header {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
+@use '@/assets/styles/pages/employees-attendance-edit-modal' as *;
+@use '@/assets/styles/pages/employees-documents-tab' as *;
+@use '@/assets/styles/pages/employees-change-orders' as *;
+
+.positions-page__change-order-modal-window :deep(.modal-window) {
+    max-width: 720px;
 }
 
-.position-change-order-modal__title {
-    margin: 0;
-    font-size: 20px;
-    font-weight: 700;
-    color: var(--color-primary);
+.positions-page__change-order-modal {
+    width: min(100%, 620px);
 }
 
-.position-change-order-modal__subtitle {
-    margin: 0;
-    color: var(--color-text-soft);
-    font-size: 13px;
-}
-
-.position-change-order-modal__content {
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
-}
-
-.position-change-order-modal__form,
-.position-change-order-modal__history {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-    padding: 16px;
-    border-radius: 14px;
-    border: 1px solid var(--color-border);
-    background: var(--color-surface-200);
-}
-
-.position-change-order-modal__grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-    gap: 12px;
-}
-
-.position-change-order-modal__toggle {
-    display: inline-flex;
-    align-items: center;
-    gap: 10px;
-    width: fit-content;
-    user-select: none;
-    color: var(--color-text-soft);
-    font-size: 13px;
-}
-
-.position-change-order-modal__toggle input {
-    opacity: 0;
-    width: 0;
-    height: 0;
-}
-
-.position-change-order-modal__toggle-slider {
-    position: relative;
-    width: 40px;
-    height: 22px;
-    border-radius: 999px;
-    background: var(--color-border);
-    transition: background-color 0.2s ease;
-}
-
-.position-change-order-modal__toggle-slider::before {
-    content: '';
-    position: absolute;
-    top: 2px;
-    left: 2px;
-    width: 18px;
-    height: 18px;
-    border-radius: 50%;
-    background: var(--color-primary);
-    transition: transform 0.2s ease;
-    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.18);
-}
-
-.position-change-order-modal__toggle input:checked + .position-change-order-modal__toggle-slider {
-    background: color-mix(in srgb, var(--color-primary) 26%, var(--color-surface) 74%);
-}
-
-.position-change-order-modal__toggle input:checked + .position-change-order-modal__toggle-slider::before {
-    transform: translateX(18px);
-}
-
-.position-change-order-modal__toggle-label {
-    font-weight: 600;
-    line-height: 1.35;
-}
-
-.position-change-order-modal__history-head {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-}
-
-.position-change-order-modal__history-title {
-    margin: 0;
-    font-size: 15px;
-    font-weight: 700;
-}
-
-.position-change-order-modal__orders {
+.positions-page__change-order-list {
     display: flex;
     flex-direction: column;
     gap: 12px;
 }
 
-.position-change-order-modal__order {
+.positions-page__change-order-card {
     display: flex;
     flex-direction: column;
     gap: 10px;
@@ -348,77 +267,21 @@ function formatRate(value) {
     border: 1px solid var(--color-border);
 }
 
-.position-change-order-modal__order-head,
-.position-change-order-modal__order-foot {
+.positions-page__change-order-card-head,
+.positions-page__change-order-card-foot {
     display: flex;
-    justify-content: space-between;
     align-items: flex-start;
+    justify-content: space-between;
     gap: 12px;
 }
 
-.position-change-order-modal__order-date,
-.position-change-order-modal__order-rate {
-    font-weight: 700;
-    color: var(--color-text);
+.positions-page__change-order-summary {
+    min-width: min(100%, 240px);
 }
 
-.position-change-order-modal__order-meta,
-.position-change-order-modal__state {
-    color: var(--color-text-soft);
-    font-size: 12px;
-}
-
-.position-change-order-modal__state {
-    text-align: center;
-    padding: 20px 0;
-}
-
-.position-change-order-modal__state--error,
-.position-change-order-modal__order-error {
-    color: var(--color-danger);
-}
-
-.position-change-order-modal__order-note,
-.position-change-order-modal__order-comment {
-    margin: 0;
-    font-size: 13px;
-    color: var(--color-text-soft);
-}
-
-.position-change-order-modal__status {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    padding: 6px 10px;
-    border-radius: 999px;
-    border: 1px solid var(--color-border);
-    background: var(--color-surface-200);
-    color: var(--color-text-soft);
-    font-size: 12px;
-    font-weight: 700;
-}
-
-.position-change-order-modal__status.is-applied {
-    color: var(--color-green-text);
-    background: var(--color-green-background);
-    border-color: color-mix(in srgb, var(--color-green-text) 28%, transparent);
-}
-
-.position-change-order-modal__status.is-cancelled {
-    color: var(--color-warning-text);
-    background: var(--color-warning-background);
-    border-color: color-mix(in srgb, var(--color-warning-text) 28%, transparent);
-}
-
-.position-change-order-modal__status.is-failed {
-    color: var(--color-danger);
-    background: color-mix(in srgb, var(--color-danger) 10%, var(--color-surface) 90%);
-    border-color: color-mix(in srgb, var(--color-danger) 28%, transparent);
-}
-
-@media (max-width: 720px) {
-    .position-change-order-modal__order-head,
-    .position-change-order-modal__order-foot {
+@media (max-width: 640px) {
+    .positions-page__change-order-card-head,
+    .positions-page__change-order-card-foot {
         flex-direction: column;
     }
 }

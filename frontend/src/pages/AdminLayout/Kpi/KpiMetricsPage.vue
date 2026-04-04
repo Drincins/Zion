@@ -424,6 +424,27 @@
                                 <label class="kpi-panel__label">Описание</label>
                                 <textarea v-model="metricForm.description" class="kpi-panel__textarea" rows="4" />
                             </div>
+                            <div class="kpi-plan-editor__direction">
+                                <span class="kpi-plan-editor__label">Итог по сети</span>
+                                <div class="kpi-plan-editor__mode-switch">
+                                    <button
+                                        type="button"
+                                        class="kpi-plan-editor__mode-button"
+                                        :class="{ 'is-active': metricForm.resultAggregationMode === 'average' }"
+                                        @click="metricForm.resultAggregationMode = 'average'"
+                                    >
+                                        Среднее значение
+                                    </button>
+                                    <button
+                                        type="button"
+                                        class="kpi-plan-editor__mode-button"
+                                        :class="{ 'is-active': metricForm.resultAggregationMode === 'sum' }"
+                                        @click="metricForm.resultAggregationMode = 'sum'"
+                                    >
+                                        Сумма значений
+                                    </button>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -1595,6 +1616,7 @@ function defaultMetricForm() {
         useMaxScale: false,
         maxScaleValue: '',
         planDirection: 'higher_better',
+        resultAggregationMode: 'average',
         isActive: true,
         allRestaurants: true,
         restaurantIds: [],
@@ -3802,6 +3824,7 @@ function startEditMetric(metric) {
                 ? formatNumberInput(metric.max_scale_value)
                 : '',
         planDirection: metric.plan_direction || 'higher_better',
+        resultAggregationMode: metric.result_aggregation_mode || 'average',
         isActive: Boolean(metric.is_active),
         allRestaurants: metric.all_restaurants !== false,
         restaurantIds: Array.isArray(metric.restaurant_ids)
@@ -3879,6 +3902,7 @@ async function handleSaveMetric() {
         use_max_scale: Boolean(metricForm.value.useMaxScale),
         max_scale_value: metricForm.value.useMaxScale ? parsedMaxScaleValue : null,
         plan_direction: metricForm.value.planDirection || 'higher_better',
+        result_aggregation_mode: metricForm.value.resultAggregationMode || 'average',
         is_active: Boolean(metricForm.value.isActive),
         all_restaurants: Boolean(metricForm.value.allRestaurants),
         restaurant_ids: metricForm.value.allRestaurants

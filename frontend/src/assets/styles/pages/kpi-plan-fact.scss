@@ -340,6 +340,18 @@
     word-break: break-word;
 }
 
+.kpi-result__hint--overall-plan {
+    margin-top: 2px;
+    font-size: 11px;
+    line-height: 1.2;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: block;
+    -webkit-line-clamp: unset;
+    -webkit-box-orient: unset;
+}
+
 .kpi-result__hint:empty {
     display: none;
 }
@@ -392,13 +404,13 @@
     }
 
     .kpi-table--results .kpi-table__col--month {
-        width: 112px;
-        min-width: 112px;
+        width: 120px;
+        min-width: 120px;
     }
 
     .kpi-table--results .kpi-table__col--total {
-        width: 136px;
-        min-width: 136px;
+        width: 148px;
+        min-width: 148px;
     }
 
     .kpi-table--results .kpi-result__metric,

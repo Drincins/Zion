@@ -8,7 +8,7 @@
                 </div>
                 <div class="employees-page__header-actions">
                     <div
-                        v-if="canDownloadEmployeesList || canBulkPayrollAdjust || canExportPayroll || canExportTimesheet"
+                        v-if="canDownloadEmployeesList || canBulkPayrollAdjust || canExportTimesheet"
                         class="employees-page__toolbar"
                     >
                         <Button
@@ -28,9 +28,6 @@
                             @click="openBulkAdjustModal"
                         >
                             Массовое начисление/удержание
-                        </Button>
-                        <Button v-if="canExportPayroll" color="secondary" size="sm" @click="openPayrollExportModal">
-                            Ведомость
                         </Button>
                         <Button v-if="canExportTimesheet" color="secondary" size="sm" @click="openTimesheetExportModal">
                             Табель смен
@@ -402,65 +399,6 @@
             />
 
             <Modal
-                v-if="isAttendanceSyncConfirmModalOpen"
-                class="employees-page__attendance-sync-modal"
-                :z-index="1600"
-                @close="closeAttendanceSyncConfirmModal"
-            >
-                <template #header>Изменить уже существующие смены?</template>
-                <div class="employees-page__comment-modal-body">
-                    <p class="employees-page__comment-modal-hint">
-                        Мы увидели изменения в карточке сотрудника. Их можно применить к уже созданным сменам за выбранный период.
-                    </p>
-                    <div v-if="attendanceSyncChangeLabels.length" class="employees-page__attendance-sync-tags">
-                        <span
-                            v-for="label in attendanceSyncChangeLabels"
-                            :key="label"
-                            class="employees-page__attendance-sync-tag"
-                        >
-                            {{ label }}
-                        </span>
-                    </div>
-                    <div class="employees-page__attendance-sync-range">
-                        <DateInput
-                            v-model="attendanceSyncForm.dateFrom"
-                            label="Дата с"
-                        />
-                        <DateInput
-                            v-model="attendanceSyncForm.dateTo"
-                            label="Дата по"
-                        />
-                    </div>
-                    <p class="employees-page__comment-modal-hint">
-                        Если выбрать «Нет», изменения сохранятся только в карточке сотрудника и не затронут уже существующие смены.
-                    </p>
-                </div>
-                <template #footer>
-                    <Button
-                        color="ghost"
-                        :disabled="updatingEmployee"
-                        @click="closeAttendanceSyncConfirmModal"
-                    >
-                        Отмена
-                    </Button>
-                    <Button
-                        color="secondary"
-                        :loading="updatingEmployee"
-                        @click="confirmEmployeeUpdateWithoutAttendanceSync"
-                    >
-                        Нет
-                    </Button>
-                    <Button
-                        color="primary"
-                        :loading="updatingEmployee"
-                        @click="confirmEmployeeUpdateWithAttendanceSync"
-                    >
-                        Да, изменить смены
-                    </Button>
-                </template>
-            </Modal>
-
-            <Modal
                 v-if="isDeleteCommentModalOpen"
                 class="employees-page__comment-modal"
                 @close="closeDeleteCommentModal"
@@ -587,60 +525,6 @@
                 @close="closePayrollAdjustmentForm"
                 @create-payroll-adjustment="handleCreatePayrollAdjustment"
             />
-
-            <Modal
-                v-if="isPayrollExportModalOpen && canExportPayroll"
-                class="employees-page__export-modal"
-                @close="closePayrollExportModal"
-            >
-                <template #header>Выгрузка ведомости</template>
-                <template #default>
-                    <form class="employees-page__export-form" @submit.prevent>
-                        <DateInput
-                            v-model="payrollExportForm.dateFrom"
-                            label="Дата с"
-                            required
-                        />
-                        <DateInput
-                            v-model="payrollExportForm.dateTo"
-                            label="Дата по"
-                            required
-                        />
-                        <Select
-                            v-model="payrollExportForm.companyId"
-                            label="Компания"
-                            :options="companyFilterOptions"
-                        />
-                        <Select
-                            v-model="payrollExportForm.restaurantId"
-                            label="Ресторан"
-                            :options="restaurantFilterOptions"
-                        />
-                    <Select
-                        v-model="payrollExportForm.userId"
-                        label="Сотрудник"
-                        :options="employeeFilterOptions"
-                    />
-                    <Input
-                        v-model="payrollExportForm.salaryPercent"
-                        label="Процент сотрудников на окладе"
-                        type="number"
-                        step="1"
-                        min="0"
-                        max="100"
-                        placeholder="100"
-                    />
-                </form>
-                </template>
-                <template #footer>
-                    <Button color="ghost" :disabled="payrollExporting" @click="closePayrollExportModal">
-                        Закрыть
-                    </Button>
-                    <Button color="primary" :loading="payrollExporting" @click="handleExportPayroll">
-                        Скачать
-                    </Button>
-                </template>
-            </Modal>
 
             <Modal
                 v-if="isBulkAdjustModalOpen"
@@ -1485,7 +1369,6 @@ const {
     canLoadCompanies,
     canLoadPositions,
     canBulkPayrollAdjust,
-    canExportPayroll,
     canExportTimesheet,
     canDownloadEmployeesList,
     canViewTrainings,
@@ -2015,13 +1898,6 @@ const employeeEditForm = reactive({
     password: '',
     photoKey: '',
 });
-const isAttendanceSyncConfirmModalOpen = ref(false);
-const attendanceSyncChangeLabels = ref([]);
-const pendingEmployeeUpdateContext = ref(null);
-const attendanceSyncForm = reactive({
-    dateFrom: '',
-    dateTo: '',
-});
 
 const suppressEmployeeRateAutofill = ref(false);
 const suppressEmployeeEditWorkplaceSync = ref(false);
@@ -2141,10 +2017,6 @@ const responsibleOptions = computed(() => {
     }
     return Array.from(options.values());
 });
-const employeeFilterOptions = computed(() => [
-    { value: '', label: 'Все сотрудники' },
-    ...responsibleOptions.value,
-]);
 
 const {
     payrollAdjustmentTypes,
@@ -2919,16 +2791,9 @@ function sortEmployeesList(baseList = []) {
 const sortedEmployees = computed(() => sortEmployeesList(employees.value));
 
 const {
-    isPayrollExportModalOpen,
-    payrollExporting,
     employeesListExporting,
-    payrollExportForm,
-    openPayrollExportModal,
-    closePayrollExportModal,
     downloadEmployeesList,
-    handleExportPayroll,
 } = useEmployeeExports({
-    canExportPayroll,
     canDownloadEmployeesList,
     getSortedEmployees: () => sortedEmployees.value,
     resolveEmployeesForExport: resolveEmployeesForCurrentExport,
@@ -3483,7 +3348,6 @@ function cancelEditMode() {
     isEditMode.value = false;
     editContextLoading.value = false;
     employeeEditForm.password = '';
-    resetAttendanceSyncConfirmState();
 }
 
 async function toggleEditMode() {
@@ -4260,88 +4124,15 @@ async function ensureEmployeeReferenceData(options = {}) {
     }
 }
 
-function normalizeComparableEmployeeId(value) {
-    if (value === null || value === undefined || value === '' || value === 0 || value === '0') {
-        return null;
-    }
-    const parsed = Number(value);
-    return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
-}
-
-function normalizeComparableEmployeeRate(value) {
-    if (value === null || value === undefined || value === '') {
-        return null;
-    }
-    const parsed = Number.parseFloat(String(value).replace(',', '.'));
-    if (!Number.isFinite(parsed)) {
-        return null;
-    }
-    return parsed.toFixed(2);
-}
-
-function resetAttendanceSyncConfirmState() {
-    isAttendanceSyncConfirmModalOpen.value = false;
-    attendanceSyncChangeLabels.value = [];
-    pendingEmployeeUpdateContext.value = null;
-    attendanceSyncForm.dateFrom = '';
-    attendanceSyncForm.dateTo = '';
-}
-
-function closeAttendanceSyncConfirmModal() {
-    if (updatingEmployee.value) {
-        return;
-    }
-    resetAttendanceSyncConfirmState();
-}
-
-function getAttendanceSyncChangeLabels({ positionId, workplaceRestaurantId, rate }) {
-    const labels = [];
-    const currentCard = employeeCard.value;
-    if (!currentCard) {
-        return labels;
-    }
-
-    if (
-        normalizeComparableEmployeeId(currentCard.position_id)
-        !== normalizeComparableEmployeeId(positionId)
-    ) {
-        labels.push('Должность');
-    }
-
-    if (
-        normalizeComparableEmployeeId(currentCard.workplace_restaurant_id)
-        !== normalizeComparableEmployeeId(workplaceRestaurantId)
-    ) {
-        labels.push('Место работы');
-    }
-
-    if (canEditRates.value && !employeeEditForm.rateHidden) {
-        if (
-            normalizeComparableEmployeeRate(currentCard.rate)
-            !== normalizeComparableEmployeeRate(rate)
-        ) {
-            labels.push('Ставка');
-        }
-    }
-
-    return labels;
-}
-
-async function submitEmployeeUpdate(updateContext, options = {}) {
+async function submitEmployeeUpdate(updateContext) {
     if (!activeEmployee.value || !updateContext) {
         return;
     }
 
     const { payload, wantsFullAccess, username } = updateContext;
-    const requestPayload = { ...payload };
-    if (options?.updateAttendances) {
-        requestPayload.update_attendances = true;
-        requestPayload.attendance_date_from = options.dateFrom;
-        requestPayload.attendance_date_to = options.dateTo;
-    }
     updatingEmployee.value = true;
     try {
-        const updatedCard = await updateStaffEmployee(activeEmployee.value.id, requestPayload);
+        const updatedCard = await updateStaffEmployee(activeEmployee.value.id, payload);
         employeeCard.value = updatedCard;
 
         const shouldUpdateFullAccess =
@@ -4368,12 +4159,7 @@ async function submitEmployeeUpdate(updateContext, options = {}) {
             }
         }
 
-        if (options?.updateAttendances) {
-            toast.success('Данные сотрудника и смены обновлены');
-        } else {
-            toast.success('Данные сотрудника обновлены');
-        }
-        resetAttendanceSyncConfirmState();
+        toast.success('Данные сотрудника обновлены');
         cancelEditMode();
         invalidateEmployeeDirectory();
         if (canViewEmployees.value) {
@@ -4393,32 +4179,6 @@ async function submitEmployeeUpdate(updateContext, options = {}) {
     } finally {
         updatingEmployee.value = false;
     }
-}
-
-async function confirmEmployeeUpdateWithoutAttendanceSync() {
-    if (!pendingEmployeeUpdateContext.value) {
-        return;
-    }
-    await submitEmployeeUpdate(pendingEmployeeUpdateContext.value);
-}
-
-async function confirmEmployeeUpdateWithAttendanceSync() {
-    if (!pendingEmployeeUpdateContext.value) {
-        return;
-    }
-    if (!attendanceSyncForm.dateFrom || !attendanceSyncForm.dateTo) {
-        toast.error('Укажите диапазон дат для обновления смен');
-        return;
-    }
-    if (attendanceSyncForm.dateFrom > attendanceSyncForm.dateTo) {
-        toast.error('Дата начала периода не может быть позже даты окончания');
-        return;
-    }
-    await submitEmployeeUpdate(pendingEmployeeUpdateContext.value, {
-        updateAttendances: true,
-        dateFrom: attendanceSyncForm.dateFrom,
-        dateTo: attendanceSyncForm.dateTo,
-    });
 }
 
 async function handleUpdateEmployee() {
@@ -4452,22 +4212,6 @@ async function handleUpdateEmployee() {
         employeeEditForm.companyId !== ''
             ? Number(employeeEditForm.companyId)
             : null;
-    const positionId =
-        employeeEditForm.positionId !== null && employeeEditForm.positionId !== undefined
-            ? Number(employeeEditForm.positionId)
-            : 0;
-    const workplaceRestaurantId =
-        employeeEditForm.workplaceRestaurantId !== null &&
-        employeeEditForm.workplaceRestaurantId !== undefined &&
-        employeeEditForm.workplaceRestaurantId !== ''
-            ? Number(employeeEditForm.workplaceRestaurantId)
-            : 0;
-
-    if (employeeEditForm.workplaceRestaurantId && !Number.isFinite(workplaceRestaurantId)) {
-        toast.error('Не удалось выполнить операцию');
-        return;
-    }
-
     const restaurantIdsRaw = employeeEditForm.restaurantIds.map((id) => Number(id));
     if (restaurantIdsRaw.some((id) => !Number.isFinite(id))) {
         toast.error('Некорректные рестораны');
@@ -4475,32 +4219,6 @@ async function handleUpdateEmployee() {
     }
     const restaurantIds = Array.from(new Set(restaurantIdsRaw));
 
-    let rate = null;
-    let individualRate = null;
-    if (canEditRates.value && !employeeEditForm.rateHidden) {
-        if (employeeEditForm.useIndividualRate) {
-            const rawRate = employeeEditForm.individualRate;
-            if (rawRate === "" || rawRate === null || rawRate === undefined) {
-                rate = 0;
-                individualRate = 0;
-            } else {
-                const parsed = Number.parseFloat(String(rawRate).replace(",", "."));
-                if (!Number.isFinite(parsed)) {
-                    toast.error('Не удалось выполнить операцию');
-                    return;
-                }
-                rate = parsed;
-                individualRate = parsed;
-            }
-        } else if (employeeEditForm.rate !== "" && employeeEditForm.rate !== null) {
-            const parsed = Number.parseFloat(String(employeeEditForm.rate).replace(",", "."));
-            if (!Number.isFinite(parsed)) {
-                toast.error('Не удалось выполнить операцию');
-                return;
-            }
-            rate = parsed;
-        }
-    }
     const { phone: normalizedPhone, error: phoneError } = normalizePhoneForApi(
         employeeEditForm.phoneNumber,
     );
@@ -4526,15 +4244,7 @@ async function handleUpdateEmployee() {
         email,
         role_id: canEditRoles.value ? roleId : undefined,
         company_id: companyId ?? undefined,
-        position_id: positionId,
-        workplace_restaurant_id: workplaceRestaurantId,
         restaurant_ids: restaurantIds,
-        ...(employeeEditForm.rateHidden || !canEditRates.value
-            ? {}
-            : {
-                  rate: rate,
-                  individual_rate: employeeEditForm.useIndividualRate ? individualRate : null,
-              }),
         hire_date: employeeEditForm.hireDate || null,
         ...(employeeCard.value?.fired ? { fire_date: employeeEditForm.fireDate || null } : {}),
         birth_date: employeeEditForm.birthDate || null,
@@ -4552,9 +4262,6 @@ async function handleUpdateEmployee() {
 
     if (employeeEditForm.password) {
         payload.password = employeeEditForm.password;
-    }
-    if (rate === null) {
-        delete payload.rate;
     }
     const hadRestaurants =
         Array.isArray(employeeEditInitialRestaurantIds.value) &&
@@ -4594,18 +4301,6 @@ async function handleUpdateEmployee() {
         wantsFullAccess,
         username,
     };
-
-    const shiftSyncChangeLabels = getAttendanceSyncChangeLabels({
-        positionId,
-        workplaceRestaurantId,
-        rate,
-    });
-    if (shiftSyncChangeLabels.length) {
-        attendanceSyncChangeLabels.value = shiftSyncChangeLabels;
-        pendingEmployeeUpdateContext.value = updateContext;
-        isAttendanceSyncConfirmModalOpen.value = true;
-        return;
-    }
 
     await submitEmployeeUpdate(updateContext);
 }
@@ -5264,20 +4959,6 @@ watch(
         });
     },
     { immediate: true },
-);
-
-watch(
-    () => isPayrollExportModalOpen.value,
-    (open) => {
-        if (!open) {
-            return;
-        }
-        void ensureEmployeeDirectory();
-        void ensureEmployeeReferenceData({
-            includePositions: false,
-            includeRoles: false,
-        });
-    },
 );
 
 watch(

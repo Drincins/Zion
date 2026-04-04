@@ -113,7 +113,6 @@ class PositionHierarchyNode(BaseModel):
 class PositionChangeOrderCreate(BaseModel):
     effective_date: date
     rate_new: Decimal
-    apply_to_attendances: bool = False
     comment: Optional[str] = None
 
 
@@ -124,7 +123,6 @@ class PositionChangeOrderPublic(BaseModel):
     effective_date: date
     status: str
     rate_new: Decimal
-    apply_to_attendances: bool = False
     comment: Optional[str] = None
     error_message: Optional[str] = None
     created_by_id: Optional[int] = None

@@ -79,6 +79,11 @@ class KpiPlanDirection(str, Enum):
     LOWER_BETTER = "lower_better"
 
 
+class KpiMetricAggregationMode(str, Enum):
+    AVERAGE = "average"
+    SUM = "sum"
+
+
 class KpiMetricGroupBase(BaseModel):
     name: str = Field(..., max_length=255)
     description: Optional[str] = None
@@ -221,6 +226,7 @@ class KpiMetricBase(BaseModel):
     use_max_scale: bool = False
     max_scale_value: Optional[Decimal] = Field(default=None, gt=0)
     plan_direction: KpiPlanDirection = KpiPlanDirection.HIGHER_BETTER
+    result_aggregation_mode: KpiMetricAggregationMode = KpiMetricAggregationMode.AVERAGE
     is_active: bool = True
     group_id: Optional[int] = None
     all_restaurants: bool = True
@@ -242,6 +248,7 @@ class KpiMetricUpdate(BaseModel):
     use_max_scale: Optional[bool] = None
     max_scale_value: Optional[Decimal] = Field(default=None, gt=0)
     plan_direction: Optional[KpiPlanDirection] = None
+    result_aggregation_mode: Optional[KpiMetricAggregationMode] = None
     is_active: Optional[bool] = None
     group_id: Optional[int] = None
     all_restaurants: Optional[bool] = None

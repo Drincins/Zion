@@ -50,6 +50,13 @@ export function useEmployeeChangeOrders({
         Boolean(canEditRates?.value) && !Boolean(employeeCard.value?.rate_hidden),
     );
 
+    const todayDate = computed(() => formatDateInput(new Date()));
+    const isBackdatedEffectiveDate = computed(() => {
+        const effectiveDate = String(employeeChangeOrderForm.effectiveDate || '').trim();
+        const today = String(todayDate.value || '').trim();
+        return Boolean(effectiveDate && today && effectiveDate < today);
+    });
+
     function resetEmployeeChangeOrderForm() {
         employeeChangeOrderForm.effectiveDate = formatDateInput(new Date());
         employeeChangeOrderForm.changePosition = false;
@@ -93,6 +100,13 @@ export function useEmployeeChangeOrders({
         }
         if (field === 'clearIndividualRate' && payload.value) {
             employeeChangeOrderForm.individualRateNew = '';
+        }
+        if (field === 'effectiveDate') {
+            const nextIsBackdated =
+                Boolean(payload.value) && String(payload.value).trim() < String(todayDate.value || '').trim();
+            if (!nextIsBackdated) {
+                employeeChangeOrderForm.applyToAttendances = false;
+            }
         }
     }
 
@@ -179,7 +193,9 @@ export function useEmployeeChangeOrders({
                 individual_rate_new: employeeChangeOrderForm.changeIndividualRate
                     ? (shouldClearIndividualRate ? null : individualRateNew)
                     : null,
-                apply_to_attendances: Boolean(employeeChangeOrderForm.applyToAttendances),
+                apply_to_attendances: isBackdatedEffectiveDate.value
+                    ? Boolean(employeeChangeOrderForm.applyToAttendances)
+                    : true,
                 comment: employeeChangeOrderForm.comment.trim() || null,
             };
             await createEmployeeChangeOrder(activeEmployee.value.id, payload);
@@ -230,6 +246,7 @@ export function useEmployeeChangeOrders({
         cancellingEmployeeChangeOrderId,
         employeeChangeOrderForm,
         canManageRateChanges,
+        isBackdatedEffectiveDate,
         openEmployeeChangeOrderForm,
         closeEmployeeChangeOrderForm,
         updateEmployeeChangeOrderFormField,

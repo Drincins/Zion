@@ -36,6 +36,7 @@ KPI_RESULT_SOURCE = Enum("manual", "import", "calculated", name="kpi_result_sour
 KPI_COMPARISON_OPERATOR = Enum("gte", "gt", "lte", "lt", "eq", name="kpi_comparison_operator")
 KPI_PAYOUT_STATUS = Enum("draft", "posted", name="kpi_payout_status")
 KPI_PLAN_DIRECTION = Enum("higher_better", "lower_better", name="kpi_plan_direction")
+KPI_METRIC_AGGREGATION_MODE = Enum("average", "sum", name="kpi_metric_aggregation_mode")
 KPI_RULE_COMPARISON_BASIS = Enum(
     "absolute",
     "plan_percent",
@@ -56,6 +57,7 @@ class KpiMetric(Base):
     use_max_scale = Column(Boolean, nullable=False, default=False)
     max_scale_value = Column(Numeric(14, 4), nullable=True)
     plan_direction = Column(KPI_PLAN_DIRECTION, nullable=False, default="higher_better")
+    result_aggregation_mode = Column(KPI_METRIC_AGGREGATION_MODE, nullable=False, default="average")
     is_active = Column(Boolean, nullable=False, default=True)
     group_id = Column(Integer, ForeignKey("kpi_metric_groups.id", ondelete="SET NULL"), nullable=True, index=True)
     all_restaurants = Column(Boolean, nullable=False, default=True)
